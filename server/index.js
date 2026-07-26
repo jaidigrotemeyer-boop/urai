@@ -42,7 +42,7 @@ app.post('/api/config', (req, res) => {
     'geminiKey', 'cerebrasKey', 'groqKey', 'openrouterKey',
     'geminiModel', 'cerebrasModel', 'groqModel', 'openrouterModel', 'embedModel', 'brainOrder',
     'autoApprove', 'autoMode', 'autoSummary', 'workspace', 'maxSteps',
-    'liveMode', 'liveIntervalMs', 'liveTalkGapMs',
+    'liveMode', 'liveIntervalMs', 'liveTalkGapMs', 'liveMaxPerHour',
     'obsidianVault', 'obsidianFolder', 'obsidianAuto',
     'maxAgentDepth', 'maxAgentsPerRun', 'agentSteps',
   ]

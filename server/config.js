@@ -34,8 +34,9 @@ const DEFAULTS = {
   autoSummary: true,
   // Live-Modus: dauernd mitgucken. Von Anfang an an.
   liveMode: true,
-  liveIntervalMs: 3000, // wie oft hinschauen
-  liveTalkGapMs: 7000, // wie oft höchstens etwas sagen
+  liveIntervalMs: 2500, // wie oft hinschauen — kostet nichts, läuft lokal
+  liveTalkGapMs: 25000, // wie oft höchstens das Gehirn fragen — DAS kostet Kontingent
+  liveMaxPerHour: 80, // harte Obergrenze an Gehirn-Fragen pro Stunde
   liveTimeoutMs: 20000,
   // Obsidian
   obsidianVault: '', // leer = automatisch aus Obsidians eigener Liste

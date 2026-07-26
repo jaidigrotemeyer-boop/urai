@@ -30,8 +30,9 @@ export default function Settings({ onClose, onSaved }) {
       autoMode: cfg.autoMode,
       autoSummary: cfg.autoSummary,
       liveMode: cfg.liveMode,
-      liveIntervalMs: Number(cfg.liveIntervalMs) || 3000,
-      liveTalkGapMs: Number(cfg.liveTalkGapMs) || 7000,
+      liveIntervalMs: Number(cfg.liveIntervalMs) || 2500,
+      liveTalkGapMs: Number(cfg.liveTalkGapMs) || 25000,
+      liveMaxPerHour: Number(cfg.liveMaxPerHour) || 80,
       obsidianVault: cfg.obsidianVault,
       obsidianFolder: cfg.obsidianFolder,
       obsidianAuto: cfg.obsidianAuto,
@@ -152,8 +153,10 @@ export default function Settings({ onClose, onSaved }) {
             </button>
           </div>
           <div className="note">
-            Alle {(cfg.liveIntervalMs || 3000) / 1000}s ein Blick. Gesagt wird höchstens alle{' '}
-            {(cfg.liveTalkGapMs || 7000) / 1000}s etwas — und nur wenn sich wirklich was ändert.
+            Alle {(cfg.liveIntervalMs || 2500) / 1000}s ein Blick — das ist gratis, Text-Erkennung läuft lokal.
+            <br />
+            Das Gehirn wird höchstens alle {(cfg.liveTalkGapMs || 25000) / 1000}s gefragt, maximal{' '}
+            {cfg.liveMaxPerHour || 80}× pro Stunde. Zu oft fragen frisst dein Gratis-Kontingent.
           </div>
         </div>
 
@@ -167,11 +170,20 @@ export default function Settings({ onClose, onSaved }) {
         </div>
 
         <div className="field">
-          <label>Live: wie oft höchstens reden (ms)</label>
+          <label>Live: wie oft höchstens das Gehirn fragen (ms)</label>
           <input
             type="number"
-            value={cfg.liveTalkGapMs ?? 7000}
+            value={cfg.liveTalkGapMs ?? 25000}
             onChange={(e) => setCfg({ ...cfg, liveTalkGapMs: e.target.value })}
+          />
+        </div>
+
+        <div className="field">
+          <label>Live: Gehirn-Fragen pro Stunde (Obergrenze)</label>
+          <input
+            type="number"
+            value={cfg.liveMaxPerHour ?? 80}
+            onChange={(e) => setCfg({ ...cfg, liveMaxPerHour: e.target.value })}
           />
         </div>
 

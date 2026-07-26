@@ -21,6 +21,16 @@ export class LiveWatcher {
     this.last = { textHash: '', bildHash: '', app: '', text: '', at: 0 }
     this.frames = 0
     this.notes = []
+    this.fragen = [] // Zeitpunkte der Gehirn-Fragen, für die Stunden-Grenze
+    this.strafe = 0 // Zusatz-Pause, wenn das Kontingent zickt
+  }
+
+  /** Darf ich das Gehirn fragen? Kontingent ist begrenzt und teuer. */
+  darfFragen(cfg) {
+    const jetzt = Date.now()
+    this.fragen = this.fragen.filter((t) => jetzt - t < 3600_000)
+    if (this.fragen.length >= cfg.liveMaxPerHour) return false
+    return jetzt - this.last.at >= cfg.liveTalkGapMs + this.strafe
   }
 
   start() {
@@ -79,20 +89,15 @@ export class LiveWatcher {
 
       // Bild bewegt sich, Text steht still → das ist Bewegtbild
       const bewegtbild = bildNeu && !textNeu && !appNeu
-      const seitLetzter = Date.now() - this.last.at
 
-      // Bei reiner Bewegung nicht bei jedem Bild reden
-      if (bewegtbild && seitLetzter < cfg.liveTalkGapMs) {
-        this.last.bildHash = bildHash
-        this.busy = false
-        return
-      }
-      if (seitLetzter < cfg.liveTalkGapMs && !appNeu) {
+      // Bilder sind gratis (lokal), Fragen ans Gehirn nicht. Also sparsam fragen.
+      if (!this.darfFragen(cfg)) {
         this.last = { ...this.last, bildHash, textHash, app: front.app || this.last.app, text }
         this.busy = false
         return
       }
 
+      this.fragen.push(Date.now())
       const note = await this.beschreibe({ shot, front, text, bewegtbild, appNeu })
       this.last = { textHash, bildHash, app: front.app || '', text, at: Date.now() }
 
@@ -137,8 +142,19 @@ export class LiveWatcher {
         question: frage,
         signal: AbortSignal.timeout(cfg.liveTimeoutMs),
       })
+      this.strafe = 0 // ging gut, wieder normal weitermachen
       return antwort?.trim().split('\n')[0].slice(0, 200) || null
-    } catch {
+    } catch (err) {
+      const m = err.message || ''
+      // Kontingent alle oder zu schnell gefragt → deutlich langsamer werden
+      if (/429|quota|rate limit/i.test(m)) {
+        this.strafe = Math.min((this.strafe || cfg.liveTalkGapMs) * 2, 15 * 60_000)
+        this.emit({
+          type: 'live_note',
+          text: `Kontingent knapp — schaue weiter zu, frage aber erst in ${Math.round(this.strafe / 60000)} Min wieder nach.`,
+          app: front.app,
+        })
+      }
       return null
     }
   }
