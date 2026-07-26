@@ -5,6 +5,29 @@ import { loadConfig, saveConfig } from './config.js'
 // Modellname, der immer existiert — Rettung, wenn Google einen alten Namen abschaltet
 const FALLBACK_GEMINI = 'gemini-flash-latest'
 
+/**
+ * Groq zählt streng nach Token pro Minute. Alle 43 Werkzeug-Beschreibungen
+ * mitzuschicken frisst allein schon ein Viertel des Kontingents. Für enge
+ * Gehirne geht darum nur das Nötigste mit.
+ */
+const ENGE_GEHIRNE = new Set(['groq'])
+const KERN_WERKZEUGE = new Set([
+  'fs_list', 'fs_read', 'fs_write', 'fs_edit', 'fs_search',
+  'shell_run',
+  'web_search', 'web_fetch',
+  'mac_read_screen', 'mac_click_text', 'mac_type', 'mac_key', 'mac_open_app', 'mac_apps',
+  'memory_search', 'memory_save',
+  'obsidian_write', 'obsidian_search',
+  'agent_spawn', 'agent_team',
+  'live_report',
+])
+
+function werkzeugeFuer(provider, tools) {
+  if (!ENGE_GEHIRNE.has(provider)) return tools
+  const schmal = tools.filter((t) => KERN_WERKZEUGE.has(t.name))
+  return schmal.length ? schmal : tools
+}
+
 const OPENAI_STYLE = {
   cerebras: {
     url: 'https://api.cerebras.ai/v1/chat/completions',
@@ -42,7 +65,13 @@ function schlafend(p) {
 }
 
 function melde(p, grund) {
-  // Netz-Zicken kurz, echte Absagen (Schlüssel, Geld, Modell weg) lang
+  // Der Anbieter sagt oft selbst, wie lange man warten soll — dann darauf hören
+  const warte = /try again in ([\d.]+)s/i.exec(grund)
+  if (warte) {
+    kaputt.set(p, { bis: Date.now() + Math.ceil(Number(warte[1]) * 1000) + 1000, grund })
+    return
+  }
+  // Echte Absagen (Schlüssel, Geld, Modell weg) lang, Netz-Zicken kurz
   const hart = /\b(401|402|403|404)\b/.test(grund)
   kaputt.set(p, { bis: Date.now() + (hart ? PAUSE_MS : 60_000), grund })
 }
@@ -220,7 +249,33 @@ function stripSchema(schema) {
   return out
 }
 
-// ──────────────────── OpenAI-kompatibel (Groq / OpenRouter) ────────────────────
+// ──────────────────── OpenAI-kompatibel (Cerebras / Groq / OpenRouter) ────────────────────
+
+// OpenRouter tauscht seine Gratis-Modelle ständig aus. Also selbst nachsehen,
+// welches gerade gratis ist UND Werkzeuge kann, statt einen Namen fest zu verdrahten.
+let routerCache = { modell: null, bis: 0 }
+
+async function gratisRouterModell(c) {
+  if (routerCache.modell && Date.now() < routerCache.bis) return routerCache.modell
+  const fallback = c.openrouterModel || 'meta-llama/llama-3.3-70b-instruct:free'
+  try {
+    const r = await fetch('https://openrouter.ai/api/v1/models', {
+      headers: { authorization: `Bearer ${c.openrouterKey}` },
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!r.ok) return fallback
+    const j = await r.json()
+    const gratis = (j.data || [])
+      .filter((m) => Number(m.pricing?.prompt) === 0 && Number(m.pricing?.completion) === 0)
+      .filter((m) => (m.supported_parameters || []).includes('tools'))
+      .sort((a, b) => (b.context_length || 0) - (a.context_length || 0))
+    const gewaehlt = gratis[0]?.id || fallback
+    routerCache = { modell: gewaehlt, bis: Date.now() + 30 * 60_000 }
+    return gewaehlt
+  } catch {
+    return fallback
+  }
+}
 
 async function openaiChat({ provider, messages, tools, onDelta, signal }) {
   const c = loadConfig()
@@ -240,8 +295,9 @@ async function openaiChat({ provider, messages, tools, onDelta, signal }) {
     }
     return { role: m.role, content: m.content || '' }
   })
-  const model = c[cfg.modelKey] || cfg.model
+  const model = provider === 'openrouter' ? await gratisRouterModell(c) : c[cfg.modelKey] || cfg.model
   const body = { model, messages: msgs, stream: true }
+  tools = werkzeugeFuer(provider, tools)
   if (tools.length) {
     body.tools = tools.map((t) => ({
       type: 'function',

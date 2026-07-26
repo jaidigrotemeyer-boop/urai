@@ -44,11 +44,7 @@ export function rollenWerkzeuge(role) {
   return [...new Set([...BASIS, ...r.extra])]
 }
 
-function rollenText() {
-  return Object.entries(ROLLEN)
-    .map(([k, v]) => `  ${k}: ${v.hint}`)
-    .join('\n')
-}
+const ROLLEN_KURZ = Object.keys(ROLLEN).join(' | ')
 
 /**
  * Einen Unter-Agenten laufen lassen.
@@ -136,17 +132,13 @@ async function spawn(parent, { name, role, task, tools, group }) {
 export const crewTools = [
   {
     name: 'agent_spawn',
-    description:
-      'Einen Unter-Agenten erschaffen und sofort arbeiten lassen. Braucht keine Erlaubnis. ' +
-      'Nimm das, wenn ein Teil-Auftrag eigenständig erledigt werden kann.\nRollen:\n' +
-      rollenText(),
+    description: 'Unter-Agenten erschaffen, der sofort arbeitet. Keine Erlaubnis nötig.',
     parameters: {
       type: 'object',
       properties: {
-        name: { type: 'string', description: 'Kurzer Name, z.B. "Preis-Sucher"' },
-        role: { type: 'string', description: 'rechercheur | programmierer | bildschirm | schreiber | pruefer | allrounder' },
-        task: { type: 'string', description: 'Der vollständige Auftrag — der Agent kennt euer Gespräch nicht!' },
-        tools: { type: 'array', items: { type: 'string' }, description: 'Optional: nur diese Werkzeuge erlauben' },
+        name: { type: 'string', description: 'Kurzer Name' },
+        role: { type: 'string', description: ROLLEN_KURZ },
+        task: { type: 'string', description: 'Vollständiger Auftrag — er kennt euer Gespräch nicht' },
       },
       required: ['name', 'role', 'task'],
     },
@@ -157,28 +149,22 @@ export const crewTools = [
   },
   {
     name: 'agent_team',
-    description:
-      'Eine ganze Gruppe von Agenten aufstellen, die an einem Ziel arbeiten. Läuft ohne Rückfrage. ' +
-      'Mitglieder arbeiten gleichzeitig, danach werden ihre Ergebnisse zusammengeführt und in Obsidian abgelegt.',
+    description: 'Gruppe von Agenten aufstellen, die gleichzeitig an einem Ziel arbeiten. Ohne Rückfrage.',
     parameters: {
       type: 'object',
       properties: {
-        name: { type: 'string', description: 'Name der Gruppe' },
-        goal: { type: 'string', description: 'Gemeinsames Ziel' },
+        name: { type: 'string' },
+        goal: { type: 'string' },
         members: {
           type: 'array',
-          description: 'Die Mitglieder',
+          description: `Mitglieder: name, role (${ROLLEN_KURZ}), task`,
           items: {
             type: 'object',
-            properties: {
-              name: { type: 'string' },
-              role: { type: 'string' },
-              task: { type: 'string' },
-            },
+            properties: { name: { type: 'string' }, role: { type: 'string' }, task: { type: 'string' } },
             required: ['name', 'role', 'task'],
           },
         },
-        mode: { type: 'string', description: 'parallel (Standard) oder nacheinander' },
+        mode: { type: 'string', description: 'parallel oder nacheinander' },
       },
       required: ['name', 'goal', 'members'],
     },

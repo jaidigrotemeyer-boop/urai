@@ -89,6 +89,29 @@ export function coerceArgs(args, schema) {
   return out
 }
 
+/** Langen Text stutzen — Anfang und Ende bleiben, die Mitte fliegt raus. */
+function kuerzen(text, max) {
+  if (text.length <= max) return text
+  const kopf = Math.floor(max * 0.65)
+  const fuss = max - kopf
+  return `${text.slice(0, kopf)}\n\n… [${text.length - max} Zeichen ausgelassen] …\n\n${text.slice(-fuss)}`
+}
+
+/**
+ * Alte Werkzeug-Ergebnisse eindampfen, bevor das Gespräch ans Gehirn geht.
+ * Die letzten paar bleiben ganz — was älter ist, braucht niemand mehr im Wortlaut.
+ * Ohne das reißt schon ein einziger Zug das Minuten-Kontingent.
+ */
+function eindampfen(messages, frisch = 4) {
+  const werkzeugStellen = messages.map((m, i) => (m.role === 'tool' ? i : -1)).filter((i) => i >= 0)
+  const behalten = new Set(werkzeugStellen.slice(-frisch))
+  return messages.map((m, i) => {
+    if (m.role !== 'tool' || behalten.has(i)) return m
+    const t = String(m.content ?? '')
+    return t.length <= 400 ? m : { ...m, content: `${t.slice(0, 400)}\n… [gekürzt, ${t.length} Zeichen]` }
+  })
+}
+
 /** Erkennt hingetippte Pseudo-Werkzeug-Aufrufe wie {"name": "fs_list", "parameters": {…}}. */
 function looksLikeFakeToolCall(text) {
   if (!text) return false
@@ -176,7 +199,7 @@ export class Agent {
         this.emit({ type: 'thinking', step: step + 1 })
         let assistantText = ''
         const res = await chat({
-          messages: this.messages,
+          messages: eindampfen(this.messages),
           tools,
           signal,
           onDelta: (d) => {
@@ -313,8 +336,9 @@ export class Agent {
       }
       const result = await tool.run(call.args || {}, ctx)
       const text = String(result ?? '')
-      this.emit({ type: 'tool_end', name: call.name, ok: true, result: text.slice(0, 4000) })
-      return text.slice(0, 60000)
+      this.emit({ type: 'tool_end', name: call.name, ok: true, result: text.slice(0, 8000) })
+      // Was zurück ins Gehirn geht, kostet Kontingent — also deckeln
+      return kuerzen(text, 14000)
     } catch (err) {
       this.emit({ type: 'tool_end', name: call.name, ok: false, result: err.message })
       return `Fehler bei ${call.name}: ${err.message}`
