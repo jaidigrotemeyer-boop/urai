@@ -111,6 +111,9 @@ wss.on('connection', (ws) => {
   })
 })
 
+// ws wirft denselben Fehler nochmal — sonst stirbt Node trotz Handler unten
+wss.on('error', () => {})
+
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`\n  Platz ${PORT} ist besetzt. URAI läuft schon.`)
