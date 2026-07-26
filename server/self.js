@@ -51,6 +51,79 @@ async function pruefen(abs) {
   await pexec('node', ['--check', abs], { cwd: ROOT, timeout: 15000 })
 }
 
+/** Das Projekt ist ESM. CommonJS würde beim Laden knallen, nicht beim Syntax-Check. */
+function pruefeStil(rel, text) {
+  if (!rel.startsWith('server/') || !rel.endsWith('.js')) return
+  if (/\brequire\s*\(/.test(text) && !/createRequire/.test(text)) {
+    throw new Error('Hier gilt ESM: import statt require benutzen.')
+  }
+  if (/\bmodule\.exports\b|\bexports\.\w+\s*=/.test(text)) {
+    throw new Error('Hier gilt ESM: export statt module.exports benutzen.')
+  }
+}
+
+/**
+ * Der wichtigste Wächter: lädt die Werkzeug-Kiste in einem eigenen Prozess.
+ * Damit fällt auf, wenn eine Datei zwar Syntax hat, aber beim Laden platzt
+ * oder plötzlich Werkzeuge fehlen.
+ */
+async function rauchtest() {
+  const { stdout } = await pexec(
+    'node',
+    [
+      '--experimental-sqlite',
+      '--no-warnings',
+      '-e',
+      "import('./server/tools/index.js').then(m=>console.log('TOOLS='+m.ALL_TOOLS.length)).catch(e=>{console.error(e.message);process.exit(1)})",
+    ],
+    { cwd: ROOT, timeout: 40000 }
+  )
+  const n = Number(/TOOLS=(\d+)/.exec(stdout)?.[1] || 0)
+  if (!n) throw new Error('Werkzeug-Kiste lädt nicht mehr.')
+  return n
+}
+
+/** Ändern, prüfen, bei Ärger alles zurückdrehen. */
+async function abgesichert({ abs, rel, neu, alt, why }) {
+  const vorherAnzahl = await rauchtest().catch(() => 0)
+  const stand = await sichern(`${rel}: ${why}`)
+
+  pruefeStil(rel, neu)
+  await fs.writeFile(abs, neu)
+
+  const zurueck = async () => {
+    if (alt === null) await fs.unlink(abs).catch(() => {})
+    else await fs.writeFile(abs, alt)
+  }
+
+  try {
+    await pruefen(abs)
+  } catch (err) {
+    await zurueck()
+    throw new Error(`Syntax kaputt, zurückgenommen: ${String(err.stderr || err.message).slice(0, 300)}`)
+  }
+
+  let nachherAnzahl = 0
+  try {
+    nachherAnzahl = await rauchtest()
+  } catch (err) {
+    await zurueck()
+    throw new Error(`Lädt nicht mehr, zurückgenommen: ${err.message.slice(0, 300)}`)
+  }
+
+  if (vorherAnzahl && nachherAnzahl < vorherAnzahl) {
+    await zurueck()
+    throw new Error(
+      `Werkzeuge verschwunden (${vorherAnzahl} → ${nachherAnzahl}), zurückgenommen. ` +
+        'Du hast wohl Bestehendes überschrieben statt ergänzt. Nimm self_edit.'
+    )
+  }
+
+  await git('add', '-A')
+  await git('commit', '-q', '-m', `URAI: ${why}`.slice(0, 90))
+  return { stand, werkzeuge: nachherAnzahl }
+}
+
 export const selfTools = [
   {
     name: 'self_tree',
@@ -95,49 +168,42 @@ export const selfTools = [
       if (treffer === 0) throw new Error('Text nicht gefunden.')
       if (treffer > 1) throw new Error(`Text kommt ${treffer}-mal vor. Nimm mehr Kontext.`)
 
-      const stand = await sichern(`${rel}: ${why}`)
-      await fs.writeFile(abs, vorher.replace(old_string, new_string))
-
-      try {
-        await pruefen(abs)
-      } catch (err) {
-        await fs.writeFile(abs, vorher)
-        throw new Error(`Syntax kaputt, zurückgenommen: ${String(err.stderr || err.message).slice(0, 300)}`)
-      }
-
-      await git('add', '-A')
-      await git('commit', '-q', '-m', `URAI: ${why}`.slice(0, 90))
-      return `${rel} geändert und gesichert (vorher: ${stand}). Zum Wirken: self_restart.`
+      const neu = vorher.replace(old_string, new_string)
+      const { stand, werkzeuge } = await abgesichert({ abs, rel, neu, alt: vorher, why })
+      return `${rel} geändert und gesichert (vorher: ${stand}, ${werkzeuge} Werkzeuge laden). Zum Wirken: self_restart.`
     },
   },
   {
     name: 'self_write',
-    description: 'Eine eigene Datei ganz neu schreiben oder anlegen. Vorsichtiger ist self_edit.',
+    description:
+      'Eine NEUE eigene Datei anlegen. Für bestehende Dateien nimm self_edit — self_write würde alles ' +
+      'darin löschen und wird deshalb abgelehnt, wenn dabei viel verschwindet.',
     parameters: {
       type: 'object',
-      properties: { path: { type: 'string' }, content: { type: 'string' }, why: { type: 'string' } },
+      properties: {
+        path: { type: 'string' },
+        content: { type: 'string' },
+        why: { type: 'string' },
+        force: { type: 'boolean', description: 'Bestehende Datei wirklich komplett ersetzen' },
+      },
       required: ['path', 'content'],
     },
-    async run({ path: p, content, why = 'neue Datei' }) {
+    async run({ path: p, content, why = 'neue Datei', force = false }) {
       const { abs, rel } = eigenerWeg(p)
       const gabEs = fssync.existsSync(abs)
       const vorher = gabEs ? await fs.readFile(abs, 'utf8') : null
 
-      const stand = await sichern(`${rel}: ${why}`)
-      await fs.mkdir(path.dirname(abs), { recursive: true })
-      await fs.writeFile(abs, content)
-
-      try {
-        await pruefen(abs)
-      } catch (err) {
-        if (vorher !== null) await fs.writeFile(abs, vorher)
-        else await fs.unlink(abs).catch(() => {})
-        throw new Error(`Syntax kaputt, zurückgenommen: ${String(err.stderr || err.message).slice(0, 300)}`)
+      // Schutz vor dem klassischen Fehler: ganze Datei durch einen Schnipsel ersetzen
+      if (vorher && !force && content.length < vorher.length * 0.6) {
+        throw new Error(
+          `Abgelehnt: ${rel} hat ${vorher.length} Zeichen, du willst nur ${content.length} schreiben. ` +
+            'Das würde fast alles löschen. Nimm self_edit zum Ergänzen — oder force=true, wenn du es wirklich willst.'
+        )
       }
 
-      await git('add', '-A')
-      await git('commit', '-q', '-m', `URAI: ${why}`.slice(0, 90))
-      return `${rel} geschrieben (${content.length} Zeichen, vorher: ${stand}). Zum Wirken: self_restart.`
+      await fs.mkdir(path.dirname(abs), { recursive: true })
+      const { stand, werkzeuge } = await abgesichert({ abs, rel, neu: content, alt: vorher, why })
+      return `${rel} geschrieben (${content.length} Zeichen, vorher: ${stand}, ${werkzeuge} Werkzeuge laden). Zum Wirken: self_restart.`
     },
   },
   {
