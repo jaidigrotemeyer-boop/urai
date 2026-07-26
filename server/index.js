@@ -13,6 +13,7 @@ import { history, sessions } from './memory.js'
 import { vaultPath, obsidianReady } from './obsidian.js'
 import { ROLLEN } from './crew.js'
 import { LiveWatcher, watchers } from './live.js'
+import { raeumeAuf } from './screen.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PORT = Number(process.env.PORT || 3017)
@@ -137,6 +138,7 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`  Gehirne:     ${brains.join(' → ') || 'KEINER — Schlüssel in den Einstellungen eintragen'}`)
   console.log(`  Revier:      ${c.workspace}`)
   console.log(`  Obsidian:    ${vaultPath() || 'kein Vault gefunden'}`)
+  raeumeAuf().then((n) => n && console.log(`  Aufgeräumt:  ${n} altes Bildschirmfoto gelöscht`))
   if (!fs.existsSync(dist)) console.log(`  Web-App:     noch nicht gebaut — im Dev auf http://localhost:5173\n`)
   else console.log('')
 })

@@ -14,6 +14,25 @@ const pexec = promisify(execFile)
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const OCR_SCRIPT = path.join(HERE, 'ocr.jxa.js')
 
+/**
+ * Beim Start alle liegengebliebenen Bildschirmfotos wegräumen.
+ * Normalerweise löscht jeder Blick sein Bild sofort — falls aber mal
+ * ein Prozess abgestürzt ist, bleibt hier nichts zurück.
+ */
+export async function raeumeAuf() {
+  const dir = os.tmpdir()
+  let weg = 0
+  try {
+    for (const f of await fs.readdir(dir)) {
+      if (/^urai-\d+-\d+.*\.png$/.test(f)) {
+        await fs.unlink(path.join(dir, f)).catch(() => {})
+        weg++
+      }
+    }
+  } catch {}
+  return weg
+}
+
 export async function osa(script, lang = 'AppleScript', timeout = 30000) {
   const args = lang === 'JavaScript' ? ['-l', 'JavaScript', '-e', script] : ['-e', script]
   const { stdout } = await pexec('osascript', args, { timeout, maxBuffer: 8 * 1024 * 1024 })
