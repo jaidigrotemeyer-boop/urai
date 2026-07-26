@@ -167,6 +167,8 @@ export class Agent {
     }
 
     this.messages.push({ role: 'user', content: userText })
+    this.letzteFrage = userText
+    this.werkzeugeBenutzt = 0
     const tools = toolSchemas(enabledTools)
 
     try {
@@ -229,7 +231,11 @@ export class Agent {
     const cfg = loadConfig()
     let summary = null
 
-    if (cfg.autoSummary) {
+    // Bei einer normalen Frage-Antwort gibt es nichts zusammenzufassen —
+    // dann wäre der Bericht länger als die Antwort selbst.
+    const echteArbeit = this.werkzeugeBenutzt >= 2 || (this.werkzeugeBenutzt >= 1 && (finalText || '').length > 400)
+
+    if (cfg.autoSummary && echteArbeit) {
       this.emit({ type: 'summarizing' })
       summary = await this.makeSummary(signal).catch(() => null)
       if (summary) this.emit({ type: 'summary', text: summary })
@@ -240,7 +246,7 @@ export class Agent {
     try {
       const entries = history(this.session, 400).map((m) => ({ role: m.role, content: m.content }))
       if (entries.length) {
-        const note = await saveSession(this.session, entries, { agenten: this.run.count }, summary)
+        const note = await saveSession(this.session, entries, { agenten: this.run.count }, summary, this.letzteFrage)
         if (note) {
           await addToIndex({ note, summary, session: this.session, agents: this.run.count }).catch(() => {})
           this.emit({ type: 'obsidian', note })
@@ -294,6 +300,7 @@ export class Agent {
     // Auto-Modus: nichts fragen, einfach machen. Der Stopp-Knopf greift trotzdem.
     const needsOk = !cfg.autoMode && tool.danger && !cfg.autoApprove.includes(tool.name)
 
+    this.werkzeugeBenutzt = (this.werkzeugeBenutzt || 0) + 1
     this.emit({ type: 'tool_start', name: call.name, args: call.args })
     try {
       if (needsOk) await this.askApproval(call.name, call.args)

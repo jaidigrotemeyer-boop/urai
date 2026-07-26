@@ -12,6 +12,16 @@ import { look } from './brain.js'
 
 const hash = (s) => crypto.createHash('sha1').update(s).digest('hex').slice(0, 16)
 
+/** Grob gleich? Damit dasselbe Wichtige nicht zehnmal im Gedächtnis landet. */
+function aehnlich(a, b) {
+  const norm = (s) => s.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, '').split(/\s+/).filter((w) => w.length > 3)
+  const A = new Set(norm(a))
+  const B = norm(b)
+  if (!A.size || !B.length) return false
+  const treffer = B.filter((w) => A.has(w)).length
+  return treffer / Math.max(A.size, B.length) > 0.6
+}
+
 export class LiveWatcher {
   constructor({ emit }) {
     this.emit = emit
@@ -23,6 +33,7 @@ export class LiveWatcher {
     this.notes = []
     this.fragen = [] // Zeitpunkte der Gehirn-Fragen, für die Stunden-Grenze
     this.strafe = 0 // Zusatz-Pause, wenn das Kontingent zickt
+    this.gemerkt = [] // schon Gemerktes, gegen Doppelungen
   }
 
   /** Darf ich das Gehirn fragen? Kontingent ist begrenzt und teuer. */
@@ -67,8 +78,10 @@ export class LiveWatcher {
       let lines = []
       try {
         lines = await ocr(shot.file, size)
-      } catch {}
-      await fs.unlink(shot.file).catch(() => {})
+      } finally {
+        // Datei sofort weg — auch wenn die Text-Erkennung schiefging
+        await fs.unlink(shot.file).catch(() => {})
+      }
 
       const text = lines.map((l) => l.text).join(' ')
       const textHash = hash(text)
@@ -130,6 +143,11 @@ export class LiveWatcher {
       'Antworte in EINEM kurzen Satz, höchstens 15 Wörter, auf Deutsch.',
       'Kein "Ich sehe", kein "Auf dem Bild". Einfach sagen, was los ist.',
       'Wiederhol dich nicht.',
+      '',
+      'Ist etwas dabei, das man sich WIRKLICH merken sollte — ein Ergebnis, eine Entscheidung,',
+      'ein Termin, eine Zahl, ein Fehler, eine Zusage —, dann hänge eine zweite Zeile an:',
+      'WICHTIG: <die Sache in einem Satz>',
+      'Alltägliches (Scrollen, Tippen, Fenster wechseln) ist NICHT wichtig. Im Zweifel weglassen.',
       vorher ? `\nWas du eben schon gesagt hast:\n${vorher}` : '',
       !bewegtbild && text ? `\nText auf dem Bildschirm:\n${text.slice(0, 1500)}` : '',
     ]
@@ -143,7 +161,18 @@ export class LiveWatcher {
         signal: AbortSignal.timeout(cfg.liveTimeoutMs),
       })
       this.strafe = 0 // ging gut, wieder normal weitermachen
-      return antwort?.trim().split('\n')[0].slice(0, 200) || null
+      if (!antwort) return null
+
+      const zeilen = antwort.trim().split('\n').filter((l) => l.trim())
+      const note = zeilen[0].slice(0, 200)
+
+      // Nur das Wichtige bleibt. Das Bild ist zu diesem Zeitpunkt schon weg.
+      const wichtig = zeilen.find((l) => /^\s*WICHTIG\s*:/i.test(l))
+      if (wichtig) {
+        const satz = wichtig.replace(/^\s*WICHTIG\s*:\s*/i, '').trim()
+        if (satz.length > 8) this.merken(satz, front.app)
+      }
+      return note
     } catch (err) {
       const m = err.message || ''
       // Kontingent alle oder zu schnell gefragt → deutlich langsamer werden
@@ -157,6 +186,24 @@ export class LiveWatcher {
       }
       return null
     }
+  }
+
+  /**
+   * Etwas Wichtiges festhalten. Nur Text — das Bildschirmfoto ist längst gelöscht.
+   * Kein Bild verlässt je diesen Rechner und keines liegt irgendwo herum.
+   */
+  async merken(satz, app) {
+    if (!loadConfig().liveRemember) return
+    const schon = this.gemerkt.some((g) => aehnlich(g, satz))
+    if (schon) return
+    this.gemerkt.push(satz)
+    if (this.gemerkt.length > 200) this.gemerkt.shift()
+
+    this.emit({ type: 'live_note', text: satz, app, wichtig: true })
+    try {
+      const { remember } = await import('./memory.js')
+      await remember(`[gesehen${app ? ` in ${app}` : ''}] ${satz}`, 'gesehen')
+    } catch {}
   }
 
   /** Kurzer Bericht fürs Gehirn, wenn der Nutzer fragt „was war grad?“ */

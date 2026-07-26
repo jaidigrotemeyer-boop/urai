@@ -18,12 +18,19 @@ async function lookAtScreen({ withVision, question, emit } = {}) {
   const shot = await capture()
   emit?.('screen', shot.base64)
 
-  const [lines, front, ui] = await Promise.all([
-    ocr(shot.file, size).catch(() => []),
-    frontContext().catch(() => ({})),
-    uiElements().catch(() => ({ items: [] })),
-  ])
-  await fs.unlink(shot.file).catch(() => {})
+  let lines = []
+  let front = {}
+  let ui = { items: [] }
+  try {
+    ;[lines, front, ui] = await Promise.all([
+      ocr(shot.file, size).catch(() => []),
+      frontContext().catch(() => ({})),
+      uiElements().catch(() => ({ items: [] })),
+    ])
+  } finally {
+    // Bild verstanden → Bild weg. Es bleibt nur Text übrig.
+    await fs.unlink(shot.file).catch(() => {})
+  }
 
   lastLook = { lines, at: Date.now(), size }
 

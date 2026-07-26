@@ -143,11 +143,11 @@ export async function searchVault(query, limit = 25) {
 // ─────────────── Automatisch mitschreiben ───────────────
 
 /** Ein ganzer Sitzungs-Verlauf als eine Notiz — Zusammenfassung steht ganz oben. */
-export async function saveSession(session, entries, extra = {}, summary = null) {
+export async function saveSession(session, entries, extra = {}, summary = null, thema = null) {
   if (!obsidianReady() || !loadConfig().obsidianAuto) return null
   const s = stamp()
-  const first = entries.find((e) => e.role === 'user')?.content || 'Sitzung'
-  const title = `${s.date} – ${safeName(first.slice(0, 50))}`
+  const first = thema || entries.find((e) => e.role === 'user')?.content || 'Sitzung'
+  const title = `${s.date} ${s.time} – ${safeName(first.slice(0, 50))}`
   const verlauf = entries
     .map((e) => {
       const who = { user: '🧑 Du', assistant: '🤖 URAI', tool: '🔧 Werkzeug' }[e.role] || e.role

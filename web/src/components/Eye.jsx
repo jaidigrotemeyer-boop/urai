@@ -49,9 +49,10 @@ export default function Eye({ screen, terminal, status, liveNotes = [], liveOn }
           <div className="feed" ref={feed}>
             {liveNotes.length === 0 && <div className="empty">Noch nichts gesehen.</div>}
             {liveNotes.map((n, i) => (
-              <div key={i} className={`feedline ${n.err ? 'err' : ''}`}>
+              <div key={i} className={`feedline ${n.err ? 'err' : ''} ${n.wichtig ? 'wichtig' : ''}`}>
                 <span className="feedtime">{uhr(n.t)}</span>
-                {n.app && <span className="feedapp">{n.app}</span>}
+                {n.wichtig && <span className="feedapp">gemerkt</span>}
+                {n.app && !n.wichtig && <span className="feedapp">{n.app}</span>}
                 <span>{n.text}</span>
               </div>
             ))}

@@ -38,6 +38,9 @@ const DEFAULTS = {
   liveTalkGapMs: 25000, // wie oft höchstens das Gehirn fragen — DAS kostet Kontingent
   liveMaxPerHour: 80, // harte Obergrenze an Gehirn-Fragen pro Stunde
   liveTimeoutMs: 20000,
+  liveRemember: true, // Wichtiges aus dem Gesehenen ins Gedächtnis
+  // Bildschirmfotos werden IMMER sofort nach dem Verstehen gelöscht.
+  // Gespeichert wird nur Text. Kein Bild liegt je auf der Platte.
   // Obsidian
   obsidianVault: '', // leer = automatisch aus Obsidians eigener Liste
   obsidianFolder: 'URAI',

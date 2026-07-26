@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Settings from './components/Settings.jsx'
 import Eye from './components/Eye.jsx'
+import Boot from './components/Boot.jsx'
 
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 const SESSION = `s-${new Date().toISOString().slice(0, 10)}`
@@ -14,6 +15,7 @@ export default function App() {
   const [liveOn, setLiveOn] = useState(false)
   const [liveNotes, setLiveNotes] = useState([])
   const [liveApp, setLiveApp] = useState('')
+  const [wach, setWach] = useState(false) // Boot-Animation vorbei?
   const [connected, setConnected] = useState(false)
   const [brain, setBrain] = useState(null)
   const [status, setStatus] = useState(null)
@@ -153,7 +155,7 @@ export default function App() {
         break
 
       case 'live_note':
-        setLiveNotes((xs) => [...xs.slice(-40), { t: Date.now(), text: msg.text, app: msg.app }])
+        setLiveNotes((xs) => [...xs.slice(-40), { t: Date.now(), text: msg.text, app: msg.app, wichtig: msg.wichtig }])
         break
 
       case 'live_error':
@@ -244,7 +246,8 @@ export default function App() {
   }, [connected, brain, status])
 
   return (
-    <div className="app">
+    <div className={`app ${wach ? 'wach' : ''}`}>
+      {!wach && <Boot onDone={() => setWach(true)} />}
       <header className="topbar">
         <div className="logo">UR<span>AI</span></div>
         <span className={`pill ${brainPill.cls}`}>{brainPill.text}</span>
@@ -282,6 +285,10 @@ export default function App() {
           Einstellungen
         </button>
       </header>
+
+      <div className={`beamwrap ${busy ? 'an' : ''}`}>
+        <div className="beam" />
+      </div>
 
       <div className={`split ${showEye ? 'show-eye' : ''}`}>
         <section className="chat">
