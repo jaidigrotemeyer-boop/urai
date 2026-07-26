@@ -1,0 +1,250 @@
+import React, { useEffect, useState } from 'react'
+
+export default function Settings({ onClose, onSaved }) {
+  const [cfg, setCfg] = useState(null)
+  const [tools, setTools] = useState([])
+  const [keys, setKeys] = useState({ geminiKey: '', cerebrasKey: '', groqKey: '', openrouterKey: '' })
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/status').then((r) => r.json()).then((s) => setCfg(s.config))
+    fetch('/api/tools').then((r) => r.json()).then((t) => setTools(t.tools))
+  }, [])
+
+  if (!cfg) return null
+
+  const toggleAuto = (name) => {
+    const on = cfg.autoApprove.includes(name)
+    setCfg({ ...cfg, autoApprove: on ? cfg.autoApprove.filter((t) => t !== name) : [...cfg.autoApprove, name] })
+  }
+
+  async function save() {
+    setSaving(true)
+    const patch = {
+      geminiModel: cfg.geminiModel,
+      cerebrasModel: cfg.cerebrasModel,
+      workspace: cfg.workspace,
+      maxSteps: Number(cfg.maxSteps) || 24,
+      embedModel: cfg.embedModel,
+      autoApprove: cfg.autoApprove,
+      autoMode: cfg.autoMode,
+      autoSummary: cfg.autoSummary,
+      liveMode: cfg.liveMode,
+      liveIntervalMs: Number(cfg.liveIntervalMs) || 3000,
+      liveTalkGapMs: Number(cfg.liveTalkGapMs) || 7000,
+      obsidianVault: cfg.obsidianVault,
+      obsidianFolder: cfg.obsidianFolder,
+      obsidianAuto: cfg.obsidianAuto,
+      maxAgentDepth: Number(cfg.maxAgentDepth) || 3,
+      maxAgentsPerRun: Number(cfg.maxAgentsPerRun) || 12,
+    }
+    for (const k of ['geminiKey', 'cerebrasKey', 'groqKey', 'openrouterKey']) if (keys[k].trim()) patch[k] = keys[k].trim()
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(patch),
+    })
+    const next = await res.json()
+    setSaving(false)
+    onSaved?.(next)
+    onClose()
+  }
+
+  return (
+    <div className="sheet" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="sheet-card">
+        <h3>Einstellungen</h3>
+        <div className="sub">Alles bleibt auf diesem Rechner, in ~/urai/data/config.json</div>
+
+        <div className="field">
+          <label>
+            Cerebras-Schlüssel {cfg.hasCerebras && <span style={{ color: 'var(--accent)' }}>· gesetzt {cfg.cerebrasKey}</span>}
+          </label>
+          <input
+            type="password"
+            placeholder={cfg.hasCerebras ? 'neuen Schlüssel eintippen zum Ersetzen' : 'csk-…'}
+            value={keys.cerebrasKey}
+            onChange={(e) => setKeys({ ...keys, cerebrasKey: e.target.value })}
+          />
+          <div className="note">
+            Gratis holen bei <a href="https://cloud.cerebras.ai" target="_blank" rel="noreferrer">cloud.cerebras.ai</a> — sehr
+            schnell, wird zuerst gefragt.
+          </div>
+        </div>
+
+        <div className="field">
+          <label>Cerebras-Modell</label>
+          <input value={cfg.cerebrasModel || ''} onChange={(e) => setCfg({ ...cfg, cerebrasModel: e.target.value })} />
+        </div>
+
+        <div className="field">
+          <label>Gemini-Schlüssel {cfg.hasGemini && <span style={{ color: 'var(--accent)' }}>· gesetzt {cfg.geminiKey}</span>}</label>
+          <input
+            type="password"
+            placeholder={cfg.hasGemini ? 'neuen Schlüssel eintippen zum Ersetzen' : 'AIza…'}
+            value={keys.geminiKey}
+            onChange={(e) => setKeys({ ...keys, geminiKey: e.target.value })}
+          />
+          <div className="note">
+            Gratis holen bei <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">aistudio.google.com/apikey</a>
+          </div>
+        </div>
+
+        <div className="field">
+          <label>Groq-Schlüssel (Reserve) {cfg.hasGroq && <span style={{ color: 'var(--accent)' }}>· gesetzt</span>}</label>
+          <input
+            type="password"
+            placeholder="gsk_…"
+            value={keys.groqKey}
+            onChange={(e) => setKeys({ ...keys, groqKey: e.target.value })}
+          />
+          <div className="note">
+            Gratis bei <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer">console.groq.com/keys</a>
+          </div>
+        </div>
+
+        <div className="field">
+          <label>OpenRouter-Schlüssel (Reserve) {cfg.hasOpenrouter && <span style={{ color: 'var(--accent)' }}>· gesetzt</span>}</label>
+          <input
+            type="password"
+            placeholder="sk-or-…"
+            value={keys.openrouterKey}
+            onChange={(e) => setKeys({ ...keys, openrouterKey: e.target.value })}
+          />
+        </div>
+
+        <div className="field">
+          <label>Gemini-Modell</label>
+          <input value={cfg.geminiModel} onChange={(e) => setCfg({ ...cfg, geminiModel: e.target.value })} />
+        </div>
+
+        <div className="field">
+          <label>Modell fürs Gedächtnis (Gemini-Vektoren)</label>
+          <input value={cfg.embedModel || ''} onChange={(e) => setCfg({ ...cfg, embedModel: e.target.value })} />
+        </div>
+
+        <div className="field">
+          <label>Revier — hier darf URAI Dateien anfassen</label>
+          <input value={cfg.workspace} onChange={(e) => setCfg({ ...cfg, workspace: e.target.value })} />
+        </div>
+
+        <div className="field">
+          <label>Auto-Modus</label>
+          <div className="chips">
+            <button className={`chip ${cfg.autoMode ? 'on' : ''}`} onClick={() => setCfg({ ...cfg, autoMode: !cfg.autoMode })}>
+              {cfg.autoMode ? 'an — macht alles ohne zu fragen' : 'aus — fragt bei gefährlichen Werkzeugen'}
+            </button>
+            <button
+              className={`chip ${cfg.autoSummary ? 'on' : ''}`}
+              onClick={() => setCfg({ ...cfg, autoSummary: !cfg.autoSummary })}
+            >
+              {cfg.autoSummary ? 'Zusammenfassung: an' : 'Zusammenfassung: aus'}
+            </button>
+          </div>
+          <div className="note">Der Stopp-Knopf bricht auch im Auto-Modus sofort alles ab.</div>
+        </div>
+
+        <div className="field">
+          <label>Live-Mitgucken</label>
+          <div className="chips">
+            <button className={`chip ${cfg.liveMode ? 'on' : ''}`} onClick={() => setCfg({ ...cfg, liveMode: !cfg.liveMode })}>
+              {cfg.liveMode ? 'an — guckt immer mit' : 'aus'}
+            </button>
+          </div>
+          <div className="note">
+            Alle {(cfg.liveIntervalMs || 3000) / 1000}s ein Blick. Gesagt wird höchstens alle{' '}
+            {(cfg.liveTalkGapMs || 7000) / 1000}s etwas — und nur wenn sich wirklich was ändert.
+          </div>
+        </div>
+
+        <div className="field">
+          <label>Live: wie oft hinschauen (ms)</label>
+          <input
+            type="number"
+            value={cfg.liveIntervalMs ?? 3000}
+            onChange={(e) => setCfg({ ...cfg, liveIntervalMs: e.target.value })}
+          />
+        </div>
+
+        <div className="field">
+          <label>Live: wie oft höchstens reden (ms)</label>
+          <input
+            type="number"
+            value={cfg.liveTalkGapMs ?? 7000}
+            onChange={(e) => setCfg({ ...cfg, liveTalkGapMs: e.target.value })}
+          />
+        </div>
+
+        <div className="field">
+          <label>Obsidian-Vault — hier landet alles automatisch</label>
+          <input
+            value={cfg.obsidianVault || ''}
+            placeholder="wird automatisch gefunden"
+            onChange={(e) => setCfg({ ...cfg, obsidianVault: e.target.value })}
+          />
+          <div className="note">Unterordner: {cfg.obsidianFolder || 'URAI'} → Sitzungen, Agenten, Gruppen, Wissen</div>
+        </div>
+
+        <div className="field">
+          <label>Automatisch mitschreiben</label>
+          <div className="chips">
+            <button
+              className={`chip ${cfg.obsidianAuto ? 'on' : ''}`}
+              onClick={() => setCfg({ ...cfg, obsidianAuto: !cfg.obsidianAuto })}
+            >
+              {cfg.obsidianAuto ? 'an — alles geht nach Obsidian' : 'aus'}
+            </button>
+          </div>
+        </div>
+
+        <div className="field">
+          <label>Agenten dürfen Agenten erschaffen — wie tief?</label>
+          <input
+            type="number"
+            value={cfg.maxAgentDepth ?? 3}
+            onChange={(e) => setCfg({ ...cfg, maxAgentDepth: e.target.value })}
+          />
+          <div className="note">Ebenen tief. 0 = keine Unter-Agenten.</div>
+        </div>
+
+        <div className="field">
+          <label>Agenten pro Auftrag (Notbremse)</label>
+          <input
+            type="number"
+            value={cfg.maxAgentsPerRun ?? 12}
+            onChange={(e) => setCfg({ ...cfg, maxAgentsPerRun: e.target.value })}
+          />
+        </div>
+
+        <div className="field">
+          <label>Schritte pro Auftrag (max)</label>
+          <input type="number" value={cfg.maxSteps} onChange={(e) => setCfg({ ...cfg, maxSteps: e.target.value })} />
+        </div>
+
+        <div className="field">
+          <label>Ohne Rückfrage erlauben — Rot = fragt sonst immer</label>
+          <div className="chips">
+            {tools.map((t) => (
+              <button
+                key={t.name}
+                className={`chip ${cfg.autoApprove.includes(t.name) ? 'on' : ''}`}
+                title={t.description}
+                onClick={() => toggleAuto(t.name)}
+              >
+                {t.danger ? '⚠︎ ' : ''}
+                {t.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="sheet-actions">
+          <button onClick={onClose}>Abbrechen</button>
+          <button className="primary" onClick={save} disabled={saving}>
+            {saving ? 'speichert…' : 'Speichern'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

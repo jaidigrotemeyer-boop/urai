@@ -1,0 +1,25 @@
+{
+  "name": "urai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "URAI — lokaler KI-Agent: Computer steuern, Dateien/Code, Web. Gratis.",
+  "scripts": {
+    "dev": "concurrently -n server,web -c cyan,magenta \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "node --experimental-sqlite --no-warnings server/index.js",
+    "dev:web": "vite",
+    "build": "vite build",
+    "start": "npm run build && node --experimental-sqlite --no-warnings server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^6.0.7"
+  }
+}

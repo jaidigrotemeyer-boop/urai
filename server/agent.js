@@ -1,0 +1,316 @@
+// Agent-Herz: denken → machen → schauen → nochmal.
+// Gefährliche Werkzeuge fragen erst. Stopp-Knopf bricht sofort ab.
+import { chat } from './brain.js'
+import { TOOL_MAP, toolSchemas } from './tools/index.js'
+import { loadConfig, saveConfig } from './config.js'
+import { logMessage, recall, history } from './memory.js'
+import { saveSession, addToIndex } from './obsidian.js'
+
+const SYSTEM = `Du bist URAI — ein Agent, der auf dem Mac des Nutzers wirklich handelt.
+
+Du kannst:
+- Dateien und Code lesen, schreiben, ändern, durchsuchen (fs_*)
+- Befehle im Terminal laufen lassen (shell_run)
+- Im Netz suchen, Seiten lesen, einen echten Browser steuern (web_*)
+- Den Bildschirm lesen und verstehen (mac_read_screen), klicken, tippen, Apps öffnen (mac_*)
+- Dir Dinge dauerhaft merken (memory_*) und in Obsidian ablegen (obsidian_*)
+- Andere Agenten erschaffen, die für dich arbeiten (agent_spawn, agent_team)
+- Dich selbst umbauen: deinen eigenen Code lesen, ändern, prüfen, neu starten (self_*)
+- Live mitgucken, was auf dem Bildschirm passiert (live_report)
+
+Dich selbst umbauen:
+- Will der Nutzer, dass du dich änderst, neue Fähigkeiten bekommst oder einen Fehler an dir behebst:
+  self_tree → self_read → self_edit → self_check → self_restart.
+- Jede Änderung wird automatisch mit Git gesichert. Geht etwas schief: self_undo.
+- Nach self_restart bist du kurz weg und kommst dann mit dem neuen Code wieder.
+- Neue Werkzeuge gehören in server/tools/, neue Ansicht in web/src/.
+
+Agenten-Gruppen:
+- Ist ein Auftrag groß oder hat mehrere Teile, stellst du selbst eine Gruppe auf: agent_team.
+  Beispiel: "Vergleich drei Tools" → Gruppe mit drei Rechercheuren plus einem Prüfer.
+- Einzelner Teil-Auftrag, der allein erledigt werden kann: agent_spawn.
+- Dafür brauchst du KEINE Erlaubnis. Einfach machen.
+- Jeder Unter-Agent kennt euer Gespräch nicht. Schreib den Auftrag vollständig aus.
+- Unter-Agenten dürfen selbst weitere Agenten erschaffen.
+- Danach fasst du ihre Ergebnisse für den Nutzer zusammen.
+
+Obsidian:
+- Alles wird automatisch als Markdown im Vault abgelegt: Gespräche, Agenten-Läufe, Gruppen.
+- Wichtige Ergebnisse zusätzlich mit obsidian_write als eigene Notiz sichern.
+- Fragt der Nutzer nach früherem Wissen: obsidian_search und memory_search.
+
+So liest du den Bildschirm:
+- mac_read_screen ist dein Auge. Es liefert JEDEN sichtbaren Text mit Klick-Punkt (x,y)
+  plus die echten Knöpfe und Felder der vordersten App. Damit weißt du wirklich, was da steht.
+- Fragt der Nutzer "was steht auf meinem Bildschirm", "lies das", "was siehst du",
+  "hilf mir hiermit" — dann sofort mac_read_screen, ohne Rückfrage.
+- Geht es um Bilder, Fotos oder Grafik ohne Text: mac_read_screen mit describe=true.
+- Klicken: am liebsten mac_click_text ("klick auf Senden"). Nur wenn das nicht geht, mac_click mit x,y.
+
+Regeln:
+1. Handeln statt reden. Wenn du etwas prüfen kannst, prüfe es mit einem Werkzeug.
+2. Nie blind klicken. Immer erst lesen, dann handeln, dann nochmal lesen zum Prüfen.
+3. Koordinaten zählen in Bildschirm-Punkten, 0,0 ist links oben.
+4. Ein Schritt nach dem anderen. Nach jedem Werkzeug schaust du auf das Ergebnis.
+5. Fehler ehrlich melden. Nichts erfinden, keine Ergebnisse behaupten die du nicht gesehen hast.
+6. Kurz antworten. Der Nutzer sieht deine Werkzeug-Schritte sowieso live.
+7. Antworte auf Deutsch, außer der Nutzer schreibt anders.
+8. Bist du fertig, sag klar was rauskam.`
+
+/**
+ * Kleine Modelle schicken gern Strings statt echter Werte: "false", "null", "3".
+ * Hier biegen wir das anhand des Werkzeug-Schemas gerade.
+ */
+export function coerceArgs(args, schema) {
+  if (!args || typeof args !== 'object' || !schema?.properties) return args || {}
+  const out = {}
+  for (const [key, val] of Object.entries(args)) {
+    const type = schema.properties[key]?.type
+    let v = val
+    if (typeof v === 'string') {
+      const s = v.trim()
+      if (s === 'null' || s === 'undefined' || s === 'None' || s === '') {
+        continue // gar nicht erst mitgeben
+      }
+      if (type === 'boolean') v = s === 'true' || s === '1' || s === 'yes' || s === 'ja'
+      else if (type === 'number' && s !== '' && !Number.isNaN(Number(s))) v = Number(s)
+      else if (type === 'array' && s.startsWith('[')) {
+        try {
+          v = JSON.parse(s)
+        } catch {}
+      } else if (type === 'object' && s.startsWith('{')) {
+        try {
+          v = JSON.parse(s)
+        } catch {}
+      }
+    }
+    out[key] = v
+  }
+  return out
+}
+
+/** Erkennt hingetippte Pseudo-Werkzeug-Aufrufe wie {"name": "fs_list", "parameters": {…}}. */
+function looksLikeFakeToolCall(text) {
+  if (!text) return false
+  const t = text.trim()
+  if (t.length > 600) return false
+  return /\{\s*"?(name|tool|function|tool_name)"?\s*:/.test(t) && /(parameters|arguments|args)/.test(t)
+}
+
+export class Agent {
+  constructor({ session, emit, root, depth = 0, name = 'URAI', run }) {
+    this.session = session
+    this.name = name
+    this.depth = depth
+    this.root = root || this // Freigaben laufen immer über den obersten Agenten
+    this.children = []
+    if (root) root.children.push(this)
+    // Zähler für den ganzen Auftrag — alle Agenten teilen ihn sich
+    this.run = run || { count: 0, log: [] }
+    this.emit = depth === 0 ? emit : (msg) => emit({ ...msg, agent: name, depth })
+    this.messages = [{ role: 'system', content: SYSTEM }]
+    this.pending = new Map()
+    this.abort = null
+    this.running = false
+  }
+
+  stop() {
+    this.abort?.abort()
+    for (const [, p] of this.pending) p.reject(new Error('Vom Nutzer gestoppt.'))
+    this.pending.clear()
+    for (const kid of this.children) kid.stop()
+    this.running = false
+    if (this.depth === 0) this.emit({ type: 'stopped' })
+  }
+
+  approve(id, ok, always) {
+    const p = this.pending.get(id)
+    if (!p) return
+    this.pending.delete(id)
+    if (always && ok) {
+      const c = loadConfig()
+      if (!c.autoApprove.includes(p.toolName)) {
+        saveConfig({ autoApprove: [...c.autoApprove, p.toolName] })
+      }
+    }
+    ok ? p.resolve(true) : p.reject(new Error('Nutzer hat Nein gesagt.'))
+  }
+
+  askApproval(toolName, args) {
+    const id = `${Date.now()}-${Math.round(performance.now() * 1000)}`
+    this.emit({ type: 'approval', id, tool: toolName, args, from: this.name })
+    // Der oberste Agent hält die Warteliste — von dort kommt die Antwort des Nutzers
+    return new Promise((resolve, reject) => this.root.pending.set(id, { resolve, reject, toolName }))
+  }
+
+  async send(userText, { enabledTools, quiet = false } = {}) {
+    if (this.running) throw new Error('Agent arbeitet noch.')
+    this.running = true
+    this.abort = new AbortController()
+    const cfg = loadConfig()
+    const signal = this.abort.signal
+    const maxSteps = this.depth === 0 ? cfg.maxSteps : cfg.agentSteps
+
+    if (!quiet) logMessage(this.session, 'user', userText)
+
+    // Passendes aus dem Gedächtnis dazulegen
+    if (!quiet) {
+      try {
+        const hits = await recall(userText, 4)
+        if (hits.length) {
+          this.messages.push({
+            role: 'system',
+            content: `Was du über den Nutzer weißt:\n${hits.map((h) => `- ${h.text}`).join('\n')}`,
+          })
+        }
+      } catch {}
+    }
+
+    this.messages.push({ role: 'user', content: userText })
+    const tools = toolSchemas(enabledTools)
+
+    try {
+      for (let step = 0; step < maxSteps; step++) {
+        this.emit({ type: 'thinking', step: step + 1 })
+        let assistantText = ''
+        const res = await chat({
+          messages: this.messages,
+          tools,
+          signal,
+          onDelta: (d) => {
+            assistantText += d
+            this.emit({ type: 'delta', text: d })
+          },
+        })
+        this.emit({ type: 'brain', provider: res.provider, model: res.model })
+
+        this.messages.push({ role: 'assistant', content: res.text, toolCalls: res.toolCalls })
+        if (res.text && !quiet) logMessage(this.session, 'assistant', res.text)
+
+        // Kleine Modelle tippen Werkzeug-Aufrufe manchmal als Text hin, statt sie zu rufen.
+        if (!res.toolCalls?.length && looksLikeFakeToolCall(res.text) && step < maxSteps - 1) {
+          this.messages.push({
+            role: 'system',
+            content:
+              'Das war kein echter Werkzeug-Aufruf, sondern nur Text. Ruf das Werkzeug richtig auf ' +
+              '(über die Werkzeug-Funktion, nicht als JSON im Text) — oder antworte in normalen Worten.',
+          })
+          continue
+        }
+
+        if (!res.toolCalls?.length) {
+          if (this.depth === 0) await this.finish(res.text, signal)
+          return res.text
+        }
+
+        for (const call of res.toolCalls) {
+          if (signal.aborted) throw new Error('Gestoppt.')
+          const out = await this.runTool(call, signal)
+          this.messages.push({ role: 'tool', toolCallId: call.id, name: call.name, content: out })
+        }
+        this.emit({ type: 'turn_end' })
+      }
+      const msg = `Schluss nach ${maxSteps} Schritten. Sag mir, wie es weitergehen soll.`
+      if (this.depth === 0) this.emit({ type: 'done', text: msg })
+      return msg
+    } catch (err) {
+      this.emit({ type: 'error', message: err.message, agent: this.name })
+      throw err
+    } finally {
+      this.running = false
+    }
+  }
+
+  /**
+   * Auftrag fertig: Zusammenfassung schreiben, alles in Obsidian ablegen, dann melden.
+   * Läuft nur beim obersten Agenten.
+   */
+  async finish(finalText, signal) {
+    const cfg = loadConfig()
+    let summary = null
+
+    if (cfg.autoSummary) {
+      this.emit({ type: 'summarizing' })
+      summary = await this.makeSummary(signal).catch(() => null)
+      if (summary) this.emit({ type: 'summary', text: summary })
+    }
+
+    this.emit({ type: 'done', text: finalText })
+
+    try {
+      const entries = history(this.session, 400).map((m) => ({ role: m.role, content: m.content }))
+      if (entries.length) {
+        const note = await saveSession(this.session, entries, { agenten: this.run.count }, summary)
+        if (note) {
+          await addToIndex({ note, summary, session: this.session, agents: this.run.count }).catch(() => {})
+          this.emit({ type: 'obsidian', note })
+        }
+      }
+    } catch {}
+  }
+
+  /** Kurze Zusammenfassung des Auftrags — ohne Werkzeuge, ein einziger Zug. */
+  async makeSummary(signal) {
+    const verlauf = this.messages
+      .filter((m) => m.role !== 'system')
+      .slice(-40)
+      .map((m) => {
+        if (m.role === 'tool') return `WERKZEUG ${m.name}: ${String(m.content).slice(0, 700)}`
+        if (m.role === 'assistant') {
+          const calls = (m.toolCalls || []).map((t) => t.name).join(', ')
+          return `URAI: ${m.content || ''}${calls ? ` [ruft: ${calls}]` : ''}`
+        }
+        return `NUTZER: ${m.content}`
+      })
+      .join('\n')
+
+    const res = await chat({
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Du fasst einen Agenten-Auftrag zusammen. Kurz, sachlich, auf Deutsch, in Markdown. Genau diese Abschnitte:\n' +
+            '**Auftrag** — ein Satz.\n' +
+            '**Gemacht** — Stichpunkte, was wirklich getan wurde (nur was in den Werkzeug-Ergebnissen steht).\n' +
+            '**Ergebnis** — was dabei rauskam.\n' +
+            '**Offen** — was nicht geklappt hat oder noch fehlt; "nichts" wenn alles lief.\n' +
+            'Nichts erfinden. Keine Einleitung, kein Nachwort.',
+        },
+        { role: 'user', content: verlauf },
+      ],
+      tools: [],
+      signal,
+      onDelta: () => {},
+    })
+    return res.text?.trim() || null
+  }
+
+  async runTool(call, signal) {
+    const tool = TOOL_MAP.get(call.name)
+    if (!tool) return `Fehler: Werkzeug "${call.name}" gibt es nicht.`
+    call.args = coerceArgs(call.args, tool.parameters)
+
+    const cfg = loadConfig()
+    // Auto-Modus: nichts fragen, einfach machen. Der Stopp-Knopf greift trotzdem.
+    const needsOk = !cfg.autoMode && tool.danger && !cfg.autoApprove.includes(tool.name)
+
+    this.emit({ type: 'tool_start', name: call.name, args: call.args })
+    try {
+      if (needsOk) await this.askApproval(call.name, call.args)
+      if (signal.aborted) throw new Error('Gestoppt.')
+
+      const ctx = {
+        emit: (kind, data) => this.emit({ type: 'tool_stream', kind, name: call.name, data }),
+        signal,
+        agent: this, // damit agent_spawn / agent_team Kinder anlegen können
+      }
+      const result = await tool.run(call.args || {}, ctx)
+      const text = String(result ?? '')
+      this.emit({ type: 'tool_end', name: call.name, ok: true, result: text.slice(0, 4000) })
+      return text.slice(0, 60000)
+    } catch (err) {
+      this.emit({ type: 'tool_end', name: call.name, ok: false, result: err.message })
+      return `Fehler bei ${call.name}: ${err.message}`
+    }
+  }
+}
