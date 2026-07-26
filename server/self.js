@@ -51,6 +51,17 @@ async function pruefen(abs) {
   await pexec('node', ['--check', abs], { cwd: ROOT, timeout: 15000 })
 }
 
+/** "12\tconst x" → "const x". Nur wenn wirklich jede Zeile so aussieht. */
+function ohneZeilennummern(s) {
+  if (!s) return s
+  const zeilen = s.split('\n')
+  const echte = zeilen.filter((l) => l.trim())
+  if (echte.length && echte.every((l) => /^\s*\d+\t/.test(l))) {
+    return zeilen.map((l) => l.replace(/^\s*\d+\t/, '')).join('\n')
+  }
+  return s
+}
+
 /** Das Projekt ist ESM. CommonJS würde beim Laden knallen, nicht beim Syntax-Check. */
 function pruefeStil(rel, text) {
   if (!rel.startsWith('server/') || !rel.endsWith('.js')) return
@@ -143,7 +154,12 @@ export const selfTools = [
       const { abs, rel } = eigenerWeg(p)
       const text = await fs.readFile(abs, 'utf8')
       const lines = text.split('\n')
-      return `${rel} (${lines.length} Zeilen)\n\n${lines.map((l, i) => `${i + 1}\t${l}`).join('\n').slice(0, 60000)}`
+      return [
+        `${rel} (${lines.length} Zeilen)`,
+        'Die Zahl und der Tab vorne gehören NICHT zur Datei — beim self_edit weglassen.',
+        '',
+        lines.map((l, i) => `${i + 1}\t${l}`).join('\n').slice(0, 60000),
+      ].join('\n')
     },
   },
   {
@@ -164,8 +180,28 @@ export const selfTools = [
     async run({ path: p, old_string, new_string, why = 'Selbst-Änderung' }) {
       const { abs, rel } = eigenerWeg(p)
       const vorher = await fs.readFile(abs, 'utf8')
+
+      // self_read zeigt Zeilennummern. Kopiert das Gehirn sie mit, hier wieder abschneiden.
+      old_string = ohneZeilennummern(old_string)
+      new_string = ohneZeilennummern(new_string)
+
       const treffer = vorher.split(old_string).length - 1
-      if (treffer === 0) throw new Error('Text nicht gefunden.')
+      if (treffer === 0) {
+        // Zweiter Versuch: Leerraum am Zeilenende ignorieren
+        const locker = new RegExp(
+          old_string.split('\n').map((l) => l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').trimEnd() + '[ \\t]*').join('\\n')
+        )
+        const m = locker.exec(vorher)
+        if (!m) {
+          throw new Error(
+            'Text nicht gefunden. Nimm den Text GENAU so, wie er in der Datei steht — ' +
+              'ohne die Zeilennummern und Tabs, die self_read voranstellt.'
+          )
+        }
+        old_string = m[0]
+      } else if (treffer > 1) {
+        throw new Error(`Text kommt ${treffer}-mal vor. Nimm mehr Kontext.`)
+      }
       if (treffer > 1) throw new Error(`Text kommt ${treffer}-mal vor. Nimm mehr Kontext.`)
 
       const neu = vorher.replace(old_string, new_string)
