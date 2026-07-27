@@ -87,6 +87,18 @@ URAI liest seine Antwort vor; mit **Stimme aus** schaltest du das ab.
 Beides steckt im Browser (Chrome), kostet nichts und braucht keinen Schlüssel.
 Aufgenommen wird nichts — nur der erkannte Text.
 
+### „Hey URAI"
+
+Schalter unten im Chat oder im Notch-Fenster. Dann lauscht URAI leise mit.
+Sagst du **„Hey URAI, mach ein Bildschirmfoto"**, geht alles nach dem Weckwort
+als Auftrag raus — ohne Klick.
+
+Die Erkennung hört den Namen selten genau, darum zählen auch „Hey Uray",
+„Hey Ur AI" und ähnliches. Der Browser beendet das Lauschen alle paar Minuten
+von selbst; URAI fängt dann sofort wieder an.
+
+Nur der Satz nach dem Weckwort verlässt den Browser. Alles davor wird verworfen.
+
 ## Auto-Modus
 
 Standard: **an**. URAI fragt nie, sondern macht. Auch Klicken, Tippen, Schreiben, Terminal.
