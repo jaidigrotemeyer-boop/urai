@@ -474,9 +474,12 @@ function Item({ item, onApprove }) {
           <span className="dot" />
           <strong>
             {item.agent ? `${item.agent} · ` : ''}
-            {item.name}
+            {item.satz || item.name}
           </strong>
-          <span className="tail">{summarize(item.args)}</span>
+          <span className="tail">
+            {item.satz ? item.name : summarize(item.args)}
+            {item.ms != null && ` · ${(item.ms / 1000).toFixed(1)}s`}
+          </span>
         </summary>
         <pre>{item.result || '…'}</pre>
       </details>
