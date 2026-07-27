@@ -70,6 +70,31 @@ wss.on('connection', (ws) => {
   const send = (msg) => ws.readyState === 1 && ws.send(JSON.stringify(msg))
   let agent = null
 
+  // Warteschlange: kommt ein Auftrag, während noch gearbeitet wird,
+  // wird er angestellt statt abgewiesen. Der Nutzer sieht seine Position.
+  const schlange = []
+  let arbeitet = false
+
+  async function abarbeiten() {
+    if (arbeitet) return
+    arbeitet = true
+    while (schlange.length) {
+      const job = schlange[0]
+      send({ type: 'queue', laenge: schlange.length, arbeitet: true, jetzt: job.text?.slice(0, 60) })
+      if (!agent || agent.session !== job.session) {
+        agent = new Agent({ session: job.session || 'default', emit: send })
+      }
+      try {
+        await agent.send(job.text, { enabledTools: job.enabledTools })
+      } catch (err) {
+        send({ type: 'error', message: err.message })
+      }
+      schlange.shift()
+    }
+    arbeitet = false
+    send({ type: 'queue', laenge: 0, arbeitet: false })
+  }
+
   // Live-Modus: guckt von selbst mit, solange die Seite offen ist
   const watcher = new LiveWatcher({ emit: send })
   watchers.add(watcher)
@@ -86,16 +111,16 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'chat') {
-      if (!agent || agent.session !== msg.session) agent = new Agent({ session: msg.session || 'default', emit: send })
-      try {
-        await agent.send(msg.text, { enabledTools: msg.enabledTools })
-      } catch (err) {
-        send({ type: 'error', message: err.message })
-      }
+      schlange.push(msg)
+      send({ type: 'queue', laenge: schlange.length, arbeitet })
+      abarbeiten()
       return
     }
     if (msg.type === 'approval') return agent?.approve(msg.id, msg.ok, msg.always)
-    if (msg.type === 'stop') return agent?.stop()
+    if (msg.type === 'stop') {
+      schlange.length = 0 // Wartende Aufträge auch wegwerfen
+      return agent?.stop()
+    }
     if (msg.type === 'lang') {
       if (msg.code && msg.code !== loadConfig().language) saveConfig({ language: msg.code })
       return

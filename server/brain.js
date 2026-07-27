@@ -53,6 +53,7 @@ const OPENAI_STYLE = {
 // wartet jeder Zug erst auf dieselbe Absage.
 const kaputt = new Map() // provider -> { bis, grund }
 const PAUSE_MS = 10 * 60 * 1000
+const MAX_WARTEN_S = 150 // länger als das lassen wir den Nutzer nicht warten
 
 function schlafend(p) {
   const k = kaputt.get(p)
@@ -74,6 +75,17 @@ function melde(p, grund) {
   // Echte Absagen (Schlüssel, Geld, Modell weg) lang, Netz-Zicken kurz
   const hart = /\b(401|402|403|404)\b/.test(grund)
   kaputt.set(p, { bis: Date.now() + (hart ? PAUSE_MS : 60_000), grund })
+}
+
+/** Schlafen, aber sofort aufwachen, wenn der Nutzer stoppt. */
+function warten(ms, signal) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(resolve, ms)
+    signal?.addEventListener('abort', () => {
+      clearTimeout(t)
+      reject(new DOMException('Gestoppt.', 'AbortError'))
+    }, { once: true })
+  })
 }
 
 export function brokenBrains() {
@@ -123,30 +135,46 @@ export async function brainStatus() {
  * @param {AbortSignal} o.signal
  * @returns {Promise<{text:string, toolCalls:Array, provider:string, model:string}>}
  */
-export async function chat({ messages, tools = [], onDelta = () => {}, signal }) {
+export async function chat({ messages, tools = [], onDelta = () => {}, signal, onWait = () => {} }) {
   const chain = providerChain()
   if (!chain.length) {
     throw new Error('Kein Schlüssel eingetragen. Einstellungen öffnen und einen Gratis-Schlüssel eintippen (Gemini, Groq oder OpenRouter).')
   }
-  const wach = chain.filter((p) => !schlafend(p))
+
   const errors = []
 
-  // Alle in Pause? Dann doch alle probieren, sonst steht URAI still.
-  for (const provider of (wach.length ? wach : chain)) {
-    try {
-      const out =
-        provider === 'gemini'
-          ? await geminiChat({ messages, tools, onDelta, signal })
-          : await openaiChat({ provider, messages, tools, onDelta, signal })
-      kaputt.delete(provider)
-      return out
-    } catch (err) {
-      if (err?.name === 'AbortError') throw err
-      melde(provider, err.message)
-      errors.push(`${provider}: ${err.message}`)
+  // Bis zu drei Runden: alle wachen Gehirne durchprobieren, dann warten
+  // bis das nächste wieder darf, und nochmal. Aufgeben ist die letzte Wahl.
+  for (let runde = 0; runde < 3; runde++) {
+    const wach = chain.filter((p) => !schlafend(p))
+
+    for (const provider of wach) {
+      try {
+        const out =
+          provider === 'gemini'
+            ? await geminiChat({ messages, tools, onDelta, signal })
+            : await openaiChat({ provider, messages, tools, onDelta, signal })
+        kaputt.delete(provider)
+        return out
+      } catch (err) {
+        if (err?.name === 'AbortError') throw err
+        melde(provider, err.message)
+        errors.push(`${provider}: ${err.message}`)
+      }
     }
+
+    // Nichts wach. Wann darf das erste wieder?
+    const zeiten = chain.map((p) => kaputt.get(p)?.bis ?? 0).filter((b) => b > Date.now())
+    if (!zeiten.length) break
+    const sekunden = Math.ceil((Math.min(...zeiten) - Date.now()) / 1000)
+    if (sekunden > MAX_WARTEN_S) break
+
+    const wer = chain.find((p) => (kaputt.get(p)?.bis ?? 0) === Math.min(...zeiten))
+    onWait({ sekunden, provider: wer, grund: kaputt.get(wer)?.grund })
+    await warten(sekunden * 1000 + 500, signal)
   }
-  throw new Error(`Kein Gehirn erreichbar.\n${errors.join('\n')}`)
+
+  throw new Error(`Kein Gehirn erreichbar.\n${[...new Set(errors)].join('\n')}`)
 }
 
 // ─────────────────────────── Gemini ───────────────────────────

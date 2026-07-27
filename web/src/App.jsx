@@ -3,6 +3,8 @@ import Settings from './components/Settings.jsx'
 import Eye from './components/Eye.jsx'
 import Boot from './components/Boot.jsx'
 import Notch from './components/Notch.jsx'
+import Cursor from './components/Cursor.jsx'
+import Aktivitaet from './components/Aktivitaet.jsx'
 import { t, useSprache, sprache } from './i18n.js'
 
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
@@ -28,6 +30,11 @@ export default function App() {
   const [liveNotes, setLiveNotes] = useState([])
   const [liveApp, setLiveApp] = useState('')
   const [wach, setWach] = useState(false)
+  const [tun, setTun] = useState(null) // was er gerade tut, im Klartext
+  const [warte, setWarte] = useState(null) // Gehirn überlastet, Sekunden
+  const [queue, setQueue] = useState(0) // wie viele Aufträge warten
+  const [tempo, setTempo] = useState(null) // Zeichen pro Sekunde
+  const [schritt, setSchritt] = useState(null)
 
   const ws = useRef(null)
   const scroller = useRef(null)
@@ -100,12 +107,25 @@ export default function App() {
     switch (msg.type) {
       case 'thinking':
         setBusy(true)
+        setWarte(null)
+        setSchritt({ nr: msg.step, von: msg.gesamt })
+        setTun({ satz: msg.agent ? `${msg.agent} ${t('working')}` : t('thinking'), denkt: true })
         setPhase(msg.agent ? `${msg.agent} ${t('working')}` : t('thinking'))
         streaming.current = false
         break
 
+      case 'waiting':
+        setWarte({ sekunden: msg.sekunden, grund: msg.grund })
+        setTun({ satz: `${t('waiting')} ${msg.sekunden}s`, warte: true })
+        break
+
+      case 'queue':
+        setQueue(Math.max(0, (msg.laenge || 0) - (msg.arbeitet ? 1 : 0)))
+        break
+
       case 'brain':
         setBrain(`${msg.provider} · ${msg.model}`)
+        if (msg.tempo) setTempo(msg.tempo)
         break
 
       case 'delta':
@@ -125,10 +145,12 @@ export default function App() {
 
       case 'tool_start':
         streaming.current = false
-        setPhase(msg.name)
+        setPhase(msg.satz || msg.name)
+        setTun({ satz: msg.satz || msg.name, verb: msg.verb, ziel: msg.ziel, seit: Date.now() })
         push({
           kind: 'step',
           name: msg.name,
+          satz: msg.satz,
           args: msg.args,
           state: 'run',
           result: '',
@@ -146,6 +168,7 @@ export default function App() {
         patchLast((x) => x.kind === 'step' && x.name === msg.name && x.state === 'run', {
           state: msg.ok ? 'ok' : 'fail',
           result: msg.result,
+          ms: msg.ms,
         })
         break
 
@@ -222,12 +245,18 @@ export default function App() {
       case 'done':
         setBusy(false)
         setLive([])
+        setTun(null)
+        setWarte(null)
+        setSchritt(null)
         streaming.current = false
         break
 
       case 'stopped':
         setBusy(false)
         setLive([])
+        setTun(null)
+        setWarte(null)
+        setQueue(0)
         streaming.current = false
         push({ kind: 'msg', role: 'error', text: t('stopped') })
         break
@@ -235,6 +264,8 @@ export default function App() {
       case 'error':
         setBusy(false)
         setLive([])
+        setTun(null)
+        setWarte(null)
         streaming.current = false
         push({ kind: 'msg', role: 'error', text: msg.message })
         break
@@ -244,13 +275,16 @@ export default function App() {
     }
   }
 
+  // Während gearbeitet wird, darf man weiter schicken — der Server stellt an.
   function send(override) {
     const text = (override ?? draft).trim()
-    if (!text || !connected || busy) return
-    push({ kind: 'msg', role: 'user', text })
-    setDraft('')
-    setBusy(true)
-    setPhase(t('thinking'))
+    if (!text || !connected) return
+    push({ kind: 'msg', role: 'user', text, wartet: busy })
+    if (override === undefined) setDraft('')
+    if (!busy) {
+      setBusy(true)
+      setPhase(t('thinking'))
+    }
     ws.current.send(JSON.stringify({ type: 'chat', session: SESSION, text, lang: sprache() }))
   }
 
@@ -275,10 +309,13 @@ export default function App() {
   return (
     <div className={`app ${wach ? 'wach' : ''}`}>
       {!wach && <Boot onDone={() => setWach(true)} />}
+      <Cursor busy={busy} />
 
       <Notch
         busy={busy}
         phase={phase}
+        queue={queue}
+        warte={warte}
         agents={live}
         liveOn={liveOn}
         liveApp={liveApp}
@@ -313,6 +350,7 @@ export default function App() {
             {items.map((it) => (
               <Item key={it.key} item={it} onApprove={answerApproval} />
             ))}
+            <Aktivitaet tun={tun} warte={warte} schritt={schritt} tempo={tempo} queue={queue} agents={live} />
           </div>
 
           <div className="composer">
@@ -322,7 +360,7 @@ export default function App() {
                 [t('quickHelp'), t('promptHelp')],
                 [t('quickOpen'), t('promptOpen')],
               ].map(([label, prompt]) => (
-                <button key={label} className="chip" disabled={busy || !connected} onClick={() => send(prompt)}>
+                <button key={label} className="chip" disabled={!connected} onClick={() => send(prompt)}>
                   {label}
                 </button>
               ))}
@@ -344,8 +382,8 @@ export default function App() {
                   }
                 }}
               />
-              <button className="primary" onClick={() => send()} disabled={!connected || busy || !draft.trim()}>
-                {t('go')}
+              <button className="primary" onClick={() => send()} disabled={!connected || !draft.trim()}>
+                {busy ? `${t('go')} +` : t('go')}
               </button>
             </div>
             <div className="hint">
@@ -370,7 +408,14 @@ export default function App() {
 }
 
 function Item({ item, onApprove }) {
-  if (item.kind === 'msg') return <div className={`msg ${item.role}`}>{item.text}</div>
+  if (item.kind === 'msg') {
+    return (
+      <div className={`msg ${item.role} ${item.wartet ? 'wartet' : ''}`}>
+        {item.text}
+        {item.wartet && <span className="wartemarke">{t('queued')}</span>}
+      </div>
+    )
+  }
 
   if (item.kind === 'note') return <span className="pill live">{item.text}</span>
 

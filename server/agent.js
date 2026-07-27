@@ -5,6 +5,7 @@ import { TOOL_MAP, toolSchemas } from './tools/index.js'
 import { loadConfig, saveConfig, sprachName } from './config.js'
 import { logMessage, recall, history } from './memory.js'
 import { saveSession, addToIndex } from './obsidian.js'
+import { beschreiben } from './aktivitaet.js'
 
 const SYSTEM = `Du bist URAI — ein Agent, der auf dem Mac des Nutzers wirklich handelt.
 
@@ -195,18 +196,27 @@ export class Agent {
 
     try {
       for (let step = 0; step < maxSteps; step++) {
-        this.emit({ type: 'thinking', step: step + 1 })
-        let assistantText = ''
+        this.emit({ type: 'thinking', step: step + 1, gesamt: maxSteps })
+        const zugStart = Date.now()
+        let zeichen = 0
         const res = await chat({
           messages: eindampfen(this.messages),
           tools,
           signal,
+          onWait: ({ sekunden, grund }) => this.emit({ type: 'waiting', sekunden, grund }),
           onDelta: (d) => {
-            assistantText += d
+            zeichen += d.length
             this.emit({ type: 'delta', text: d })
           },
         })
-        this.emit({ type: 'brain', provider: res.provider, model: res.model })
+        const dauer = Math.max(1, Date.now() - zugStart)
+        this.emit({
+          type: 'brain',
+          provider: res.provider,
+          model: res.model,
+          ms: dauer,
+          tempo: Math.round((zeichen / dauer) * 1000), // Zeichen pro Sekunde
+        })
 
         this.messages.push({ role: 'assistant', content: res.text, toolCalls: res.toolCalls })
         if (res.text && !quiet) logMessage(this.session, 'assistant', res.text)
@@ -323,7 +333,9 @@ export class Agent {
     const needsOk = !cfg.autoMode && tool.danger && !cfg.autoApprove.includes(tool.name)
 
     this.werkzeugeBenutzt = (this.werkzeugeBenutzt || 0) + 1
-    this.emit({ type: 'tool_start', name: call.name, args: call.args })
+    const wort = beschreiben(call.name, call.args)
+    const begonnen = Date.now()
+    this.emit({ type: 'tool_start', name: call.name, args: call.args, ...wort })
     try {
       if (needsOk) await this.askApproval(call.name, call.args)
       if (signal.aborted) throw new Error('Gestoppt.')
@@ -335,11 +347,18 @@ export class Agent {
       }
       const result = await tool.run(call.args || {}, ctx)
       const text = String(result ?? '')
-      this.emit({ type: 'tool_end', name: call.name, ok: true, result: text.slice(0, 8000) })
+      this.emit({
+        type: 'tool_end',
+        name: call.name,
+        ok: true,
+        result: text.slice(0, 8000),
+        ms: Date.now() - begonnen,
+        ...wort,
+      })
       // Was zurück ins Gehirn geht, kostet Kontingent — also deckeln
       return kuerzen(text, 14000)
     } catch (err) {
-      this.emit({ type: 'tool_end', name: call.name, ok: false, result: err.message })
+      this.emit({ type: 'tool_end', name: call.name, ok: false, result: err.message, ms: Date.now() - begonnen, ...wort })
       return `Fehler bei ${call.name}: ${err.message}`
     }
   }

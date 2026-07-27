@@ -269,6 +269,14 @@ input::placeholder, textarea::placeholder { color: var(--dimmer); }
   border: 1px solid var(--line-soft);
   border-bottom-left-radius: 5px;
 }
+/* Angestellte Nachricht: blasser, mit Marke */
+.msg.wartet { opacity: .55; position: relative; }
+.wartemarke {
+  display: block; margin-top: 5px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--dimmer);
+}
+
 .msg.error {
   align-self: flex-start;
   background: rgba(255, 122, 122, .07);
@@ -462,6 +470,58 @@ input::placeholder, textarea::placeholder { color: var(--dimmer); }
   to   { opacity: 1; transform: none; }
 }
 
+/* ── Arbeitsstreifen: was er gerade tut ── */
+.arbeit {
+  position: relative;
+  align-self: stretch;
+  display: flex; align-items: center; gap: 9px;
+  padding: 11px 15px;
+  border-radius: 13px;
+  border: 1px solid var(--accent-line);
+  background: var(--panel);
+  overflow: hidden;
+  animation: rise .4s var(--ease) both;
+}
+.arbeit.wartet { border-color: rgba(255, 192, 107, .35); }
+
+/* Eine Welle läuft von links nach rechts durch — man sieht, dass es lebt */
+.arbeit-welle {
+  position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 20%, var(--accent-soft) 50%, transparent 80%);
+  background-size: 220% 100%;
+  animation: welle 2.1s var(--ease) infinite;
+  pointer-events: none;
+}
+.arbeit.wartet .arbeit-welle { background: linear-gradient(100deg, transparent 20%, rgba(255,192,107,.12) 50%, transparent 80%); background-size: 220% 100%; }
+@keyframes welle { 0% { background-position: 150% 0; } 100% { background-position: -50% 0; } }
+
+.arbeit-text { font-size: 13px; color: var(--dim); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arbeit-text b { color: var(--text); font-weight: 600; }
+
+/* Drei Punkte, die nacheinander atmen */
+.punkte { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
+.punkte i { width: 3px; height: 3px; border-radius: 50%; background: var(--dimmer); animation: tupfen 1.3s var(--ease) infinite; }
+.punkte i:nth-child(2) { animation-delay: .16s; }
+.punkte i:nth-child(3) { animation-delay: .32s; }
+@keyframes tupfen { 0%, 60%, 100% { opacity: .25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
+
+.arbeit-zahlen { display: flex; gap: 6px; align-items: center; flex: none; }
+.zahl {
+  font-family: var(--mono); font-size: 10.5px; color: var(--dimmer);
+  border: 1px solid var(--line-soft); border-radius: 99px; padding: 2px 8px;
+  font-variant-numeric: tabular-nums;
+}
+.zahl.zeit { color: var(--dim); min-width: 46px; text-align: center; }
+.zahl.warteschlange { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+
+.notch-zahl {
+  font-family: var(--mono); font-size: 10.5px; color: var(--accent);
+  border: 1px solid var(--accent-line); background: var(--accent-soft);
+  border-radius: 99px; padding: 1px 7px; flex: none;
+}
+.notch.is-warte { border-color: rgba(255, 192, 107, .4); }
+.notch.is-warte .notch-text { color: var(--warn); }
+
 /* Suchstrahl unter der Kopfzeile, solange gearbeitet wird */
 .beam {
   height: 1px;
@@ -476,6 +536,70 @@ input::placeholder, textarea::placeholder { color: var(--dimmer); }
   100% { background-position: 145% 0; }
 }
 
+/* ── Eigener Zeiger ── */
+body.hat-zeiger,
+body.hat-zeiger * { cursor: none !important; }
+
+.zeiger-ring, .zeiger-punkt { display: none; }
+
+@media (hover: hover) and (pointer: fine) {
+  body.hat-zeiger .zeiger-ring,
+  body.hat-zeiger .zeiger-punkt { display: block; }
+}
+
+.zeiger-ring {
+  position: fixed; top: 0; left: 0; z-index: 999;
+  width: 30px; height: 30px; margin: -15px 0 0 -15px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  pointer-events: none;
+  will-change: transform;
+  transition: width .28s var(--spring), height .28s var(--spring),
+              margin .28s var(--spring), opacity .25s var(--ease),
+              background .25s var(--ease), border-color .25s var(--ease),
+              border-radius .28s var(--spring);
+  box-shadow: 0 0 18px -4px var(--accent-soft);
+}
+.zeiger-ring.weg { opacity: 0; }
+
+/* Über etwas Anfassbarem: größer, gefüllt, sanft */
+.zeiger-ring.fasst {
+  width: 44px; height: 44px; margin: -22px 0 0 -22px;
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+/* Über Textfeldern: schmaler Balken statt Kreis */
+.zeiger-ring.schreibt {
+  width: 3px; height: 26px; margin: -13px 0 0 -1.5px;
+  border-radius: 2px;
+  background: var(--accent);
+  border-color: transparent;
+}
+.zeiger-ring.drueckt { border-color: var(--accent); background: var(--accent-soft); }
+
+.zeiger-punkt {
+  position: fixed; top: 0; left: 0; z-index: 1000;
+  width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: var(--accent);
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Arbeitet: ein Bogen kreist um den Zeiger */
+.zeiger-bogen {
+  position: absolute; inset: -7px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: var(--accent);
+  opacity: 0;
+  transition: opacity .3s var(--ease);
+}
+.zeiger-ring.arbeitet .zeiger-bogen { opacity: 1; animation: kreisen .9s linear infinite; }
+.zeiger-ring.arbeitet { border-style: dashed; }
+@keyframes kreisen { to { transform: rotate(360deg); } }
+
 /* ── Erwachen ── */
 .boot {
   position: fixed; inset: 0; z-index: 200;
@@ -487,6 +611,11 @@ input::placeholder, textarea::placeholder { color: var(--dimmer); }
   transition: clip-path .62s cubic-bezier(.7, 0, .3, 1), opacity .5s .12s var(--ease);
 }
 .boot.auf { clip-path: circle(0% at 50% 50%); opacity: 0; pointer-events: none; }
+
+/* Notbremse: Nach 4 Sekunden verschwindet der Vorhang auf jeden Fall —
+   auch wenn ein Zeitgeber im Hintergrund gedrosselt wurde. */
+.boot { animation: notaus 0s linear 4s forwards; }
+@keyframes notaus { to { opacity: 0; pointer-events: none; visibility: hidden; } }
 
 .boot-stage { position: relative; width: 260px; height: 90px; }
 .boot-stage > span { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
@@ -747,4 +876,6 @@ input::placeholder, textarea::placeholder { color: var(--dimmer); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  /* Der Zeiger darf trotzdem weich umschalten — sonst wirkt er kaputt */
+  .zeiger-ring { transition-duration: .18s !important; }
 }

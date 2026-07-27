@@ -10,6 +10,8 @@ import { t } from '../i18n.js'
 export default function Notch({
   busy,
   phase,
+  queue = 0,
+  warte,
   agents = [],
   liveOn,
   liveApp,
@@ -36,7 +38,7 @@ export default function Notch({
     }
   }, [lastNote])
 
-  const zustand = busy ? 'arbeit' : offen ? 'offen' : liveOn && lastNote ? 'live' : 'ruhe'
+  const zustand = warte ? 'warte' : busy ? 'arbeit' : offen ? 'offen' : liveOn && lastNote ? 'live' : 'ruhe'
 
   return (
     <div className="notch-rail">
@@ -61,6 +63,8 @@ export default function Notch({
           <span className="notch-text">
             {busy ? phase : liveOn && lastNote ? lastNote : liveOn ? t('live') : 'URAI'}
           </span>
+
+          {queue > 0 && <span className="notch-zahl">+{queue}</span>}
 
           {liveOn && !busy && <span className="rec" />}
 

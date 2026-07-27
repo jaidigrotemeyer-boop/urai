@@ -9,17 +9,32 @@ export default function Boot({ onDone }) {
   const [weg, setWeg] = useState(false)
 
   useEffect(() => {
+    const start = Date.now()
     const t1 = setTimeout(() => setWeg(true), 2000)
     const t2 = setTimeout(() => onDone?.(), 2600)
+
     const ueberspringen = () => {
       setWeg(true)
       setTimeout(() => onDone?.(), 400)
     }
+
+    // Im Hintergrund drosselt der Browser Zeitgeber. Kommt der Tab zurück und
+    // die Zeit ist längst um, wird sofort aufgeräumt — sonst klebt der Vorhang.
+    const aufwachen = () => {
+      if (document.visibilityState === 'visible' && Date.now() - start > 2400) {
+        setWeg(true)
+        onDone?.()
+      }
+    }
+    document.addEventListener('visibilitychange', aufwachen)
+
     window.addEventListener('keydown', ueberspringen, { once: true })
     window.addEventListener('pointerdown', ueberspringen, { once: true })
+
     return () => {
       clearTimeout(t1)
       clearTimeout(t2)
+      document.removeEventListener('visibilitychange', aufwachen)
       window.removeEventListener('keydown', ueberspringen)
       window.removeEventListener('pointerdown', ueberspringen)
     }
