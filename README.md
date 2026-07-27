@@ -68,6 +68,25 @@ Der Vault wird automatisch aus Obsidians eigener Liste gefunden.
 
 **Gedächtnis** — SQLite plus Vektoren, merkt sich Vorlieben und Projekt-Wissen über Sitzungen hinweg.
 
+## Notch-Fenster
+
+Unten im Chat auf **Notch-Fenster** tippen — oder direkt `localhost:3017/?hud=1`.
+
+Das ist nur die Kapsel: sie zeigt, was URAI gerade tut, wächst beim Arbeiten,
+hat Mikrofon und Eingabefeld. Klein halten und oben an den Bildschirmrand schieben,
+dann arbeitest du weiter und siehst nebenbei zu.
+
+Leertaste öffnet die Eingabe, Escape schließt sie.
+
+## Stimme
+
+Mikrofon-Knopf links vom Eingabefeld — reden statt tippen.
+Der Text erscheint live im Feld und wird abgeschickt, sobald du fertig bist.
+URAI liest seine Antwort vor; mit **Stimme aus** schaltest du das ab.
+
+Beides steckt im Browser (Chrome), kostet nichts und braucht keinen Schlüssel.
+Aufgenommen wird nichts — nur der erkannte Text.
+
 ## Auto-Modus
 
 Standard: **an**. URAI fragt nie, sondern macht. Auch Klicken, Tippen, Schreiben, Terminal.
