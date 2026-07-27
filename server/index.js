@@ -42,7 +42,7 @@ app.post('/api/config', (req, res) => {
   const allowed = [
     'geminiKey', 'cerebrasKey', 'groqKey', 'openrouterKey',
     'geminiModel', 'cerebrasModel', 'groqModel', 'openrouterModel', 'embedModel', 'brainOrder',
-    'autoApprove', 'autoMode', 'autoSummary', 'workspace', 'maxSteps',
+    'autoApprove', 'autoMode', 'autoSummary', 'workspace', 'maxSteps', 'language',
     'liveMode', 'liveIntervalMs', 'liveTalkGapMs', 'liveMaxPerHour',
     'obsidianVault', 'obsidianFolder', 'obsidianAuto',
     'maxAgentDepth', 'maxAgentsPerRun', 'agentSteps',
@@ -96,6 +96,10 @@ wss.on('connection', (ws) => {
     }
     if (msg.type === 'approval') return agent?.approve(msg.id, msg.ok, msg.always)
     if (msg.type === 'stop') return agent?.stop()
+    if (msg.type === 'lang') {
+      if (msg.code && msg.code !== loadConfig().language) saveConfig({ language: msg.code })
+      return
+    }
     if (msg.type === 'live') {
       const an = msg.on ?? !watcher.running
       an ? watcher.start() : watcher.stop()

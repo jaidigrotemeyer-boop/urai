@@ -6,7 +6,7 @@
 // der Text aber nicht. Dann schaut das Augen-Modell hin statt der Text-Erkennung.
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
-import { loadConfig } from './config.js'
+import { loadConfig, sprachName } from './config.js'
 import { capture, ocr, screenSize, frontContext } from './screen.js'
 import { look } from './brain.js'
 
@@ -140,7 +140,7 @@ export class LiveWatcher {
           ? `Der Nutzer ist gerade zu "${front.app}" gewechselt. Was macht er dort?`
           : 'Auf dem Bildschirm hat sich etwas geändert. Was ist neu?',
       '',
-      'Antworte in EINEM kurzen Satz, höchstens 15 Wörter, auf Deutsch.',
+      `Antworte in EINEM kurzen Satz, höchstens 15 Wörter, in ${sprachName()}.`,
       'Kein "Ich sehe", kein "Auf dem Bild". Einfach sagen, was los ist.',
       'Wiederhol dich nicht.',
       '',

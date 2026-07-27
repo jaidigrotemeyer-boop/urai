@@ -2,7 +2,7 @@
 // Gefährliche Werkzeuge fragen erst. Stopp-Knopf bricht sofort ab.
 import { chat } from './brain.js'
 import { TOOL_MAP, toolSchemas } from './tools/index.js'
-import { loadConfig, saveConfig } from './config.js'
+import { loadConfig, saveConfig, sprachName } from './config.js'
 import { logMessage, recall, history } from './memory.js'
 import { saveSession, addToIndex } from './obsidian.js'
 
@@ -54,8 +54,7 @@ Regeln:
 4. Ein Schritt nach dem anderen. Nach jedem Werkzeug schaust du auf das Ergebnis.
 5. Fehler ehrlich melden. Nichts erfinden, keine Ergebnisse behaupten die du nicht gesehen hast.
 6. Kurz antworten. Der Nutzer sieht deine Werkzeug-Schritte sowieso live.
-7. Antworte auf Deutsch, außer der Nutzer schreibt anders.
-8. Bist du fertig, sag klar was rauskam.`
+7. Bist du fertig, sag klar was rauskam.`
 
 /**
  * Kleine Modelle schicken gern Strings statt echter Werte: "false", "null", "3".
@@ -131,7 +130,7 @@ export class Agent {
     // Zähler für den ganzen Auftrag — alle Agenten teilen ihn sich
     this.run = run || { count: 0, log: [] }
     this.emit = depth === 0 ? emit : (msg) => emit({ ...msg, agent: name, depth })
-    this.messages = [{ role: 'system', content: SYSTEM }]
+    this.messages = [{ role: 'system', content: `${SYSTEM}\n\nSprich mit dem Nutzer in: ${sprachName()}.` }]
     this.pending = new Map()
     this.abort = null
     this.running = false
@@ -298,7 +297,7 @@ export class Agent {
         {
           role: 'system',
           content:
-            'Du fasst einen Agenten-Auftrag zusammen. Kurz, sachlich, auf Deutsch, in Markdown. Genau diese Abschnitte:\n' +
+            `Du fasst einen Agenten-Auftrag zusammen. Kurz, sachlich, in ${sprachName()}, in Markdown. Genau diese Abschnitte:\n` +
             '**Auftrag** — ein Satz.\n' +
             '**Gemacht** — Stichpunkte, was wirklich getan wurde (nur was in den Werkzeug-Ergebnissen steht).\n' +
             '**Ergebnis** — was dabei rauskam.\n' +

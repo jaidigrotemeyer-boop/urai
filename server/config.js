@@ -29,6 +29,7 @@ const DEFAULTS = {
   ],
   workspace: process.env.HOME,
   maxSteps: 24,
+  language: 'de', // Sprache für Antworten, Zusammenfassungen und Live-Notizen
   // Auto-Modus: nie fragen, einfach machen. Der Stopp-Knopf bleibt.
   autoMode: true,
   autoSummary: true,
@@ -52,6 +53,21 @@ const DEFAULTS = {
 }
 
 let cache = null
+
+const SPRACHNAMEN = {
+  de: 'Deutsch',
+  en: 'English',
+  es: 'español',
+  fr: 'français',
+  it: 'italiano',
+  pt: 'português',
+  tr: 'Türkçe',
+}
+
+/** Name der eingestellten Sprache, so wie ein Modell ihn versteht. */
+export function sprachName() {
+  return SPRACHNAMEN[loadConfig().language] || 'English'
+}
 
 export function loadConfig() {
   if (cache) return cache

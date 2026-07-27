@@ -2,20 +2,19 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Settings from './components/Settings.jsx'
 import Eye from './components/Eye.jsx'
 import Boot from './components/Boot.jsx'
+import Notch from './components/Notch.jsx'
+import { t, useSprache, sprache } from './i18n.js'
 
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 const SESSION = `s-${new Date().toISOString().slice(0, 10)}`
 
 export default function App() {
+  useSprache() // neu zeichnen, wenn die Sprache wechselt
+
   const [items, setItems] = useState([])
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
-  const [phase, setPhase] = useState('denkt')
-  const [live, setLive] = useState([]) // Agenten, die gerade arbeiten
-  const [liveOn, setLiveOn] = useState(false)
-  const [liveNotes, setLiveNotes] = useState([])
-  const [liveApp, setLiveApp] = useState('')
-  const [wach, setWach] = useState(false) // Boot-Animation vorbei?
+  const [phase, setPhase] = useState(t('thinking'))
   const [connected, setConnected] = useState(false)
   const [brain, setBrain] = useState(null)
   const [status, setStatus] = useState(null)
@@ -24,6 +23,11 @@ export default function App() {
   const [screen, setScreen] = useState(null)
   const [terminal, setTerminal] = useState('')
   const [installEvt, setInstallEvt] = useState(null)
+  const [live, setLive] = useState([])
+  const [liveOn, setLiveOn] = useState(false)
+  const [liveNotes, setLiveNotes] = useState([])
+  const [liveApp, setLiveApp] = useState('')
+  const [wach, setWach] = useState(false)
 
   const ws = useRef(null)
   const scroller = useRef(null)
@@ -51,7 +55,11 @@ export default function App() {
     const connect = () => {
       const sock = new WebSocket(WS_URL)
       ws.current = sock
-      sock.onopen = () => alive && setConnected(true)
+      sock.onopen = () => {
+        if (!alive) return
+        setConnected(true)
+        sock.send(JSON.stringify({ type: 'lang', code: sprache() }))
+      }
       sock.onclose = () => {
         if (!alive) return
         setConnected(false)
@@ -74,7 +82,6 @@ export default function App() {
     }
   }, [])
 
-  // ── PWA Installier-Knopf ──
   useEffect(() => {
     const onPrompt = (e) => {
       e.preventDefault()
@@ -93,7 +100,7 @@ export default function App() {
     switch (msg.type) {
       case 'thinking':
         setBusy(true)
-        setPhase(msg.agent ? `${msg.agent} denkt` : 'denkt')
+        setPhase(msg.agent ? `${msg.agent} ${t('working')}` : t('thinking'))
         streaming.current = false
         break
 
@@ -109,7 +116,8 @@ export default function App() {
           setItems((xs) => {
             const next = [...xs]
             const last = next[next.length - 1]
-            if (last?.kind === 'msg' && last.role === 'assistant') next[next.length - 1] = { ...last, text: last.text + msg.text }
+            if (last?.kind === 'msg' && last.role === 'assistant')
+              next[next.length - 1] = { ...last, text: last.text + msg.text }
             return next
           })
         }
@@ -118,14 +126,42 @@ export default function App() {
       case 'tool_start':
         streaming.current = false
         setPhase(msg.name)
-        push({ kind: 'step', name: msg.name, args: msg.args, state: 'run', result: '', agent: msg.agent, depth: msg.depth || 0 })
+        push({
+          kind: 'step',
+          name: msg.name,
+          args: msg.args,
+          state: 'run',
+          result: '',
+          agent: msg.agent,
+          depth: msg.depth || 0,
+        })
+        break
+
+      case 'tool_stream':
+        if (msg.kind === 'terminal') setTerminal((x) => (x + msg.data).slice(-40000))
+        if (msg.kind === 'screen') setScreen(msg.data)
+        break
+
+      case 'tool_end':
+        patchLast((x) => x.kind === 'step' && x.name === msg.name && x.state === 'run', {
+          state: msg.ok ? 'ok' : 'fail',
+          result: msg.result,
+        })
         break
 
       case 'agent_start':
         streaming.current = false
-        setPhase(`${msg.name} arbeitet`)
+        setPhase(`${msg.name} ${t('working')}`)
         setLive((xs) => [...xs, { name: msg.name, role: msg.role, depth: msg.depth }])
-        push({ kind: 'agent', name: msg.name, role: msg.role, parent: msg.parent, task: msg.task, depth: msg.depth, state: 'run' })
+        push({
+          kind: 'agent',
+          name: msg.name,
+          role: msg.role,
+          parent: msg.parent,
+          task: msg.task,
+          depth: msg.depth,
+          state: 'run',
+        })
         break
 
       case 'agent_end':
@@ -142,7 +178,10 @@ export default function App() {
         break
 
       case 'group_end':
-        patchLast((x) => x.kind === 'group' && x.name === msg.name && x.state === 'run', { state: 'ok', note: msg.note })
+        patchLast((x) => x.kind === 'group' && x.name === msg.name && x.state === 'run', {
+          state: 'ok',
+          note: msg.note,
+        })
         break
 
       case 'live_state':
@@ -163,12 +202,12 @@ export default function App() {
         break
 
       case 'obsidian':
-        push({ kind: 'note', text: `In Obsidian gespeichert: ${msg.note}` })
+        push({ kind: 'note', text: `${t('savedTo')}: ${msg.note}` })
         break
 
       case 'summarizing':
         streaming.current = false
-        setPhase('fasst zusammen')
+        setPhase(t('summarizing'))
         break
 
       case 'summary':
@@ -176,24 +215,8 @@ export default function App() {
         push({ kind: 'summary', text: msg.text })
         break
 
-      case 'tool_stream':
-        if (msg.kind === 'terminal') setTerminal((t) => (t + msg.data).slice(-40000))
-        if (msg.kind === 'screen') setScreen(msg.data)
-        break
-
-      case 'tool_end':
-        patchLast((x) => x.kind === 'step' && x.name === msg.name && x.state === 'run', {
-          state: msg.ok ? 'ok' : 'fail',
-          result: msg.result,
-        })
-        break
-
       case 'approval':
         push({ kind: 'approval', id: msg.id, tool: msg.tool, args: msg.args, open: true })
-        break
-
-      case 'screen':
-        setScreen(msg.data)
         break
 
       case 'done':
@@ -206,7 +229,7 @@ export default function App() {
         setBusy(false)
         setLive([])
         streaming.current = false
-        push({ kind: 'msg', role: 'error', text: 'Gestoppt.' })
+        push({ kind: 'msg', role: 'error', text: t('stopped') })
         break
 
       case 'error':
@@ -219,7 +242,6 @@ export default function App() {
       default:
         break
     }
-    // Bildschirmfoto kommt über tool_stream mit kind 'screen'
   }
 
   function send(override) {
@@ -228,104 +250,77 @@ export default function App() {
     push({ kind: 'msg', role: 'user', text })
     setDraft('')
     setBusy(true)
-    ws.current.send(JSON.stringify({ type: 'chat', session: SESSION, text }))
+    setPhase(t('thinking'))
+    ws.current.send(JSON.stringify({ type: 'chat', session: SESSION, text, lang: sprache() }))
   }
 
   function answerApproval(id, ok, always) {
     ws.current?.send(JSON.stringify({ type: 'approval', id, ok, always }))
-    patchLast((x) => x.kind === 'approval' && x.id === id, { open: false, answer: ok ? (always ? 'immer' : 'ja') : 'nein' })
+    patchLast((x) => x.kind === 'approval' && x.id === id, {
+      open: false,
+      answer: ok ? (always ? t('always') : t('yes')) : t('no'),
+    })
   }
 
-  const brainPill = useMemo(() => {
-    if (!connected) return { text: 'getrennt', cls: 'off' }
-    if (brain) return { text: brain, cls: 'live' }
+  const brainLabel = useMemo(() => {
+    if (!connected) return '—'
+    if (brain) return brain.split(' · ')[0]
     const s = status?.brain
-    if (!s) return { text: 'verbinde…', cls: '' }
-    if (s.chain?.length) return { text: `${s.chain[0]} bereit`, cls: 'live' }
-    return { text: 'kein Schlüssel', cls: 'off' }
+    if (!s) return t('loading')
+    return s.chain?.length ? `${s.chain[0]} ${t('ready')}` : t('noKey')
   }, [connected, brain, status])
+
+  const letzteNotiz = liveNotes.length ? liveNotes[liveNotes.length - 1].text : null
 
   return (
     <div className={`app ${wach ? 'wach' : ''}`}>
       {!wach && <Boot onDone={() => setWach(true)} />}
-      <header className="topbar">
-        <div className="logo">UR<span>AI</span></div>
-        <span className={`pill ${brainPill.cls}`}>{brainPill.text}</span>
-        <button
-          className={`pill livebtn ${liveOn ? 'on' : ''}`}
-          onClick={() => ws.current?.send(JSON.stringify({ type: 'live', on: !liveOn }))}
-          title={liveOn ? 'URAI guckt mit — klick zum Ausschalten' : 'Live-Mitgucken einschalten'}
-        >
-          <span className="rec" />
-          {liveOn ? `LIVE${liveApp ? ` · ${liveApp}` : ''}` : 'Live aus'}
-        </button>
-        {status?.config?.autoMode && <span className="pill live">Auto</span>}
-        <div className="spacer" />
-        {installEvt && (
-          <button
-            className="primary"
-            onClick={async () => {
-              installEvt.prompt()
-              await installEvt.userChoice
-              setInstallEvt(null)
-            }}
-          >
-            Installieren
-          </button>
-        )}
-        {busy && (
-          <button className="danger" onClick={() => ws.current?.send(JSON.stringify({ type: 'stop' }))}>
-            Stopp
-          </button>
-        )}
-        <button className="ghost" onClick={() => setShowEye((v) => !v)}>
-          Auge
-        </button>
-        <button className="ghost" onClick={() => setShowSettings(true)}>
-          Einstellungen
-        </button>
-      </header>
 
-      <div className={`beamwrap ${busy ? 'an' : ''}`}>
-        <div className="beam" />
-      </div>
+      <Notch
+        busy={busy}
+        phase={phase}
+        agents={live}
+        liveOn={liveOn}
+        liveApp={liveApp}
+        lastNote={letzteNotiz}
+        brain={brainLabel}
+        autoMode={status?.config?.autoMode}
+        onLive={() => ws.current?.send(JSON.stringify({ type: 'live', on: !liveOn }))}
+        onStop={() => ws.current?.send(JSON.stringify({ type: 'stop' }))}
+        onSettings={() => setShowSettings(true)}
+        onEye={() => setShowEye((v) => !v)}
+        onInstall={
+          installEvt
+            ? async () => {
+                installEvt.prompt()
+                await installEvt.userChoice
+                setInstallEvt(null)
+              }
+            : null
+        }
+      />
 
       <div className={`split ${showEye ? 'show-eye' : ''}`}>
         <section className="chat">
           <div className="messages" ref={scroller}>
             {items.length === 0 && (
               <div className="empty">
-                Bildschirm lesen · Dateien und Code · Web · Agenten-Gruppen
+                {t('emptyTitle')}
                 <br />
-                Alles automatisch, alles nach Obsidian.
+                {t('emptySub')}
               </div>
             )}
             {items.map((it) => (
               <Item key={it.key} item={it} onApprove={answerApproval} />
             ))}
-            {busy && (
-              <div className="thinking">
-                <span className="orb" />
-                {live.map((a) => (
-                  <span
-                    key={a.name}
-                    className="orb kid"
-                    title={`${a.name} · ${a.role}`}
-                    style={{ '--kid': Math.max(0.4, 1 - a.depth * 0.22) }}
-                  />
-                ))}
-                <span>{phase}</span>
-                {live.length > 0 && <span className="tail">{live.length} Agenten</span>}
-              </div>
-            )}
           </div>
 
           <div className="composer">
-            <div className="chips" style={{ marginBottom: 8 }}>
+            <div className="chips">
               {[
-                ['Bildschirm lesen', 'Lies meinen Bildschirm und sag mir kurz, was da steht und was ich gerade mache.'],
-                ['Hilf mir hier', 'Schau auf meinen Bildschirm und sag mir, was ich als Nächstes tun sollte.'],
-                ['Was ist offen?', 'Welche Apps laufen gerade und welche ist vorne?'],
+                [t('quickRead'), t('promptRead')],
+                [t('quickHelp'), t('promptHelp')],
+                [t('quickOpen'), t('promptOpen')],
               ].map(([label, prompt]) => (
                 <button key={label} className="chip" disabled={busy || !connected} onClick={() => send(prompt)}>
                   {label}
@@ -335,7 +330,7 @@ export default function App() {
             <div className="row">
               <textarea
                 value={draft}
-                placeholder="Was soll ich tun?"
+                placeholder={t('ask')}
                 rows={1}
                 onChange={(e) => {
                   setDraft(e.target.value)
@@ -350,14 +345,14 @@ export default function App() {
                 }}
               />
               <button className="primary" onClick={() => send()} disabled={!connected || busy || !draft.trim()}>
-                Los
+                {t('go')}
               </button>
             </div>
             <div className="hint">
-              <span>Enter = senden · Shift+Enter = neue Zeile</span>
-              {!status?.config?.hasGemini && (
-                <button className="ghost" style={{ padding: '2px 8px', fontSize: 11 }} onClick={() => setShowSettings(true)}>
-                  Gemini-Schlüssel fehlt
+              <span>{t('hintSend')}</span>
+              {status && !status.config?.hasGemini && (
+                <button className="linkish" onClick={() => setShowSettings(true)}>
+                  {t('keyMissing')}
                 </button>
               )}
             </div>
@@ -368,10 +363,7 @@ export default function App() {
       </div>
 
       {showSettings && (
-        <Settings
-          onClose={() => setShowSettings(false)}
-          onSaved={(cfg) => setStatus((s) => ({ ...s, config: cfg }))}
-        />
+        <Settings onClose={() => setShowSettings(false)} onSaved={(cfg) => setStatus((s) => ({ ...s, config: cfg }))} />
       )}
     </div>
   )
@@ -385,7 +377,7 @@ function Item({ item, onApprove }) {
   if (item.kind === 'summary') {
     return (
       <div className="summary">
-        <div className="summary-head">Zusammenfassung</div>
+        <div className="summary-head">{t('summary')}</div>
         <div className="summary-body">{item.text}</div>
       </div>
     )
@@ -396,12 +388,16 @@ function Item({ item, onApprove }) {
       <div className={`group ${item.state}`}>
         <div className="group-head">
           <span className="dot" />
-          <strong>Gruppe: {item.name}</strong>
+          <strong>
+            {t('group')}: {item.name}
+          </strong>
         </div>
         <div className="group-goal">{item.goal}</div>
         <div className="chips">
           {(item.members || []).map((m) => (
-            <span key={m} className="chip">{m}</span>
+            <span key={m} className="chip">
+              {m}
+            </span>
           ))}
         </div>
         {item.note && <div className="group-goal">Obsidian: {item.note}</div>}
@@ -416,9 +412,11 @@ function Item({ item, onApprove }) {
         <summary>
           <span className="dot" />
           <strong>{item.name}</strong>
-          <span className="tail">{item.role} · von {item.parent}</span>
+          <span className="tail">
+            {item.role} · {t('from')} {item.parent}
+          </span>
         </summary>
-        <pre>{`Auftrag:\n${item.task}\n\nErgebnis:\n${item.result || '…läuft'}`}</pre>
+        <pre>{`${t('task')}:\n${item.task}\n\n${t('result')}:\n${item.result || `…${t('running')}`}`}</pre>
       </details>
     )
   }
@@ -429,7 +427,10 @@ function Item({ item, onApprove }) {
       <details className={`step ${cls}`} style={item.depth ? { marginLeft: item.depth * 16 } : undefined}>
         <summary>
           <span className="dot" />
-          <strong>{item.agent ? `${item.agent} · ` : ''}{item.name}</strong>
+          <strong>
+            {item.agent ? `${item.agent} · ` : ''}
+            {item.name}
+          </strong>
           <span className="tail">{summarize(item.args)}</span>
         </summary>
         <pre>{item.result || '…'}</pre>
@@ -440,13 +441,19 @@ function Item({ item, onApprove }) {
   if (item.kind === 'approval') {
     return (
       <div className="approval">
-        <h4>Darf ich? · {item.tool}</h4>
+        <h4>
+          {t('allowQ')} · {item.tool}
+        </h4>
         <pre>{JSON.stringify(item.args, null, 2)}</pre>
         {item.open ? (
           <div className="row">
-            <button className="primary" onClick={() => onApprove(item.id, true)}>Ja</button>
-            <button onClick={() => onApprove(item.id, true, true)}>Immer erlauben</button>
-            <button className="danger" onClick={() => onApprove(item.id, false)}>Nein</button>
+            <button className="primary" onClick={() => onApprove(item.id, true)}>
+              {t('yes')}
+            </button>
+            <button onClick={() => onApprove(item.id, true, true)}>{t('always')}</button>
+            <button className="danger" onClick={() => onApprove(item.id, false)}>
+              {t('no')}
+            </button>
           </div>
         ) : (
           <span className="pill">{item.answer}</span>

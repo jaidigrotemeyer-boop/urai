@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { t, useSprache } from '../i18n.js'
 
 export default function Eye({ screen, terminal, status, liveNotes = [], liveOn }) {
+  useSprache()
   const [tab, setTab] = useState('screen')
   const feed = useRef(null)
 
@@ -18,10 +20,10 @@ export default function Eye({ screen, terminal, status, liveNotes = [], liveOn }
     <section className="eye">
       <div className="tabs">
         {[
-          ['screen', liveOn ? 'Live' : 'Bildschirm'],
-          ['feed', `Mitschrift${liveNotes.length ? ` · ${liveNotes.length}` : ''}`],
-          ['terminal', 'Terminal'],
-          ['brain', 'Gehirn'],
+          ['screen', liveOn ? t('live') : t('screen')],
+          ['feed', `${t('log')}${liveNotes.length ? ` · ${liveNotes.length}` : ''}`],
+          ['terminal', t('terminal')],
+          ['brain', t('brain')],
         ].map(([id, label]) => (
           <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
             {label}
@@ -34,24 +36,24 @@ export default function Eye({ screen, terminal, status, liveNotes = [], liveOn }
           (screen ? (
             <div className="livewrap">
               <img src={`data:image/png;base64,${screen}`} alt="Bildschirm" />
-              {liveOn && <span className="livebadge"><span className="rec" />live</span>}
+              {liveOn && <span className="livebadge"><span className="rec" />{t('live')}</span>}
               {liveNotes.length > 0 && <div className="lastnote">{liveNotes[liveNotes.length - 1].text}</div>}
             </div>
           ) : (
             <div className="empty">
-              {liveOn ? 'Erster Blick kommt gleich…' : 'Live ist aus.'}
+              {liveOn ? t('firstLook') : t('noShot')}
               <br />
-              Oben auf LIVE tippen zum Umschalten.
+              {t('liveHint')}
             </div>
           ))}
 
         {tab === 'feed' && (
           <div className="feed" ref={feed}>
-            {liveNotes.length === 0 && <div className="empty">Noch nichts gesehen.</div>}
+            {liveNotes.length === 0 && <div className="empty">{t('nothingSeen')}</div>}
             {liveNotes.map((n, i) => (
               <div key={i} className={`feedline ${n.err ? 'err' : ''} ${n.wichtig ? 'wichtig' : ''}`}>
                 <span className="feedtime">{uhr(n.t)}</span>
-                {n.wichtig && <span className="feedapp">gemerkt</span>}
+                {n.wichtig && <span className="feedapp">{t('kept')}</span>}
                 {n.app && !n.wichtig && <span className="feedapp">{n.app}</span>}
                 <span>{n.text}</span>
               </div>
@@ -59,7 +61,7 @@ export default function Eye({ screen, terminal, status, liveNotes = [], liveOn }
           </div>
         )}
 
-        {tab === 'terminal' && (terminal ? <pre>{terminal}</pre> : <div className="empty">Noch nichts gelaufen.</div>)}
+        {tab === 'terminal' && (terminal ? <pre>{terminal}</pre> : <div className="empty">{t('nothingRun')}</div>)}
 
         {tab === 'brain' && (
           <pre>

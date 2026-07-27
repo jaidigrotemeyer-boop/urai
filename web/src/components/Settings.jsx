@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
+import { t, SPRACHEN, sprache, setzeSprache, useSprache } from '../i18n.js'
 
 export default function Settings({ onClose, onSaved }) {
+  useSprache()
   const [cfg, setCfg] = useState(null)
   const [tools, setTools] = useState([])
   const [keys, setKeys] = useState({ geminiKey: '', cerebrasKey: '', groqKey: '', openrouterKey: '' })
@@ -26,6 +28,7 @@ export default function Settings({ onClose, onSaved }) {
       workspace: cfg.workspace,
       maxSteps: Number(cfg.maxSteps) || 24,
       embedModel: cfg.embedModel,
+      language: sprache(),
       autoApprove: cfg.autoApprove,
       autoMode: cfg.autoMode,
       autoSummary: cfg.autoSummary,
@@ -54,8 +57,27 @@ export default function Settings({ onClose, onSaved }) {
   return (
     <div className="sheet" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="sheet-card">
-        <h3>Einstellungen</h3>
-        <div className="sub">Alles bleibt auf diesem Rechner, in ~/urai/data/config.json</div>
+        <h3>{t('settings')}</h3>
+        <div className="sub">{t('setLocal')}</div>
+
+        <div className="field">
+          <label>{t('language')}</label>
+          <div className="chips">
+            {Object.entries(SPRACHEN).map(([code, name]) => (
+              <button
+                key={code}
+                className={`chip ${sprache() === code ? 'on' : ''}`}
+                onClick={() => {
+                  setzeSprache(code)
+                  setCfg({ ...cfg, language: code })
+                }}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          <div className="note">Gilt für die Oberfläche und für URAIs Antworten.</div>
+        </div>
 
         <div className="field">
           <label>
@@ -251,9 +273,9 @@ export default function Settings({ onClose, onSaved }) {
         </div>
 
         <div className="sheet-actions">
-          <button onClick={onClose}>Abbrechen</button>
+          <button onClick={onClose}>{t('cancel')}</button>
           <button className="primary" onClick={save} disabled={saving}>
-            {saving ? 'speichert…' : 'Speichern'}
+            {saving ? t('saving') : t('save')}
           </button>
         </div>
       </div>
