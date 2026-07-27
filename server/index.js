@@ -14,6 +14,7 @@ import { vaultPath, obsidianReady } from './obsidian.js'
 import { ROLLEN } from './crew.js'
 import { LiveWatcher, watchers } from './live.js'
 import { raeumeAuf } from './screen.js'
+import { elevenBereit, sprechen as elevenSprechen, stimmenListe } from './eleven.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PORT = Number(process.env.PORT || 3017)
@@ -41,6 +42,7 @@ app.get('/api/tools', (_req, res) => {
 app.post('/api/config', (req, res) => {
   const allowed = [
     'geminiKey', 'cerebrasKey', 'groqKey', 'openrouterKey',
+    'elevenKey', 'elevenVoice', 'elevenModel',
     'geminiModel', 'cerebrasModel', 'groqModel', 'openrouterModel', 'embedModel', 'brainOrder',
     'autoApprove', 'autoMode', 'autoSummary', 'workspace', 'maxSteps', 'language',
     'liveMode', 'liveIntervalMs', 'liveTalkGapMs', 'liveMaxPerHour',
@@ -52,6 +54,20 @@ app.post('/api/config', (req, res) => {
   saveConfig(patch)
   res.json(publicConfig())
 })
+
+// Stimme: der Browser schickt Text, bekommt fertiges MP3 zurück.
+// Der ElevenLabs-Schlüssel bleibt dabei hier und geht nie an die Seite.
+app.post('/api/speak', async (req, res) => {
+  if (!elevenBereit()) return res.status(400).json({ fehler: 'kein-schluessel' })
+  try {
+    const mp3 = await elevenSprechen(req.body?.text || '', { voice: req.body?.voice })
+    res.set('content-type', 'audio/mpeg').send(mp3)
+  } catch (err) {
+    res.status(502).json({ fehler: err.message })
+  }
+})
+
+app.get('/api/voices', async (_req, res) => res.json(await stimmenListe()))
 
 app.get('/api/sessions', (_req, res) => res.json(sessions()))
 app.get('/api/history/:session', (req, res) => res.json(history(req.params.session)))

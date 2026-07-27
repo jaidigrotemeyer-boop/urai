@@ -23,6 +23,10 @@ const DEFAULTS = {
   groqModel: 'llama-3.3-70b-versatile',
   openrouterModel: 'meta-llama/llama-3.3-70b-instruct:free',
   embedModel: 'text-embedding-004', // Gemini, fürs Gedächtnis
+  // ElevenLabs — echte Stimme. Leer = der Browser spricht selbst.
+  elevenKey: '',
+  elevenVoice: 'JBFqnCBsd6RMkjVDRZzb', // George, ruhig und klar
+  elevenModel: 'eleven_flash_v2_5', // schnell und mehrsprachig
   // Werkzeuge, die ohne Rückfrage laufen dürfen
   autoApprove: [
     'fs_read', 'fs_list', 'fs_search', 'fs_glob',
@@ -85,6 +89,7 @@ export function loadConfig() {
   if (process.env.CEREBRAS_API_KEY) cache.cerebrasKey = process.env.CEREBRAS_API_KEY
   if (process.env.GROQ_API_KEY) cache.groqKey = process.env.GROQ_API_KEY
   if (process.env.OPENROUTER_API_KEY) cache.openrouterKey = process.env.OPENROUTER_API_KEY
+  if (process.env.ELEVENLABS_API_KEY) cache.elevenKey = process.env.ELEVENLABS_API_KEY
   return cache
 }
 
@@ -106,6 +111,8 @@ export function publicConfig() {
     cerebrasKey: mask(c.cerebrasKey),
     groqKey: mask(c.groqKey),
     openrouterKey: mask(c.openrouterKey),
+    elevenKey: mask(c.elevenKey),
+    hasEleven: !!c.elevenKey,
     hasGemini: !!c.geminiKey,
     hasCerebras: !!c.cerebrasKey,
     hasGroq: !!c.groqKey,

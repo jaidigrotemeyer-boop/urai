@@ -87,6 +87,19 @@ URAI liest seine Antwort vor; mit **Stimme aus** schaltest du das ab.
 Beides steckt im Browser (Chrome), kostet nichts und braucht keinen Schlüssel.
 Aufgenommen wird nichts — nur der erkannte Text.
 
+### Echte Stimme (ElevenLabs)
+
+Die Browser-Stimme klingt blechern. Mit einem ElevenLabs-Schlüssel klingt URAI wie ein Mensch.
+
+Einstellungen → **ElevenLabs-Schlüssel** einfügen → Speichern.
+Dann **Stimmen holen**, eine aussuchen, **Anhören** zum Probieren.
+
+Der Schlüssel liegt in `data/config.json` auf dem Server. Die Seite bekommt ihn nie —
+sie schickt nur Text an `/api/speak` und bekommt fertiges MP3 zurück.
+
+Ohne Schlüssel spricht weiter der Browser. Geht ElevenLabs mal nicht, schaltet URAI
+von selbst zurück auf die Browser-Stimme.
+
 ### „Hey URAI"
 
 Schalter unten im Chat oder im Notch-Fenster. Dann lauscht URAI leise mit.

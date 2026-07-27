@@ -5,7 +5,9 @@ export default function Settings({ onClose, onSaved }) {
   useSprache()
   const [cfg, setCfg] = useState(null)
   const [tools, setTools] = useState([])
-  const [keys, setKeys] = useState({ geminiKey: '', cerebrasKey: '', groqKey: '', openrouterKey: '' })
+  const [keys, setKeys] = useState({ geminiKey: '', cerebrasKey: '', groqKey: '', openrouterKey: '', elevenKey: '' })
+  const [stimmen, setStimmen] = useState(null)
+  const [probeLaeuft, setProbeLaeuft] = useState(false)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -42,7 +44,9 @@ export default function Settings({ onClose, onSaved }) {
       maxAgentDepth: Number(cfg.maxAgentDepth) || 3,
       maxAgentsPerRun: Number(cfg.maxAgentsPerRun) || 12,
     }
-    for (const k of ['geminiKey', 'cerebrasKey', 'groqKey', 'openrouterKey']) if (keys[k].trim()) patch[k] = keys[k].trim()
+    patch.elevenVoice = cfg.elevenVoice
+    for (const k of ['geminiKey', 'cerebrasKey', 'groqKey', 'openrouterKey', 'elevenKey'])
+      if (keys[k].trim()) patch[k] = keys[k].trim()
     const res = await fetch('/api/config', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -166,6 +170,86 @@ export default function Settings({ onClose, onSaved }) {
           </div>
           <div className="note">Der Stopp-Knopf bricht auch im Auto-Modus sofort alles ab.</div>
         </div>
+
+        <div className="field">
+          <label>
+            ElevenLabs-Schlüssel — echte Stimme{' '}
+            {cfg.hasEleven && <span style={{ color: 'var(--accent)' }}>· gesetzt {cfg.elevenKey}</span>}
+          </label>
+          <input
+            type="password"
+            placeholder={cfg.hasEleven ? 'neuen Schlüssel eintippen zum Ersetzen' : 'sk_…'}
+            value={keys.elevenKey}
+            onChange={(e) => setKeys({ ...keys, elevenKey: e.target.value })}
+          />
+          <div className="note">
+            Ohne Schlüssel spricht der Browser selbst — kostet nichts, klingt aber blechern.
+            Schlüssel holen bei <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noreferrer">elevenlabs.io</a>.
+            Er bleibt auf dem Server und geht nie an diese Seite.
+          </div>
+        </div>
+
+        {cfg.hasEleven && (
+          <div className="field">
+            <label>Stimme</label>
+            <div className="chips">
+              <button
+                className="chip"
+                onClick={async () => {
+                  setStimmen('lade')
+                  const r = await fetch('/api/voices').then((x) => x.json())
+                  setStimmen(r.ok ? r.stimmen : [])
+                  if (!r.ok) alert(r.fehler)
+                }}
+              >
+                {stimmen === 'lade' ? 'lädt…' : 'Stimmen holen'}
+              </button>
+              <button
+                className="chip"
+                disabled={probeLaeuft}
+                onClick={async () => {
+                  setProbeLaeuft(true)
+                  try {
+                    const r = await fetch('/api/speak', {
+                      method: 'POST',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify({ text: 'Hallo, ich bin URAI.', voice: cfg.elevenVoice }),
+                    })
+                    if (!r.ok) throw new Error((await r.json()).fehler)
+                    new Audio(URL.createObjectURL(await r.blob())).play()
+                  } catch (e) {
+                    alert(e.message)
+                  }
+                  setProbeLaeuft(false)
+                }}
+              >
+                {probeLaeuft ? '…' : 'Anhören'}
+              </button>
+            </div>
+
+            {Array.isArray(stimmen) && stimmen.length > 0 && (
+              <div className="chips" style={{ marginTop: 8 }}>
+                {stimmen.map((s) => (
+                  <button
+                    key={s.id}
+                    className={`chip ${cfg.elevenVoice === s.id ? 'on' : ''}`}
+                    title={s.art}
+                    onClick={() => setCfg({ ...cfg, elevenVoice: s.id })}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <input
+              style={{ marginTop: 8 }}
+              value={cfg.elevenVoice || ''}
+              onChange={(e) => setCfg({ ...cfg, elevenVoice: e.target.value })}
+            />
+            <div className="note">Stimmen-Kennung. Über „Stimmen holen" bekommst du die Liste deines Kontos.</div>
+          </div>
+        )}
 
         <div className="field">
           <label>Live-Mitgucken</label>

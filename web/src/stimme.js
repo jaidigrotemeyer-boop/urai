@@ -52,8 +52,60 @@ export function hoeren({ onText, onEnde, onFehler }) {
   return { stop: () => r.stop() }
 }
 
-/** Vorlesen. Bricht ab, was vorher lief. */
-export function sprechen(text, { onEnde } = {}) {
+// ─────────────── Echte Stimme über den Server (ElevenLabs) ───────────────
+
+let echteStimme = null // null = noch nicht geprüft
+let laeuft = null // gerade spielendes Audio
+
+export async function pruefeEchteStimme() {
+  try {
+    const r = await fetch('/api/status')
+    const s = await r.json()
+    echteStimme = !!s.config?.hasEleven
+  } catch {
+    echteStimme = false
+  }
+  return echteStimme
+}
+
+/**
+ * Vorlesen. Nimmt die echte Stimme, wenn ein ElevenLabs-Schlüssel da ist,
+ * sonst die eingebaute Browser-Stimme.
+ */
+export async function sprechen(text, { onEnde } = {}) {
+  if (!text) return
+  if (echteStimme === null) await pruefeEchteStimme()
+
+  if (echteStimme) {
+    try {
+      still()
+      const r = await fetch('/api/speak', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text }),
+      })
+      if (!r.ok) throw new Error(String(r.status))
+      const blob = await r.blob()
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      laeuft = audio
+      audio.onended = () => {
+        URL.revokeObjectURL(url)
+        laeuft = null
+        onEnde?.()
+      }
+      await audio.play()
+      return
+    } catch {
+      // Ging nicht — dann eben die Browser-Stimme
+      echteStimme = false
+    }
+  }
+  browserSprechen(text, { onEnde })
+}
+
+/** Die eingebaute Stimme des Browsers. */
+function browserSprechen(text, { onEnde } = {}) {
   if (!kannSprechen() || !text) return
   const sauber = String(text)
     .replace(/```[\s\S]*?```/g, ' ')
@@ -85,6 +137,10 @@ export function sprechen(text, { onEnde } = {}) {
 
 export function still() {
   if (kannSprechen()) speechSynthesis.cancel()
+  if (laeuft) {
+    laeuft.pause()
+    laeuft = null
+  }
 }
 
 // ─────────────────────────── Weckwort ───────────────────────────
