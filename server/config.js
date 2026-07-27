@@ -16,6 +16,9 @@ const DEFAULTS = {
   brainOrder: ['gemini', 'cerebras', 'groq', 'openrouter'],
   // "latest" statt fester Version — Google nimmt alte Namen für neue Nutzer weg
   geminiModel: 'gemini-flash-latest',
+  // Flinkes Modell für Kleinkram: Zusammenfassungen, Live-Notizen, kurze Züge.
+  // Spart Zeit und Kontingent — das große Modell bleibt fürs Denken.
+  geminiFastModel: 'gemini-flash-lite-latest',
   cerebrasModel: 'zai-glm-4.7',
   groqModel: 'llama-3.3-70b-versatile',
   openrouterModel: 'meta-llama/llama-3.3-70b-instruct:free',

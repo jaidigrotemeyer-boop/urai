@@ -135,7 +135,11 @@ export async function brainStatus() {
  * @param {AbortSignal} o.signal
  * @returns {Promise<{text:string, toolCalls:Array, provider:string, model:string}>}
  */
-export async function chat({ messages, tools = [], onDelta = () => {}, signal, onWait = () => {} }) {
+/**
+ * @param {object}  o
+ * @param {boolean} o.flink  Kleinkram — nimm das schnelle, billige Modell
+ */
+export async function chat({ messages, tools = [], onDelta = () => {}, signal, onWait = () => {}, flink = false }) {
   const chain = providerChain()
   if (!chain.length) {
     throw new Error('Kein Schlüssel eingetragen. Einstellungen öffnen und einen Gratis-Schlüssel eintippen (Gemini, Groq oder OpenRouter).')
@@ -152,7 +156,7 @@ export async function chat({ messages, tools = [], onDelta = () => {}, signal, o
       try {
         const out =
           provider === 'gemini'
-            ? await geminiChat({ messages, tools, onDelta, signal })
+            ? await geminiChat({ messages, tools, onDelta, signal, model: flink ? loadConfig().geminiFastModel : undefined })
             : await openaiChat({ provider, messages, tools, onDelta, signal })
         kaputt.delete(provider)
         return out
@@ -375,7 +379,7 @@ async function openaiChat({ provider, messages, tools, onDelta, signal }) {
 // ─────────────────────────── Augen & Gedächtnis ───────────────────────────
 
 /** Bild anschauen. Braucht ein Gehirn, das Bilder kann — das ist Gemini. */
-export async function look({ imageBase64, question, signal, model }) {
+export async function look({ imageBase64, question, signal, model, flink = false }) {
   const c = loadConfig()
   if (!c.geminiKey) throw new Error('Bilder anschauen braucht einen Gemini-Schlüssel (gratis: aistudio.google.com/apikey).')
   const r = await geminiChat({
@@ -383,7 +387,7 @@ export async function look({ imageBase64, question, signal, model }) {
     tools: [],
     onDelta: () => {},
     signal,
-    model,
+    model: model || (flink ? c.geminiFastModel : undefined),
   })
   return r.text
 }

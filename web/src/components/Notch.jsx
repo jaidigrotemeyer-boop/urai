@@ -56,7 +56,7 @@ export default function Notch({
               key={a.name}
               className="eye kid"
               title={`${a.name} · ${a.role}`}
-              style={{ '--k': Math.max(0.42, 1 - a.depth * 0.2) }}
+              style={{ '--kid': Math.max(0.42, 1 - a.depth * 0.2) }}
             />
           ))}
 

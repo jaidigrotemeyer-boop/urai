@@ -24,9 +24,9 @@ export default function Aktivitaet({ tun, warte, schritt, tempo, queue, agents =
     <div className={`arbeit ${warte ? 'wartet' : ''}`}>
       <span className="arbeit-welle" />
 
-      <span className="eye" style={{ '--k': 0.85 }} />
+      <span className="eye" style={{ '--kid': 0.85 }} />
       {agents.map((a) => (
-        <span key={a.name} className="eye kid" style={{ '--k': Math.max(0.4, 1 - a.depth * 0.2) }} />
+        <span key={a.name} className="eye kid" style={{ '--kid': Math.max(0.4, 1 - a.depth * 0.2) }} />
       ))}
 
       <span className="arbeit-text">

@@ -112,6 +112,37 @@ function eindampfen(messages, frisch = 4) {
   })
 }
 
+// Diese Werkzeuge dürfen nie nebeneinander laufen: sie verändern etwas,
+// oder die Reihenfolge entscheidet (erst schauen, dann klicken).
+const NUR_NACHEINANDER = /^(fs_write|fs_edit|shell_run|mac_|self_|web_browse|agent_)/
+
+/**
+ * Werkzeug-Aufrufe in Gruppen schneiden, die gefahrlos gleichzeitig laufen.
+ * Reines Lesen und Suchen läuft parallel — das spart bei vier Aufrufen
+ * schnell mehrere Sekunden. Alles andere bleibt einzeln und in Reihenfolge.
+ */
+export function parallelisieren(calls) {
+  const gruppen = []
+  let aktuell = []
+  const angefasst = new Set()
+
+  for (const call of calls) {
+    const ziel = call.args?.path || call.args?.url || ''
+    const heikel = NUR_NACHEINANDER.test(call.name) || angefasst.has(ziel)
+    if (heikel) {
+      if (aktuell.length) gruppen.push(aktuell)
+      gruppen.push([call])
+      aktuell = []
+      angefasst.clear()
+    } else {
+      aktuell.push(call)
+      if (ziel) angefasst.add(ziel)
+    }
+  }
+  if (aktuell.length) gruppen.push(aktuell)
+  return gruppen
+}
+
 /** Erkennt hingetippte Pseudo-Werkzeug-Aufrufe wie {"name": "fs_list", "parameters": {…}}. */
 function looksLikeFakeToolCall(text) {
   if (!text) return false
@@ -237,10 +268,16 @@ export class Agent {
           return res.text
         }
 
-        for (const call of res.toolCalls) {
+        // Mehrere Werkzeuge in einem Zug laufen gleichzeitig — außer sie
+        // fassen dieselbe Datei an oder steuern den Mac, da wäre Chaos.
+        if (signal.aborted) throw new Error('Gestoppt.')
+        const gruppen = parallelisieren(res.toolCalls)
+        for (const gruppe of gruppen) {
           if (signal.aborted) throw new Error('Gestoppt.')
-          const out = await this.runTool(call, signal)
-          this.messages.push({ role: 'tool', toolCallId: call.id, name: call.name, content: out })
+          const ergebnisse = await Promise.all(gruppe.map((call) => this.runTool(call, signal)))
+          gruppe.forEach((call, i) => {
+            this.messages.push({ role: 'tool', toolCallId: call.id, name: call.name, content: ergebnisse[i] })
+          })
         }
         this.emit({ type: 'turn_end' })
       }
@@ -318,6 +355,7 @@ export class Agent {
       ],
       tools: [],
       signal,
+      flink: true, // Zusammenfassen ist Fleißarbeit, kein Denken
       onDelta: () => {},
     })
     return res.text?.trim() || null

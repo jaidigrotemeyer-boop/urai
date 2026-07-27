@@ -6,6 +6,7 @@ import Notch from './components/Notch.jsx'
 import Cursor from './components/Cursor.jsx'
 import Aktivitaet from './components/Aktivitaet.jsx'
 import { t, useSprache, sprache } from './i18n.js'
+import { hoeren, sprechen, still, kannHoeren } from './stimme.js'
 
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 const SESSION = `s-${new Date().toISOString().slice(0, 10)}`
@@ -35,6 +36,9 @@ export default function App() {
   const [queue, setQueue] = useState(0) // wie viele Aufträge warten
   const [tempo, setTempo] = useState(null) // Zeichen pro Sekunde
   const [schritt, setSchritt] = useState(null)
+  const [hoert, setHoert] = useState(false)
+  const [stimmeAn, setStimmeAn] = useState(() => localStorage.getItem('urai-stimme') !== 'aus')
+  const mikro = useRef(null)
 
   const ws = useRef(null)
   const scroller = useRef(null)
@@ -249,6 +253,7 @@ export default function App() {
         setWarte(null)
         setSchritt(null)
         streaming.current = false
+        if (stimmeAn && msg.text) sprechen(msg.text)
         break
 
       case 'stopped':
@@ -286,6 +291,32 @@ export default function App() {
       setPhase(t('thinking'))
     }
     ws.current.send(JSON.stringify({ type: 'chat', session: SESSION, text, lang: sprache() }))
+  }
+
+  /**
+   * Mikrofon: was du sagst, landet live im Feld. Am Ende geht es von selbst raus.
+   * Nichts wird aufgenommen oder gespeichert — nur der erkannte Text.
+   */
+  function zuhoeren() {
+    if (hoert) {
+      mikro.current?.stop()
+      return
+    }
+    still()
+    setHoert(true)
+    mikro.current = hoeren({
+      onText: (text) => setDraft(text),
+      onEnde: (text) => {
+        setHoert(false)
+        const fertig = (text || '').trim()
+        if (fertig.length > 2) send(fertig)
+        setDraft('')
+      },
+      onFehler: (f) => {
+        setHoert(false)
+        push({ kind: 'msg', role: 'error', text: f })
+      },
+    })
   }
 
   function answerApproval(id, ok, always) {
@@ -366,9 +397,19 @@ export default function App() {
               ))}
             </div>
             <div className="row">
+              {kannHoeren() && (
+                <button
+                  className={`mikro ${hoert ? 'an' : ''}`}
+                  title={t('speak')}
+                  onClick={zuhoeren}
+                  disabled={!connected}
+                >
+                  <span className="wellen"><i /><i /><i /><i /></span>
+                </button>
+              )}
               <textarea
                 value={draft}
-                placeholder={t('ask')}
+                placeholder={hoert ? `${t('listening')}…` : t('ask')}
                 rows={1}
                 onChange={(e) => {
                   setDraft(e.target.value)
@@ -388,6 +429,25 @@ export default function App() {
             </div>
             <div className="hint">
               <span>{t('hintSend')}</span>
+              <button
+                className="linkish"
+                onClick={() => {
+                  const neu = !stimmeAn
+                  setStimmeAn(neu)
+                  localStorage.setItem('urai-stimme', neu ? 'an' : 'aus')
+                  if (!neu) still()
+                }}
+              >
+                {t('voice')} {stimmeAn ? t('on') : t('off')}
+              </button>
+              <button
+                className="linkish"
+                onClick={() =>
+                  window.open('/?hud=1', 'urai-hud', 'width=560,height=190,alwaysOnTop=yes,menubar=no,toolbar=no')
+                }
+              >
+                {t('hud')}
+              </button>
               {status && !status.config?.hasGemini && (
                 <button className="linkish" onClick={() => setShowSettings(true)}>
                   {t('keyMissing')}

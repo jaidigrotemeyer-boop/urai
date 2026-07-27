@@ -159,6 +159,7 @@ export class LiveWatcher {
         imageBase64: shot.base64,
         question: frage,
         signal: AbortSignal.timeout(cfg.liveTimeoutMs),
+        flink: true, // Mitgucken läuft dauernd — das muss billig und schnell sein
       })
       this.strafe = 0 // ging gut, wieder normal weitermachen
       if (!antwort) return null
