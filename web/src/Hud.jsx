@@ -193,9 +193,9 @@ export default function Hud() {
     <div className={`hud is-${zustand}`}>
       <div className="hud-kapsel" onClick={() => !busy && setOffen((v) => !v)}>
         <div className="hud-kopf">
-          <span className="eye" />
+          <span className="orb" />
           {agents.map((a) => (
-            <span key={a.name} className="eye kid" style={{ '--kid': Math.max(0.42, 1 - a.depth * 0.2) }} />
+            <span key={a.name} className="orb kid" style={{ '--kid': Math.max(0.42, 1 - a.depth * 0.2) }} />
           ))}
 
           <span className="hud-text">

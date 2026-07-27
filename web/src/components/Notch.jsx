@@ -50,11 +50,11 @@ export default function Notch({
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && !busy && setOffen((v) => !v)}
       >
         <div className="notch-core">
-          <span className="eye" />
+          <span className="orb" />
           {agents.map((a) => (
             <span
               key={a.name}
-              className="eye kid"
+              className="orb kid"
               title={`${a.name} · ${a.role}`}
               style={{ '--kid': Math.max(0.42, 1 - a.depth * 0.2) }}
             />
