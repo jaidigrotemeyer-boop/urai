@@ -6,7 +6,7 @@ import Notch from './components/Notch.jsx'
 import Cursor from './components/Cursor.jsx'
 import Aktivitaet from './components/Aktivitaet.jsx'
 import { t, useSprache, sprache } from './i18n.js'
-import { hoeren, sprechen, still, kannHoeren } from './stimme.js'
+import { hoeren, sprechen, still, kannHoeren, weckwortHoeren } from './stimme.js'
 
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 const SESSION = `s-${new Date().toISOString().slice(0, 10)}`
@@ -38,7 +38,10 @@ export default function App() {
   const [schritt, setSchritt] = useState(null)
   const [hoert, setHoert] = useState(false)
   const [stimmeAn, setStimmeAn] = useState(() => localStorage.getItem('urai-stimme') !== 'aus')
+  const [weckAn, setWeckAn] = useState(() => localStorage.getItem('urai-weckwort') === 'an')
+  const [geweckt, setGeweckt] = useState(false) // Weckwort gehört, wartet auf den Befehl
   const mikro = useRef(null)
+  const weck = useRef(null)
 
   const ws = useRef(null)
   const scroller = useRef(null)
@@ -106,6 +109,27 @@ export default function App() {
     const el = scroller.current
     if (el) el.scrollTop = el.scrollHeight
   }, [items])
+
+  // Weckwort: lauscht leise mit, bis jemand "Hey URAI" sagt
+  useEffect(() => {
+    if (!weckAn || !kannHoeren()) return
+    weck.current = weckwortHoeren({
+      onWach: () => setGeweckt(true),
+      onStatus: (text) => setDraft(text),
+      onBefehl: (text) => {
+        setGeweckt(false)
+        setDraft('')
+        send(text)
+      },
+      onFehler: (f) => {
+        setGeweckt(false)
+        setWeckAn(false)
+        localStorage.setItem('urai-weckwort', 'aus')
+        push({ kind: 'msg', role: 'error', text: f })
+      },
+    })
+    return () => weck.current?.stop()
+  }, [weckAn])
 
   function handle(msg) {
     switch (msg.type) {
@@ -399,7 +423,7 @@ export default function App() {
             <div className="row">
               {kannHoeren() && (
                 <button
-                  className={`mikro ${hoert ? 'an' : ''}`}
+                  className={`mikro ${hoert || geweckt ? 'an' : ''}`}
                   title={t('speak')}
                   onClick={zuhoeren}
                   disabled={!connected}
@@ -409,7 +433,7 @@ export default function App() {
               )}
               <textarea
                 value={draft}
-                placeholder={hoert ? `${t('listening')}…` : t('ask')}
+                placeholder={hoert || geweckt ? `${t('listening')}…` : t('ask')}
                 rows={1}
                 onChange={(e) => {
                   setDraft(e.target.value)
@@ -440,6 +464,22 @@ export default function App() {
               >
                 {t('voice')} {stimmeAn ? t('on') : t('off')}
               </button>
+              {kannHoeren() && (
+                <button
+                  className={`linkish ${weckAn ? 'an' : ''}`}
+                  onClick={() => {
+                    const neu = !weckAn
+                    setWeckAn(neu)
+                    localStorage.setItem('urai-weckwort', neu ? 'an' : 'aus')
+                    if (!neu) {
+                      weck.current?.stop()
+                      setGeweckt(false)
+                    }
+                  }}
+                >
+                  „Hey URAI" {weckAn ? t('on') : t('off')}
+                </button>
+              )}
               <button
                 className="linkish"
                 onClick={() =>

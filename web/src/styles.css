@@ -576,6 +576,17 @@ input::placeholder, textarea::placeholder { color: var(--dimmer); }
 .hud.is-warte .hud-kapsel { border-color: rgba(255, 192, 107, .4); }
 .hud.is-antwort .hud-kapsel { border-color: var(--accent-line); box-shadow: 0 18px 60px -22px var(--accent); }
 
+/* Geweckt: die Kapsel atmet, während sie auf den Befehl wartet */
+.hud.is-wach .hud-kapsel {
+  border-color: var(--accent);
+  animation: hudRein .65s var(--spring) both, atmen 1.7s var(--ease) infinite;
+}
+.hud.is-wach .hud-text { color: var(--text); }
+@keyframes atmen {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft), 0 18px 50px -18px rgba(0,0,0,.8); }
+  50% { box-shadow: 0 0 0 7px transparent, 0 18px 50px -18px rgba(0,0,0,.8); }
+}
+
 /* Der Bauch wächst mit dem Inhalt — kein Sprung, ein Fließen */
 .hud-bauch {
   display: grid;
@@ -808,6 +819,7 @@ body.hat-zeiger * { cursor: none !important; }
   border: 1px solid var(--line-soft); border-radius: 99px; background: transparent;
 }
 .linkish:hover { color: var(--text); border-color: var(--line); }
+.linkish.an { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {

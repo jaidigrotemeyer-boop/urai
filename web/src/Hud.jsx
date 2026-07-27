@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { t, sprache, useSprache } from './i18n.js'
-import { hoeren, sprechen, still, kannHoeren } from './stimme.js'
+import { hoeren, sprechen, still, kannHoeren, weckwortHoeren } from './stimme.js'
 
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 const SESSION = `s-${new Date().toISOString().slice(0, 10)}`
@@ -29,6 +29,10 @@ export default function Hud() {
 
   const [hoert, setHoert] = useState(false)
   const [stimmeAn, setStimmeAn] = useState(() => localStorage.getItem('urai-stimme') !== 'aus')
+  const [weckAn, setWeckAn] = useState(() => localStorage.getItem('urai-weckwort') === 'an')
+  const [wach, setWach] = useState(false)
+  const [gehoert, setGehoert] = useState('')
+  const weck = useRef(null)
 
   const ws = useRef(null)
   const feld = useRef(null)
@@ -64,6 +68,32 @@ export default function Hud() {
       },
     })
   }
+
+  // Weckwort: lauscht im Hintergrund, bis jemand "Hey URAI" sagt
+  useEffect(() => {
+    if (!weckAn || !kannHoeren()) return
+    weck.current = weckwortHoeren({
+      onWach: () => {
+        setWach(true)
+        setGehoert('')
+      },
+      onStatus: (text) => setGehoert(text),
+      onBefehl: (text) => {
+        setWach(false)
+        setGehoert('')
+        ws.current?.send(JSON.stringify({ type: 'chat', session: SESSION, text, lang: sprache() }))
+        setBusy(true)
+        setTun({ satz: t('thinking'), seit: Date.now() })
+      },
+      onFehler: (f) => {
+        setWach(false)
+        setAntwort(f)
+        setWeckAn(false)
+        localStorage.setItem('urai-weckwort', 'aus')
+      },
+    })
+    return () => weck.current?.stop()
+  }, [weckAn])
 
   useEffect(() => {
     let lebt = true
@@ -176,18 +206,32 @@ export default function Hud() {
     setTun({ satz: t('thinking'), seit: Date.now() })
   }
 
-  const zustand = warte ? 'warte' : busy ? 'arbeit' : offen ? 'offen' : antwort ? 'antwort' : liveOn ? 'live' : 'ruhe'
+  const zustand = wach
+    ? 'wach'
+    : warte
+      ? 'warte'
+      : busy
+        ? 'arbeit'
+        : offen
+          ? 'offen'
+          : antwort
+            ? 'antwort'
+            : liveOn
+              ? 'live'
+              : 'ruhe'
 
   const kopfzeile =
-    zustand === 'arbeit' || zustand === 'warte'
-      ? tun?.verb
-        ? [tun.verb, tun.ziel]
-        : [tun?.satz, '']
-      : zustand === 'antwort'
-        ? [antwort?.split('\n')[0].slice(0, 90), '']
-        : zustand === 'live'
-          ? [note || t('live'), '']
-          : ['URAI', '']
+    zustand === 'wach'
+      ? [gehoert || `${t('listening')}…`, '']
+      : zustand === 'arbeit' || zustand === 'warte'
+        ? tun?.verb
+          ? [tun.verb, tun.ziel]
+          : [tun?.satz, '']
+        : zustand === 'antwort'
+          ? [antwort?.split('\n')[0].slice(0, 90), '']
+          : zustand === 'live'
+            ? [note || t('live'), '']
+            : ['URAI', '']
 
   return (
     <div className={`hud is-${zustand}`}>
@@ -275,6 +319,23 @@ export default function Hud() {
                 >
                   {t('voice')} {stimmeAn ? t('on') : t('off')}
                 </button>
+                {kannHoeren() && (
+                  <button
+                    className={weckAn ? 'an' : ''}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const neu = !weckAn
+                      setWeckAn(neu)
+                      localStorage.setItem('urai-weckwort', neu ? 'an' : 'aus')
+                      if (!neu) {
+                        weck.current?.stop()
+                        setWach(false)
+                      }
+                    }}
+                  >
+                    „Hey URAI" {weckAn ? t('on') : t('off')}
+                  </button>
+                )}
                 {liveApp && <span className="hud-app">{liveApp}</span>}
               </div>
             )}
