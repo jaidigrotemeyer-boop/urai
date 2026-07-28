@@ -7,7 +7,7 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import { loadConfig, sprachName } from './config.js'
-import { capture, ocr, screenSize, frontContext } from './screen.js'
+import { capture, ocr, screenSize, frontContext, eigeneFenster, ohneEigene } from './screen.js'
 import { look } from './brain.js'
 
 const hash = (s) => crypto.createHash('sha1').update(s).digest('hex').slice(0, 16)
@@ -83,6 +83,10 @@ export class LiveWatcher {
         await fs.unlink(shot.file).catch(() => {})
       }
 
+      // Sein eigenes Fenster ignorieren. Sonst merkt er sich seine eigenen
+      // Meldungen und kommentiert sich selbst.
+      lines = ohneEigene(lines, await eigeneFenster().catch(() => []))
+
       const text = lines.map((l) => l.text).join(' ')
       const textHash = hash(text)
       const front = await frontContext().catch(() => ({}))
@@ -144,10 +148,15 @@ export class LiveWatcher {
       'Kein "Ich sehe", kein "Auf dem Bild". Einfach sagen, was los ist.',
       'Wiederhol dich nicht.',
       '',
-      'Ist etwas dabei, das man sich WIRKLICH merken sollte — ein Ergebnis, eine Entscheidung,',
-      'ein Termin, eine Zahl, ein Fehler, eine Zusage —, dann hänge eine zweite Zeile an:',
+      'Ist etwas dabei, das der NUTZER sich merken sollte — ein Ergebnis seiner Arbeit,',
+      'eine Entscheidung, ein Termin, eine Zahl, eine Zusage —, dann hänge eine zweite Zeile an:',
       'WICHTIG: <die Sache in einem Satz>',
-      'Alltägliches (Scrollen, Tippen, Fenster wechseln) ist NICHT wichtig. Im Zweifel weglassen.',
+      '',
+      'NICHT wichtig und niemals merken:',
+      '- Alltägliches: Scrollen, Tippen, Fenster wechseln, Laden',
+      '- Fehlermeldungen von Programmen, Verbindungsprobleme, Absturzmeldungen',
+      '- alles, was mit URAI selbst zu tun hat',
+      'Im Zweifel weglassen. Lieber gar nichts merken als Müll.',
       vorher ? `\nWas du eben schon gesagt hast:\n${vorher}` : '',
       !bewegtbild && text ? `\nText auf dem Bildschirm:\n${text.slice(0, 1500)}` : '',
     ]
@@ -193,6 +202,12 @@ export class LiveWatcher {
    */
   async merken(satz, app) {
     if (!loadConfig().liveRemember) return
+
+    // Technischer Krimskrams gehört nicht ins Gedächtnis
+    const muell =
+      /\b(mcp|server|connection|verbindung|fehlgeschlagen|failed|error|fehler|could not|konnte nicht|timeout|crash|absturz|urai)\b/i
+    if (muell.test(satz)) return
+
     const schon = this.gemerkt.some((g) => aehnlich(g, satz))
     if (schon) return
     this.gemerkt.push(satz)
