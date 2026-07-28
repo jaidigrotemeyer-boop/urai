@@ -99,6 +99,61 @@ export async function readNote(relPath) {
   return fs.readFile(abs, 'utf8')
 }
 
+/** Alle Notiz-Titel im URAI-Ordner — Grundlage fürs Verlinken. */
+async function titelListe() {
+  const out = []
+  async function walk(dir, tiefe = 0) {
+    if (tiefe > 3 || out.length > 800) return
+    let ents = []
+    try {
+      ents = await fs.readdir(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of ents) {
+      if (e.name.startsWith('.')) continue
+      const p = path.join(dir, e.name)
+      if (e.isDirectory()) await walk(p, tiefe + 1)
+      else if (e.name.endsWith('.md')) out.push(path.basename(e.name, '.md'))
+    }
+  }
+  await walk(root()).catch(() => {})
+  return out
+}
+
+/**
+ * Kommt ein vorhandener Notiz-Titel im Text vor, wird daraus eine Verknüpfung.
+ * So wächst der Vault von selbst zusammen, statt aus einzelnen Zetteln zu bestehen.
+ */
+export async function verknuepfen(text, { ausser = '' } = {}) {
+  if (!text) return text
+  let titel = []
+  try {
+    titel = await titelListe()
+  } catch {
+    return text
+  }
+
+  // Lange Titel zuerst, sonst zerschneidet ein kurzer den längeren
+  const kandidaten = titel
+    .filter((tt) => tt.length >= 5 && tt !== ausser && !/^\d{4}-\d{2}-\d{2}/.test(tt))
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 120)
+
+  let out = text
+  const schonVerlinkt = new Set()
+  for (const tt of kandidaten) {
+    if (schonVerlinkt.size >= 12) break
+    if (out.includes(`[[${tt}`)) continue
+    const re = new RegExp(`(?<!\\[\\[)\\b${tt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b(?!\\]\\])`, 'i')
+    if (re.test(out)) {
+      out = out.replace(re, `[[${tt}]]`)
+      schonVerlinkt.add(tt)
+    }
+  }
+  return out
+}
+
 export async function searchVault(query, limit = 25) {
   const v = vaultPath()
   const q = query.toLowerCase()
@@ -150,27 +205,41 @@ export async function saveSession(session, entries, extra = {}, summary = null, 
   const title = `${s.date} ${s.time} – ${safeName(first.slice(0, 50))}`
   const verlauf = entries
     .map((e) => {
-      const who = { user: '🧑 Du', assistant: '🤖 URAI', tool: '🔧 Werkzeug' }[e.role] || e.role
-      return `### ${who}\n\n${e.content}\n`
+      const wer = { user: 'Du', assistant: 'URAI', tool: 'Werkzeug' }[e.role] || e.role
+      return `**${wer}**\n${e.content}\n`
     })
     .join('\n')
+
+  // Agenten und Gruppen aus diesem Auftrag verlinken, damit die Notizen
+  // nicht nebeneinander liegen, sondern aufeinander zeigen
+  const verwandte = (extra.notizen || []).filter(Boolean)
+  const siehe = verwandte.length
+    ? `\n## Dabei entstanden\n\n${verwandte.map((n) => `- [[${path.basename(n, '.md')}]]`).join('\n')}\n`
+    : ''
+
+  const kopf = summary
+    ? await verknuepfen(summary, { ausser: title })
+    : `Am ${s.date} um ${s.time.slice(0, 2)}:${s.time.slice(2)} Uhr ging es um: ${first.slice(0, 120)}`
+
   const body = [
-    `# ${title}`,
+    `# ${first.slice(0, 80)}`,
     '',
-    summary ? `## Zusammenfassung\n\n${summary}\n` : '',
-    '## Verlauf',
+    kopf,
+    siehe,
+    '## Wie es lief',
     '',
     verlauf,
   ]
     .filter(Boolean)
     .join('\n')
 
+  const { notizen, ...rest } = extra
   return writeNote('session', title, body, {
     typ: 'urai-sitzung',
     sitzung: session,
     aktualisiert: s.iso,
     tags: ['urai', 'sitzung'],
-    ...extra,
+    ...rest,
   })
 }
 
@@ -213,24 +282,30 @@ export async function saveAgentRun({ name, role, task, result, parent, tools = [
   if (!obsidianReady() || !loadConfig().obsidianAuto) return null
   const s = stamp()
   const title = `${s.date} ${s.time} – ${safeName(name)}`
+
+  const einleitung = group
+    ? `${name} war als ${role} in der Gruppe [[${s.date} ${s.time} – ${safeName(group)}|${group}]] unterwegs.`
+    : parent
+      ? `${name} wurde von ${parent} losgeschickt und hat als ${role} gearbeitet.`
+      : `${name} hat als ${role} gearbeitet.`
+
   const body = [
     `# ${name}`,
     '',
-    `**Rolle:** ${role}`,
-    parent ? `**Erschaffen von:** ${parent}` : '**Erschaffen von:** Nutzer',
-    group ? `**Gruppe:** [[${group}]]` : '',
-    tools.length ? `**Werkzeuge:** ${tools.join(', ')}` : '',
+    einleitung,
     '',
-    '## Auftrag',
+    '## Was zu tun war',
     '',
     task,
     '',
-    '## Ergebnis',
+    '## Was dabei herauskam',
     '',
-    result || '(kein Ergebnis)',
+    await verknuepfen(result || '_Kein Ergebnis._', { ausser: title }),
+    tools.length ? `\n---\n\nGenutzte Werkzeuge: ${tools.join(', ')}` : '',
   ]
     .filter(Boolean)
     .join('\n')
+
   return writeNote('agent', title, body, {
     typ: 'urai-agent',
     agent: name,
@@ -248,17 +323,17 @@ export async function saveGroup({ name, goal, members, result }) {
   const s = stamp()
   const title = `${s.date} ${s.time} – ${safeName(name)}`
   const body = [
-    `# Gruppe: ${name}`,
+    `# ${name}`,
     '',
-    `**Ziel:** ${goal}`,
+    `Eine Gruppe aus ${members.length} Agenten hat zusammen daran gearbeitet: ${goal}`,
     '',
-    '## Mitglieder',
+    '## Wer was gemacht hat',
     '',
-    ...members.map((m) => `- **${m.name}** (${m.role}) — ${m.task}`),
+    ...members.map((m) => `- **${m.name}** als ${m.role} — ${m.task}`),
     '',
-    '## Gemeinsames Ergebnis',
+    '## Was dabei herauskam',
     '',
-    result || '(offen)',
+    await verknuepfen(result || '_Noch offen._', { ausser: title }),
   ].join('\n')
   return writeNote('group', title, body, {
     typ: 'urai-gruppe',
@@ -275,7 +350,8 @@ export async function saveKnowledge(text, kind = 'note') {
   if (!obsidianReady() || !loadConfig().obsidianAuto) return null
   const s = stamp()
   const title = safeName(text.split('\n')[0].slice(0, 60))
-  return appendNote('knowledge', title, `\n- ${text}  \n  <small>${s.date} ${s.time}</small>\n`, {
+  const verlinkt = await verknuepfen(text, { ausser: title })
+  return appendNote('knowledge', title, `\n${verlinkt}  \n*Notiert am ${s.date} um ${s.time.slice(0, 2)}:${s.time.slice(2)} Uhr.*\n`, {
     typ: 'urai-wissen',
     art: kind,
     tags: ['urai', 'wissen'],

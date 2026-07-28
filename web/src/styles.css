@@ -957,6 +957,36 @@ body.hat-zeiger * { cursor: none !important; }
 
 .sheet-card h3 { margin: 0 0 3px; font-size: 17px; }
 .sheet-card .sub { color: var(--dim); font-size: 12px; margin-bottom: 20px; }
+/* Einstellungen in aufklappbaren Abschnitten — sonst ist die Liste endlos */
+.abschnitt { border-top: 1px solid var(--line-soft); }
+.abschnitt:first-of-type { border-top: none; }
+.abschnitt > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 13px 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: color .2s var(--ease);
+}
+.abschnitt > summary::-webkit-details-marker { display: none; }
+.abschnitt > summary::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform .3s var(--spring);
+}
+.abschnitt[open] > summary { color: var(--accent); }
+.abschnitt[open] > summary::before { transform: rotate(45deg); }
+.abschnitt[open] > .field:last-child { margin-bottom: 14px; }
+
 .field { margin-bottom: 16px; }
 .field label { display: block; font-size: 11.5px; color: var(--dim); margin-bottom: 6px; }
 .field .note { font-size: 11px; color: var(--dimmer); margin-top: 5px; }

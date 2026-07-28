@@ -1,11 +1,22 @@
 // Kraft 3: Computer sehen und steuern (macOS).
 // Sehen = OCR (Apple Vision) + Bedienhilfen-Baum + Bild-Modell.
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import fs from 'node:fs/promises'
 import fssync from 'node:fs'
 import { look } from '../brain.js'
-import { capture, ocr, osa, screenSize, frontContext, uiElements, findText, report } from '../screen.js'
+import {
+  capture,
+  ocr,
+  osa,
+  screenSize,
+  frontContext,
+  uiElements,
+  findText,
+  report,
+  eigeneFenster,
+  ohneEigene,
+} from '../screen.js'
 
 const pexec = promisify(execFile)
 const CLICLICK = ['/opt/homebrew/bin/cliclick', '/usr/local/bin/cliclick'].find((p) => fssync.existsSync(p))
@@ -21,28 +32,36 @@ async function lookAtScreen({ withVision, question, emit } = {}) {
   let lines = []
   let front = {}
   let ui = { items: [] }
+  let eigen = []
   try {
-    ;[lines, front, ui] = await Promise.all([
+    ;[lines, front, ui, eigen] = await Promise.all([
       ocr(shot.file, size).catch(() => []),
       frontContext().catch(() => ({})),
       uiElements().catch(() => ({ items: [] })),
+      eigeneFenster().catch(() => []),
     ])
   } finally {
     // Bild verstanden → Bild weg. Es bleibt nur Text übrig.
     await fs.unlink(shot.file).catch(() => {})
   }
 
+  // Sein eigenes Fenster interessiert ihn nicht — es steht ja nur sein
+  // eigener Chat drin. Weg damit, sonst liest er sich selbst vor.
+  const vorher = lines.length
+  lines = ohneEigene(lines, eigen)
+  const selbstWeg = vorher - lines.length
+
   lastLook = { lines, at: Date.now(), size }
 
-  let note
+  let note = selbstWeg > 5 ? `(${selbstWeg} Zeilen aus dem eigenen URAI-Fenster übersprungen)` : undefined
   if (withVision) {
     try {
-      note = `\nAugen-Modell sagt: ${await look({
+      note = `${note ? note + '\n' : ''}Augen-Modell sagt: ${await look({
         imageBase64: shot.base64,
         question: question || 'Beschreibe knapp, was auf diesem Bildschirm zu sehen ist und was der Nutzer gerade tut.',
       })}`
     } catch (err) {
-      note = `\n(Augen-Modell nicht erreichbar: ${err.message})`
+      note = `${note ? note + '\n' : ''}(Augen-Modell nicht erreichbar: ${err.message})`
     }
   }
   return { size, lines, front, ui, text: report({ size, front, lines, ui, note }) }
@@ -186,13 +205,183 @@ export const computerTools = [
   },
   {
     name: 'mac_type',
-    description: 'Text tippen, ins Fenster das gerade vorne ist.',
-    parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
+    description:
+      'Text tippen, ins Fenster das gerade vorne ist. Umlaute, Zeilenumbrüche und langer Text ' +
+      'gehen über die Zwischenablage — das ist zuverlässiger als Zeichen für Zeichen.',
+    parameters: {
+      type: 'object',
+      properties: {
+        text: { type: 'string' },
+        langsam: { type: 'boolean', description: 'Wirklich Taste für Taste tippen (für Felder, die Einfügen sperren)' },
+      },
+      required: ['text'],
+    },
     danger: true,
-    async run({ text }) {
+    async run({ text, langsam = false }) {
+      const heikel = /[^\x20-\x7E]/.test(text) || text.length > 60 || text.includes('\n')
+
+      if (!langsam && heikel) {
+        // Über die Zwischenablage: schnell, und Umlaute kommen richtig an
+        const alt = await pexec('pbpaste', [], { maxBuffer: 4 * 1024 * 1024 })
+          .then((r) => r.stdout)
+          .catch(() => null)
+
+        await new Promise((fertig, schief) => {
+          const p = spawn('pbcopy')
+          p.on('error', schief)
+          p.on('close', () => fertig())
+          p.stdin.end(text)
+        })
+
+        await osa('tell application "System Events" to keystroke "v" using {command down}')
+        await new Promise((r) => setTimeout(r, 250))
+
+        // Zwischenablage zurückgeben, wie sie war
+        if (alt !== null) {
+          await new Promise((fertig) => {
+            const p = spawn('pbcopy')
+            p.on('close', fertig)
+            p.on('error', fertig)
+            p.stdin.end(alt)
+          })
+        }
+        return `Eingefügt (${text.length} Zeichen): ${text.slice(0, 60)}${text.length > 60 ? '…' : ''}`
+      }
+
       const esc = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
       await osa(`tell application "System Events" to keystroke "${esc}"`)
       return `Getippt: ${text.slice(0, 80)}`
+    },
+  },
+  {
+    name: 'mac_drag',
+    description: 'Von einer Stelle zur anderen ziehen — Dateien, Regler, Fenster, Auswahlrahmen.',
+    parameters: {
+      type: 'object',
+      properties: {
+        von_x: { type: 'number' },
+        von_y: { type: 'number' },
+        nach_x: { type: 'number' },
+        nach_y: { type: 'number' },
+      },
+      required: ['von_x', 'von_y', 'nach_x', 'nach_y'],
+    },
+    danger: true,
+    async run({ von_x, von_y, nach_x, nach_y }) {
+      const r = (n) => Math.round(n)
+      if (!CLICLICK) throw new Error('Ziehen braucht cliclick: brew install cliclick')
+      // Erst hin, drücken, in Schritten rüber, loslassen — sonst merkt macOS das Ziehen nicht
+      await pexec(CLICLICK, [`m:${r(von_x)},${r(von_y)}`, `dd:${r(von_x)},${r(von_y)}`])
+      const schritte = 12
+      const weg = []
+      for (let i = 1; i <= schritte; i++) {
+        weg.push(`m:${r(von_x + ((nach_x - von_x) * i) / schritte)},${r(von_y + ((nach_y - von_y) * i) / schritte)}`)
+      }
+      await pexec(CLICLICK, [...weg, `du:${r(nach_x)},${r(nach_y)}`])
+      return `Gezogen von ${r(von_x)},${r(von_y)} nach ${r(nach_x)},${r(nach_y)}`
+    },
+  },
+  {
+    name: 'mac_menu',
+    description:
+      'Menüpunkt der vordersten App wählen, z.B. Menü "Ablage" → "Sichern". ' +
+      'Zuverlässiger als klicken, weil der Weg fest steht.',
+    parameters: {
+      type: 'object',
+      properties: {
+        menue: { type: 'string', description: 'Name des Menüs, z.B. Ablage / File' },
+        punkt: { type: 'string', description: 'Name des Eintrags, z.B. Sichern' },
+        unterpunkt: { type: 'string', description: 'Falls der Eintrag ein Untermenü öffnet' },
+      },
+      required: ['menue', 'punkt'],
+    },
+    danger: true,
+    async run({ menue, punkt, unterpunkt }) {
+      const q = (s) => String(s).replace(/"/g, '\\"')
+      const front = await frontContext({ eigeneUeberspringen: false })
+      const script = unterpunkt
+        ? `tell application "System Events" to tell process "${q(front.app)}" to tell menu bar 1 to tell menu bar item "${q(menue)}" to tell menu 1 to tell menu item "${q(punkt)}" to tell menu 1 to click menu item "${q(unterpunkt)}"`
+        : `tell application "System Events" to tell process "${q(front.app)}" to tell menu bar 1 to tell menu bar item "${q(menue)}" to tell menu 1 to click menu item "${q(punkt)}"`
+      await osa(script)
+      return `Menü gewählt: ${menue} → ${punkt}${unterpunkt ? ` → ${unterpunkt}` : ''} (in ${front.app})`
+    },
+  },
+  {
+    name: 'mac_window',
+    description: 'Fenster der vordersten App bewegen, in der Größe ändern, schließen oder ganz füllen.',
+    parameters: {
+      type: 'object',
+      properties: {
+        was: { type: 'string', description: 'bewegen | groesse | vollbild | links | rechts | schliessen | minimieren' },
+        x: { type: 'number' },
+        y: { type: 'number' },
+        breite: { type: 'number' },
+        hoehe: { type: 'number' },
+      },
+      required: ['was'],
+    },
+    danger: true,
+    async run({ was, x = 0, y = 0, breite, hoehe }) {
+      const front = await frontContext({ eigeneUeberspringen: false })
+      const size = await screenSize()
+      const q = (s) => String(s).replace(/"/g, '\\"')
+      const P = `tell application "System Events" to tell process "${q(front.app)}" to tell front window`
+
+      const halb = Math.round(size.width / 2)
+      const oben = 25 // unter der Menüleiste
+
+      const plan = {
+        bewegen: `${P} to set position to {${Math.round(x)}, ${Math.round(y)}}`,
+        groesse: `${P} to set size to {${Math.round(breite || size.width)}, ${Math.round(hoehe || size.height)}}`,
+        vollbild: `${P} to set {position, size} to {{0, ${oben}}, {${size.width}, ${size.height - oben}}}`,
+        links: `${P} to set {position, size} to {{0, ${oben}}, {${halb}, ${size.height - oben}}}`,
+        rechts: `${P} to set {position, size} to {{${halb}, ${oben}}, {${halb}, ${size.height - oben}}}`,
+        schliessen: `${P} to click button 1`,
+        minimieren: `${P} to set value of attribute "AXMinimized" to true`,
+      }[was]
+
+      if (!plan) throw new Error('was: bewegen, groesse, vollbild, links, rechts, schliessen oder minimieren')
+      await osa(plan)
+      return `Fenster von ${front.app}: ${was}`
+    },
+  },
+  {
+    name: 'mac_check',
+    description:
+      'Prüfen, ob URAI den Mac wirklich steuern darf: Bildschirmaufnahme, Bedienungshilfen, Klick-Hilfsmittel. ' +
+      'Nutze das, wenn Klicken oder Bildschirmlesen scheitert.',
+    parameters: { type: 'object', properties: {} },
+    async run() {
+      const zeilen = []
+
+      // Bildschirmaufnahme: klappt ein Foto?
+      let sehen = false
+      try {
+        const shot = await capture({ ocrWidth: 300, viewWidth: 200 })
+        await fs.unlink(shot.file).catch(() => {})
+        sehen = true
+      } catch (err) {
+        zeilen.push(`Bildschirmaufnahme: NEIN — ${err.message.split('.')[0]}`)
+      }
+      if (sehen) zeilen.push('Bildschirmaufnahme: ja')
+
+      // Bedienungshilfen: kommt der Knopf-Baum?
+      const ui = await uiElements(5, 2, 4000).catch((e) => ({ error: e.message, items: [] }))
+      if (ui.error) zeilen.push(`Bedienungshilfen: NEIN — ${String(ui.error).slice(0, 90)}`)
+      else zeilen.push(`Bedienungshilfen: ja (${ui.items.length} Elemente gefunden)`)
+
+      zeilen.push(CLICLICK ? `Klicken: cliclick (${CLICLICK}) — genau` : 'Klicken: über System Events — ok, cliclick wäre genauer')
+
+      const fehlt = zeilen.some((z) => z.includes('NEIN'))
+      if (fehlt) {
+        zeilen.push('')
+        zeilen.push('So gibst du die Erlaubnis:')
+        zeilen.push('Systemeinstellungen → Datenschutz & Sicherheit → Bildschirmaufnahme bzw. Bedienungshilfen')
+        zeilen.push('→ das Programm anhaken, das URAI startet (Terminal oder Claude) → URAI neu starten.')
+      }
+      if (!CLICLICK) zeilen.push('Genaueres Klicken und Ziehen: brew install cliclick')
+
+      return zeilen.join('\n')
     },
   },
   {

@@ -64,6 +64,9 @@ export default function Settings({ onClose, onSaved }) {
         <h3>{t('settings')}</h3>
         <div className="sub">{t('setLocal')}</div>
 
+        <details className="abschnitt" open>
+          <summary>Sprache</summary>
+
         <div className="field">
           <label>{t('language')}</label>
           <div className="chips">
@@ -82,6 +85,11 @@ export default function Settings({ onClose, onSaved }) {
           </div>
           <div className="note">Gilt für die Oberfläche und für URAIs Antworten.</div>
         </div>
+
+        </details>
+
+        <details className="abschnitt">
+          <summary>Gehirne und Schlüssel</summary>
 
         <div className="field">
           <label>
@@ -150,6 +158,11 @@ export default function Settings({ onClose, onSaved }) {
           <input value={cfg.embedModel || ''} onChange={(e) => setCfg({ ...cfg, embedModel: e.target.value })} />
         </div>
 
+        </details>
+
+        <details className="abschnitt">
+          <summary>Revier und Verhalten</summary>
+
         <div className="field">
           <label>Revier — hier darf URAI Dateien anfassen</label>
           <input value={cfg.workspace} onChange={(e) => setCfg({ ...cfg, workspace: e.target.value })} />
@@ -170,6 +183,11 @@ export default function Settings({ onClose, onSaved }) {
           </div>
           <div className="note">Der Stopp-Knopf bricht auch im Auto-Modus sofort alles ab.</div>
         </div>
+
+        </details>
+
+        <details className="abschnitt">
+          <summary>Stimme</summary>
 
         <div className="field">
           <label>
@@ -251,6 +269,11 @@ export default function Settings({ onClose, onSaved }) {
           </div>
         )}
 
+        </details>
+
+        <details className="abschnitt">
+          <summary>Live-Mitgucken</summary>
+
         <div className="field">
           <label>Live-Mitgucken</label>
           <div className="chips">
@@ -293,6 +316,11 @@ export default function Settings({ onClose, onSaved }) {
           />
         </div>
 
+        </details>
+
+        <details className="abschnitt">
+          <summary>Obsidian</summary>
+
         <div className="field">
           <label>Obsidian-Vault — hier landet alles automatisch</label>
           <input
@@ -314,6 +342,11 @@ export default function Settings({ onClose, onSaved }) {
             </button>
           </div>
         </div>
+
+        </details>
+
+        <details className="abschnitt">
+          <summary>Agenten</summary>
 
         <div className="field">
           <label>Agenten dürfen Agenten erschaffen — wie tief?</label>
@@ -339,6 +372,11 @@ export default function Settings({ onClose, onSaved }) {
           <input type="number" value={cfg.maxSteps} onChange={(e) => setCfg({ ...cfg, maxSteps: e.target.value })} />
         </div>
 
+        </details>
+
+        <details className="abschnitt">
+          <summary>Werkzeuge ohne Rückfrage</summary>
+
         <div className="field">
           <label>Ohne Rückfrage erlauben — Rot = fragt sonst immer</label>
           <div className="chips">
@@ -355,6 +393,8 @@ export default function Settings({ onClose, onSaved }) {
             ))}
           </div>
         </div>
+
+        </details>
 
         <div className="sheet-actions">
           <button onClick={onClose}>{t('cancel')}</button>

@@ -315,7 +315,13 @@ export class Agent {
     try {
       const entries = history(this.session, 400).map((m) => ({ role: m.role, content: m.content }))
       if (entries.length) {
-        const note = await saveSession(this.session, entries, { agenten: this.run.count }, summary, this.letzteFrage)
+        const note = await saveSession(
+          this.session,
+          entries,
+          { agenten: this.run.count, notizen: this.run.log.map((l) => l.note).filter(Boolean) },
+          summary,
+          this.letzteFrage
+        )
         if (note) {
           await addToIndex({ note, summary, session: this.session, agents: this.run.count }).catch(() => {})
           this.emit({ type: 'obsidian', note })
@@ -344,12 +350,14 @@ export class Agent {
         {
           role: 'system',
           content:
-            `Du fasst einen Agenten-Auftrag zusammen. Kurz, sachlich, in ${sprachName()}, in Markdown. Genau diese Abschnitte:\n` +
-            '**Auftrag** — ein Satz.\n' +
-            '**Gemacht** — Stichpunkte, was wirklich getan wurde (nur was in den Werkzeug-Ergebnissen steht).\n' +
-            '**Ergebnis** — was dabei rauskam.\n' +
-            '**Offen** — was nicht geklappt hat oder noch fehlt; "nichts" wenn alles lief.\n' +
-            'Nichts erfinden. Keine Einleitung, kein Nachwort.',
+            `Fasse zusammen, was gerade passiert ist — in ${sprachName()}, so wie du es einem Kollegen erzählen würdest.\n` +
+            '\n' +
+            'Zwei bis vier Sätze in normaler Sprache. Erst worum es ging, dann was wirklich getan wurde,\n' +
+            'dann was dabei herauskam. Hat etwas nicht geklappt, sag es im letzten Satz.\n' +
+            '\n' +
+            'Keine Überschriften, keine Stichpunkte, keine Schlagwörter wie "Auftrag:" oder "Ergebnis:".\n' +
+            'Schreib in ganzen Sätzen. Nenne konkrete Namen — Dateien, Apps, Zahlen —, denn danach\n' +
+            'wird später gesucht. Nichts erfinden: nur was in den Werkzeug-Ergebnissen steht.',
         },
         { role: 'user', content: verlauf },
       ],

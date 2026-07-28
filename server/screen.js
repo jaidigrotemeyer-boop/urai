@@ -124,28 +124,90 @@ export async function ocr(file, size) {
     .sort((a, b) => a.y - b.y || a.x - b.x)
 }
 
-/** Was ist vorne, und welche Fenster gibt es? */
-export async function frontContext() {
+/** Fenstertitel, an denen URAI sich selbst erkennt. */
+const EIGENE = /urai|localhost:3017/i
+
+/**
+ * Alle Fenster, die URAI selbst gehören — mit Position und Größe.
+ * Braucht er, um sich beim Bildschirmlesen selbst zu übersehen.
+ */
+export async function eigeneFenster() {
   const script = `
-    tell application "System Events"
-      set frontApp to name of first application process whose frontmost is true
-      set winName to ""
-      try
-        tell process frontApp to set winName to name of front window
-      end try
-      set winPos to ""
-      try
-        tell process frontApp
-          set p to position of front window
-          set s to size of front window
-          set winPos to ("" & (item 1 of p) & "," & (item 2 of p) & " " & (item 1 of s) & "x" & (item 2 of s))
-        end tell
-      end try
-      return frontApp & "|" & winName & "|" & winPos
-    end tell`
-  const out = await osa(script)
-  const [app, win, geom] = out.split('|')
-  return { app, window: win, geometry: geom }
+    function run() {
+      const se = Application('System Events')
+      const out = []
+      for (const p of se.applicationProcesses.whose({ backgroundOnly: false })()) {
+        let name = ''
+        try { name = p.name() } catch (e) { continue }
+        let fenster = []
+        try { fenster = p.windows() } catch (e) { continue }
+        for (const w of fenster) {
+          let titel = ''
+          try { titel = w.title() || w.name() || '' } catch (e) {}
+          if (!/urai|localhost:3017/i.test(titel)) continue
+          let pos = null, groesse = null
+          try { pos = w.position() } catch (e) {}
+          try { groesse = w.size() } catch (e) {}
+          if (pos && groesse) out.push({ app: name, titel, x: pos[0], y: pos[1], w: groesse[0], h: groesse[1] })
+        }
+      }
+      return JSON.stringify(out)
+    }`
+  try {
+    return JSON.parse((await osa(script, 'JavaScript', 8000)) || '[]')
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Was ist vorne? Das eigene Fenster überspringt er dabei —
+ * ihn interessiert, woran DU arbeitest, nicht seine eigene Oberfläche.
+ */
+export async function frontContext({ eigeneUeberspringen = true } = {}) {
+  const script = `
+    function run() {
+      const se = Application('System Events')
+      const raus = []
+      for (const p of se.applicationProcesses.whose({ backgroundOnly: false })()) {
+        let name = '', vorne = false
+        try { name = p.name(); vorne = p.frontmost() } catch (e) { continue }
+        let titel = '', geom = ''
+        try {
+          const w = p.windows()[0]
+          titel = w.title() || w.name() || ''
+          const pos = w.position(), gr = w.size()
+          geom = pos[0] + ',' + pos[1] + ' ' + gr[0] + 'x' + gr[1]
+        } catch (e) {}
+        raus.push({ app: name, titel, geom, vorne })
+      }
+      return JSON.stringify(raus)
+    }`
+  let liste = []
+  try {
+    liste = JSON.parse((await osa(script, 'JavaScript', 8000)) || '[]')
+  } catch {}
+
+  const eigen = (f) => EIGENE.test(f.titel || '')
+  const vorne = liste.find((f) => f.vorne)
+
+  if (eigeneUeberspringen && vorne && eigen(vorne)) {
+    // URAI schaut an sich vorbei auf das, was dahinter liegt
+    const dahinter = liste.find((f) => !f.vorne && !eigen(f) && f.titel)
+    if (dahinter) {
+      return { app: dahinter.app, window: dahinter.titel, geometry: dahinter.geom, hinterUrai: true }
+    }
+  }
+  if (!vorne) return { app: '', window: '', geometry: '' }
+  return { app: vorne.app, window: vorne.titel, geometry: vorne.geom, eigenes: eigen(vorne) }
+}
+
+/** Zeilen wegwerfen, die im eigenen Fenster liegen. */
+export function ohneEigene(lines, fenster) {
+  if (!fenster?.length) return lines
+  return lines.filter(
+    (l) => !fenster.some((f) => l.x >= f.x && l.x <= f.x + f.w && l.y >= f.y && l.y <= f.y + f.h)
+  )
 }
 
 /**

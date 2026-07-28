@@ -177,13 +177,11 @@ export class LiveWatcher {
     } catch (err) {
       const m = err.message || ''
       // Kontingent alle oder zu schnell gefragt → deutlich langsamer werden
+      // Gratis-Kontingent alle: einfach langsamer weitermachen.
+      // Das muss der Nutzer nicht in seiner Mitschrift lesen — es steht im Gehirn-Tab.
       if (/429|quota|rate limit/i.test(m)) {
         this.strafe = Math.min((this.strafe || cfg.liveTalkGapMs) * 2, 15 * 60_000)
-        this.emit({
-          type: 'live_note',
-          text: `Kontingent knapp — schaue weiter zu, frage aber erst in ${Math.round(this.strafe / 60000)} Min wieder nach.`,
-          app: front.app,
-        })
+        this.emit({ type: 'live_pause', bis: Date.now() + this.strafe })
       }
       return null
     }
