@@ -1,5 +1,6 @@
 # URAI
 
+Ein Agent, der sich selbst umbauen kann.
 Ein Agent, der auf deinem Mac wirklich handelt. Läuft daheim, kostet nichts.
 
 Web-App im Browser — und über den Knopf **Installieren** wird sie eine eigene App im Dock.
