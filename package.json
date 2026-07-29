@@ -9,7 +9,9 @@
     "dev:server": "node --experimental-sqlite --no-warnings server/index.js",
     "dev:web": "vite",
     "build": "vite build",
-    "start": "npm run build && node --experimental-sqlite --no-warnings server/index.js"
+    "start": "npm run build && node --experimental-sqlite --no-warnings server/index.js",
+    "pruefe": "node --experimental-sqlite --no-warnings pruefe.mjs",
+    "buch": "node buchbinder.mjs --html && \"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf=URAI-Code.pdf file://$PWD/URAI-Code.html && echo '  URAI-Code.pdf fertig'"
   },
   "dependencies": {
     "express": "^4.21.2",
