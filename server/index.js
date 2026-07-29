@@ -15,6 +15,7 @@ import { ROLLEN } from './crew.js'
 import { LiveWatcher, watchers } from './live.js'
 import { raeumeAuf } from './screen.js'
 import { elevenBereit, sprechen as elevenSprechen, stimmenListe } from './eleven.js'
+import { graphLesen } from './graph.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PORT = Number(process.env.PORT || 3017)
@@ -68,6 +69,14 @@ app.post('/api/speak', async (req, res) => {
 })
 
 app.get('/api/voices', async (_req, res) => res.json(await stimmenListe()))
+
+app.get('/api/graph', async (_req, res) => {
+  try {
+    res.json(await graphLesen())
+  } catch (err) {
+    res.status(500).json({ fehler: err.message, knoten: [], kanten: [] })
+  }
+})
 
 app.get('/api/sessions', (_req, res) => res.json(sessions()))
 app.get('/api/history/:session', (req, res) => res.json(history(req.params.session)))

@@ -158,6 +158,14 @@ export function parallelisieren(calls) {
   return gruppen
 }
 
+/** Nichts gesagt? Auch leere Codeblöcke und einzelne Satzzeichen zählen als nichts. */
+function istLeer(text) {
+  const t = String(text || '')
+    .replace(/```[a-z]*\s*```/gi, '')
+    .replace(/[\s`~*_.-]/g, '')
+  return t.length === 0
+}
+
 /** Erkennt hingetippte Pseudo-Werkzeug-Aufrufe wie {"name": "fs_list", "parameters": {…}}. */
 function looksLikeFakeToolCall(text) {
   if (!text) return false
@@ -274,6 +282,18 @@ export class Agent {
             content:
               'Das war kein echter Werkzeug-Aufruf, sondern nur Text. Ruf das Werkzeug richtig auf ' +
               '(über die Werkzeug-Funktion, nicht als JSON im Text) — oder antworte in normalen Worten.',
+          })
+          continue
+        }
+
+        // Leere Antwort ohne Werkzeug: das Modell hat nichts gesagt und nichts getan.
+        // Einmal anstupsen, statt den Nutzer vor einem leeren Kasten sitzen zu lassen.
+        if (!res.toolCalls?.length && istLeer(res.text) && step < maxSteps - 1) {
+          this.messages.push({
+            role: 'system',
+            content:
+              'Deine letzte Antwort war leer. Sag entweder in einem Satz, was du herausgefunden hast, ' +
+              'oder ruf ein Werkzeug auf und erledige die Sache. Ein leerer Codeblock hilft niemandem.',
           })
           continue
         }

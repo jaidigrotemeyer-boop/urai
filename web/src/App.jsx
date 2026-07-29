@@ -5,6 +5,11 @@ import Boot from './components/Boot.jsx'
 import Notch from './components/Notch.jsx'
 import Cursor from './components/Cursor.jsx'
 import Aktivitaet from './components/Aktivitaet.jsx'
+import Farbrad from './components/Farbrad.jsx'
+import Graph3D from './components/Graph3D.jsx'
+import Bereiche from './components/Bereiche.jsx'
+import Verlauf from './components/Verlauf.jsx'
+import { farbeLesen, useFarbe } from './theme.js'
 import { t, useSprache, sprache } from './i18n.js'
 import { hoeren, sprechen, still, kannHoeren, weckwortHoeren } from './stimme.js'
 
@@ -13,6 +18,7 @@ const SESSION = `s-${new Date().toISOString().slice(0, 10)}`
 
 export default function App() {
   useSprache() // neu zeichnen, wenn die Sprache wechselt
+  useFarbe()
 
   const [items, setItems] = useState([])
   const [draft, setDraft] = useState('')
@@ -40,6 +46,10 @@ export default function App() {
   const [stimmeAn, setStimmeAn] = useState(() => localStorage.getItem('urai-stimme') !== 'aus')
   const [weckAn, setWeckAn] = useState(() => localStorage.getItem('urai-weckwort') === 'an')
   const [geweckt, setGeweckt] = useState(false) // Weckwort gehört, wartet auf den Befehl
+  const [ansicht, setAnsicht] = useState('chat') // chat | bereiche | graph
+  const [farbradAuf, setFarbradAuf] = useState(false)
+  const [verlaufAuf, setVerlaufAuf] = useState(false)
+  const [sitzung, setSitzung] = useState(SESSION)
   const mikro = useRef(null)
   const weck = useRef(null)
 
@@ -314,7 +324,7 @@ export default function App() {
       setBusy(true)
       setPhase(t('thinking'))
     }
-    ws.current.send(JSON.stringify({ type: 'chat', session: SESSION, text, lang: sprache() }))
+    ws.current.send(JSON.stringify({ type: 'chat', session: sitzung, text, lang: sprache() }))
   }
 
   /**
@@ -341,6 +351,23 @@ export default function App() {
         push({ kind: 'msg', role: 'error', text: f })
       },
     })
+  }
+
+  /** Ein altes Gespräch zurückholen und im Chat wieder aufblättern. */
+  async function gespraechOeffnen(id) {
+    setVerlaufAuf(false)
+    setSitzung(id)
+    setItems([])
+    try {
+      const alt = await fetch(`/api/history/${encodeURIComponent(id)}`).then((r) => r.json())
+      setItems(
+        alt
+          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          .map((m) => ({ key: crypto.randomUUID(), kind: 'msg', role: m.role, text: m.content }))
+      )
+    } catch {
+      push({ kind: 'msg', role: 'error', text: 'Konnte das Gespräch nicht laden.' })
+    }
   }
 
   function answerApproval(id, ok, always) {
@@ -507,13 +534,132 @@ export default function App() {
           </div>
         </section>
 
-        <Eye screen={screen} terminal={terminal} status={status} liveNotes={liveNotes} liveOn={liveOn} />
+        {ansicht === 'graph' ? (
+          <Graph3D offen />
+        ) : ansicht === 'bereiche' ? (
+          <Bereiche onSenden={send} busy={busy} />
+        ) : (
+          <Eye screen={screen} terminal={terminal} status={status} liveNotes={liveNotes} liveOn={liveOn} />
+        )}
       </div>
+
+      <Fussleiste
+        ansicht={ansicht}
+        setAnsicht={setAnsicht}
+        status={status}
+        brain={brain}
+        onFarbe={() => setFarbradAuf(true)}
+        onVerlauf={() => setVerlaufAuf(true)}
+        onModell={(patch) =>
+          fetch('/api/config', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(patch),
+          })
+            .then((r) => r.json())
+            .then((cfg) => setStatus((s) => ({ ...s, config: cfg })))
+        }
+      />
+
+      {farbradAuf && <Farbrad onClose={() => setFarbradAuf(false)} />}
+
+      {verlaufAuf && (
+        <Verlauf jetzige={sitzung} onOeffnen={gespraechOeffnen} onClose={() => setVerlaufAuf(false)} />
+      )}
 
       {showSettings && (
         <Settings onClose={() => setShowSettings(false)} onSaved={(cfg) => setStatus((s) => ({ ...s, config: cfg }))} />
       )}
     </div>
+  )
+}
+
+/**
+ * Die Leiste ganz unten: welche Ansicht, welches Gehirn, welche Farbe.
+ * Immer da, immer gleich — das Fundament unter allem.
+ */
+function Fussleiste({ ansicht, setAnsicht, status, brain, onFarbe, onModell, onVerlauf }) {
+  const [modellAuf, setModellAuf] = useState(false)
+  const f = farbeLesen()
+  const kette = status?.brain?.chain || []
+  const modelle = status?.brain?.models || {}
+  const erstes = kette[0]
+  const aktuell = brain?.split(' · ') || []
+
+  const MODELLE = {
+    gemini: ['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-pro-latest', 'gemini-2.5-flash-lite'],
+    cerebras: ['zai-glm-4.7', 'gpt-oss-120b', 'gemma-4-31b'],
+    groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
+  }
+  const FELD = { gemini: 'geminiModel', cerebras: 'cerebrasModel', groq: 'groqModel' }
+
+  return (
+    <>
+      <div className="fuss">
+        <div className="fuss-tabs">
+          {[
+            ['chat', t('screen')],
+            ['bereiche', 'Bereiche'],
+            ['graph', 'Graph'],
+          ].map(([id, label]) => (
+            <button key={id} className={ansicht === id ? 'on' : ''} onClick={() => setAnsicht(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="fuss-mitte">
+          <button className="fuss-modell" onClick={() => setModellAuf((v) => !v)}>
+            <span className="orb" style={{ '--kid': 0.55 }} />
+            <span>{aktuell[0] || erstes || t('noKey')}</span>
+            <span className="fuss-dim">{aktuell[1] || modelle[erstes] || ''}</span>
+          </button>
+        </div>
+
+        <div className="fuss-rechts">
+          <button className="fuss-verlauf" onClick={onVerlauf} title="Alte Gespräche">
+            Verlauf
+          </button>
+          <button
+            className="farbknopf"
+            onClick={onFarbe}
+            title="Akzentfarbe"
+            style={{ background: `hsl(${f.h} ${f.s}% ${f.l}%)` }}
+          />
+        </div>
+      </div>
+
+      {modellAuf && (
+        <div className="modellwahl" onClick={() => setModellAuf(false)}>
+          <div className="modellkarte" onClick={(e) => e.stopPropagation()}>
+            <div className="sub">Reihenfolge: {kette.join(' → ') || 'kein Schlüssel'}</div>
+            {kette
+              .filter((p) => MODELLE[p])
+              .map((p) => (
+                <div className="field" key={p}>
+                  <label>{p}</label>
+                  <div className="chips">
+                    {MODELLE[p].map((m) => (
+                      <button
+                        key={m}
+                        className={`chip ${modelle[p] === m ? 'on' : ''}`}
+                        onClick={() => onModell({ [FELD[p]]: m })}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            {status?.brain?.kaputt?.length > 0 && (
+              <div className="note">
+                Gerade in Pause: {status.brain.kaputt.map((k) => k.provider).join(', ')}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
