@@ -15,11 +15,31 @@ export default function Cursor({ busy }) {
     // Auf Geräten ohne echte Maus bleibt alles wie immer
     if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
 
+    // Ausgeschaltet? Dann bleibt alles wie immer.
+    if (localStorage.getItem('urai-zeiger') === 'aus') return
+
     // Wer weniger Bewegung will, bekommt den Zeiger trotzdem — nur ohne Nachlauf
     const ruhig = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const zaeh = ruhig ? 1 : 0.18
 
-    document.body.classList.add('hat-zeiger')
+    // Den echten Zeiger erst verstecken, wenn der eigene wirklich sichtbar ist.
+    // Sonst zeigt die Maus ins Nichts und man klickt blind.
+    let versteckt = false
+    const verstecken = () => {
+      if (versteckt) return
+      versteckt = true
+      document.body.classList.add('hat-zeiger')
+    }
+    const zeigen = () => {
+      versteckt = false
+      document.body.classList.remove('hat-zeiger')
+    }
+
+    // Notausgang: Escape holt den normalen Zeiger zurück
+    const notaus = (e) => {
+      if (e.key === 'Escape' && versteckt) zeigen()
+    }
+    addEventListener('keydown', notaus)
 
     const ziel = { x: innerWidth / 2, y: innerHeight / 2 }
     const ist = { x: ziel.x, y: ziel.y }
@@ -28,7 +48,11 @@ export default function Cursor({ busy }) {
     const bewegen = (e) => {
       ziel.x = e.clientX
       ziel.y = e.clientY
-      if (dot.current) dot.current.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`
+      if (dot.current) {
+        dot.current.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`
+        // Erst jetzt ist klar, dass der eigene Zeiger auch wirklich zeichnet
+        verstecken()
+      }
 
       const el = e.target
       const fassbar =
@@ -45,7 +69,11 @@ export default function Cursor({ busy }) {
       druck = false
       ring.current?.classList.remove('drueckt')
     }
-    const raus = () => ring.current?.classList.add('weg')
+    // Maus aus dem Fenster raus: eigener Zeiger weg, echter zurück
+    const raus = () => {
+      ring.current?.classList.add('weg')
+      zeigen()
+    }
     const rein = () => ring.current?.classList.remove('weg')
 
     // Feder: je weiter weg, desto schneller zieht der Ring nach
@@ -73,6 +101,7 @@ export default function Cursor({ busy }) {
       removeEventListener('pointermove', bewegen)
       removeEventListener('pointerdown', runter)
       removeEventListener('pointerup', hoch)
+      removeEventListener('keydown', notaus)
       document.removeEventListener('mouseleave', raus)
       document.removeEventListener('mouseenter', rein)
       document.body.classList.remove('hat-zeiger')

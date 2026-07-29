@@ -464,6 +464,16 @@ export default function App() {
               >
                 {t('voice')} {stimmeAn ? t('on') : t('off')}
               </button>
+              <button
+                className="linkish"
+                onClick={() => {
+                  const aus = localStorage.getItem('urai-zeiger') === 'aus'
+                  localStorage.setItem('urai-zeiger', aus ? 'an' : 'aus')
+                  location.reload()
+                }}
+              >
+                {localStorage.getItem('urai-zeiger') === 'aus' ? 'Zeiger an' : 'Zeiger aus'}
+              </button>
               {kannHoeren() && (
                 <button
                   className={`linkish ${weckAn ? 'an' : ''}`}

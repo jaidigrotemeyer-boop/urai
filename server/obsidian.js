@@ -17,6 +17,7 @@ const FOLDERS = {
   group: 'Gruppen',
   knowledge: 'Wissen',
   log: 'Protokolle',
+  topic: 'Themen',
 }
 
 /** Vault finden: Einstellung, sonst Obsidians eigene Liste, sonst nichts. */
@@ -154,6 +155,53 @@ export async function verknuepfen(text, { ausser = '' } = {}) {
   return out
 }
 
+/**
+ * Eine Notiz an ihre Themen hängen — und die Themen an sie.
+ *
+ * Für jedes Thema gibt es eine eigene Notiz in Themen/. Dort sammelt sich
+ * mit der Zeit alles, was damit zu tun hatte. Beide Seiten zeigen aufeinander,
+ * darum wächst der Vault zusammen statt auseinander.
+ *
+ * @returns {Promise<string[]>} die Themen, damit der Aufrufer sie oben in die Notiz schreiben kann
+ */
+export async function anThemenHaengen(text, { notizTitel, art = 'Notiz', zeile }) {
+  if (!obsidianReady() || !loadConfig().obsidianAuto) return []
+  let themen = []
+  try {
+    const { themenFinden } = await import('./themen.js')
+    themen = await themenFinden(text)
+  } catch {
+    return []
+  }
+  if (!themen.length) return []
+
+  const s = stamp()
+  for (const thema of themen) {
+    const eintrag = `- **${s.date}** · ${art} · [[${notizTitel}]]${zeile ? `  \n  ${zeile}` : ''}\n`
+    try {
+      const folder = path.join(root(), FOLDERS.topic)
+      await fs.mkdir(folder, { recursive: true })
+      const file = path.join(folder, `${safeName(thema)}.md`)
+
+      if (!fssync.existsSync(file)) {
+        await fs.writeFile(
+          file,
+          frontmatter({ typ: 'urai-thema', thema, angelegt: s.iso, tags: ['urai', 'thema'] }) +
+            `# ${thema}\n\nAlles, was URAI zu **${thema}** gesehen, getan oder gelernt hat.\n\n` +
+            eintrag
+        )
+      } else {
+        // Neues zuoberst, damit das Frische sichtbar bleibt
+        const alt = await fs.readFile(file, 'utf8')
+        const i = alt.indexOf('\n- ')
+        const next = i >= 0 ? alt.slice(0, i + 1) + eintrag + alt.slice(i + 1) : alt + eintrag
+        await fs.writeFile(file, next)
+      }
+    } catch {}
+  }
+  return themen
+}
+
 export async function searchVault(query, limit = 25) {
   const v = vaultPath()
   const q = query.toLowerCase()
@@ -221,9 +269,16 @@ export async function saveSession(session, entries, extra = {}, summary = null, 
     ? await verknuepfen(summary, { ausser: title })
     : `Am ${s.date} um ${s.time.slice(0, 2)}:${s.time.slice(2)} Uhr ging es um: ${first.slice(0, 120)}`
 
+  const themen = await anThemenHaengen(`${first}\n${summary || ''}`, {
+    notizTitel: title,
+    art: 'Gespräch',
+    zeile: (summary || first).split('\n')[0].slice(0, 120),
+  })
+
   const body = [
     `# ${first.slice(0, 80)}`,
     '',
+    themen.length ? `Themen: ${themen.map((x) => `[[${x}]]`).join(' · ')}\n` : '',
     kopf,
     siehe,
     '## Wie es lief',
@@ -289,10 +344,17 @@ export async function saveAgentRun({ name, role, task, result, parent, tools = [
       ? `${name} wurde von ${parent} losgeschickt und hat als ${role} gearbeitet.`
       : `${name} hat als ${role} gearbeitet.`
 
+  const themen = await anThemenHaengen(`${task}\n${result || ''}`, {
+    notizTitel: title,
+    art: `Agent ${name}`,
+    zeile: String(result || '').split('\n')[0].slice(0, 120),
+  })
+
   const body = [
     `# ${name}`,
     '',
     einleitung,
+    themen.length ? `\nThemen: ${themen.map((x) => `[[${x}]]`).join(' · ')}` : '',
     '',
     '## Was zu tun war',
     '',

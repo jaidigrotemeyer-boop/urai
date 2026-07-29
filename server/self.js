@@ -11,6 +11,7 @@ import path from 'node:path'
 import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
+import os from 'node:os'
 
 const pexec = promisify(execFile)
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -240,6 +241,132 @@ export const selfTools = [
       await fs.mkdir(path.dirname(abs), { recursive: true })
       const { stand, werkzeuge } = await abgesichert({ abs, rel, neu: content, alt: vorher, why })
       return `${rel} geschrieben (${content.length} Zeichen, vorher: ${stand}, ${werkzeuge} Werkzeuge laden). Zum Wirken: self_restart.`
+    },
+  },
+  {
+    name: 'self_patch',
+    description:
+      'Mehrere Stellen auf einmal ändern — mit einem Patch im unified-diff-Format, so wie git ihn versteht. ' +
+      'Zuverlässiger als self_edit, wenn du viel auf einmal umbaust. Wird geprüft und bei Fehlern zurückgenommen.',
+    parameters: {
+      type: 'object',
+      properties: {
+        patch: {
+          type: 'string',
+          description:
+            'Unified diff. Pfade relativ zum Projekt, mit a/ und b/ davor. Beispiel:\n' +
+            '--- a/server/config.js\n+++ b/server/config.js\n@@ -10,3 +10,4 @@\n zeile\n-alt\n+neu\n',
+        },
+        why: { type: 'string' },
+      },
+      required: ['patch'],
+    },
+    async run({ patch, why = 'Patch' }) {
+      const stand = await sichern(`Patch: ${why}`)
+      const datei = path.join(os.tmpdir(), `urai-patch-${Date.now()}.diff`)
+      const text = patch.endsWith('\n') ? patch : patch + '\n'
+      await fs.writeFile(datei, text)
+
+      const zurueck = async () => {
+        await git('reset', '--hard', stand)
+      }
+
+      try {
+        // Erst trocken prüfen, ob er überhaupt passt
+        await pexec('git', ['apply', '--check', '-p1', datei], { cwd: ROOT })
+      } catch (err) {
+        await fs.unlink(datei).catch(() => {})
+        throw new Error(
+          `Patch passt nicht: ${String(err.stderr || err.message).slice(0, 300)}\n` +
+            'Lies die Datei nochmal mit self_read und nimm den Text genau so, wie er dort steht.'
+        )
+      }
+
+      await pexec('git', ['apply', '-p1', datei], { cwd: ROOT })
+      await fs.unlink(datei).catch(() => {})
+
+      // Geänderte Dateien einzeln prüfen
+      const geaendert = (await git('diff', '--name-only')).split('\n').filter(Boolean)
+      for (const rel of geaendert) {
+        try {
+          pruefeStil(rel, await fs.readFile(path.join(ROOT, rel), 'utf8'))
+          await pruefen(path.join(ROOT, rel))
+        } catch (err) {
+          await zurueck()
+          throw new Error(`${rel} wäre kaputt, alles zurückgenommen: ${String(err.stderr || err.message).slice(0, 250)}`)
+        }
+      }
+
+      let werkzeuge = 0
+      try {
+        werkzeuge = await rauchtest()
+      } catch (err) {
+        await zurueck()
+        throw new Error(`Lädt nicht mehr, alles zurückgenommen: ${err.message.slice(0, 250)}`)
+      }
+
+      await git('add', '-A')
+      await git('commit', '-q', '-m', `URAI: ${why}`.slice(0, 90))
+      return `Patch drin: ${geaendert.length} Datei(en) — ${geaendert.join(', ')}. ${werkzeuge} Werkzeuge laden. Zum Wirken: self_restart.`
+    },
+  },
+  {
+    name: 'self_improve',
+    description:
+      'Sich selbst umbauen und die Runde gleich zu Ende bringen: prüfen, bauen, neu starten. ' +
+      'Nutze das NACH deinen self_edit- oder self_patch-Änderungen, statt jeden Schritt einzeln zu rufen.',
+    parameters: {
+      type: 'object',
+      properties: {
+        neustart: { type: 'boolean', description: 'Am Ende wirklich neu starten (Standard: ja)' },
+      },
+    },
+    danger: true,
+    async run({ neustart = true }, ctx) {
+      const schritte = []
+
+      const dateien = (await git('ls-files', 'server')).split('\n').filter((f) => f.endsWith('.js'))
+      let kaputt = []
+      for (const f of dateien) {
+        try {
+          await pexec('node', ['--check', path.join(ROOT, f)], { timeout: 15000 })
+        } catch (err) {
+          kaputt.push(`${f}: ${String(err.stderr || err.message).split('\n')[0]}`)
+        }
+      }
+      if (kaputt.length) {
+        return `Abgebrochen — kaputte Dateien:\n${kaputt.join('\n')}\nMit self_undo zurückdrehen.`
+      }
+      schritte.push(`${dateien.length} Server-Dateien geprüft, alle heil`)
+
+      try {
+        const anzahl = await rauchtest()
+        schritte.push(`Werkzeug-Kiste lädt (${anzahl} Werkzeuge)`)
+      } catch (err) {
+        return `Abgebrochen — Werkzeuge laden nicht: ${err.message.slice(0, 200)}\nMit self_undo zurückdrehen.`
+      }
+
+      try {
+        await pexec('npm', ['run', 'build'], { cwd: ROOT, timeout: 180000 })
+        schritte.push('Web-App gebaut')
+      } catch (err) {
+        return `Abgebrochen — Web-Bau kaputt:\n${String(err.stdout || err.message).slice(-400)}`
+      }
+
+      const kopf = await git('log', '-1', '--oneline')
+      schritte.push(`Stand: ${kopf}`)
+
+      if (!neustart) return schritte.join('\n')
+
+      ctx?.emit?.('terminal', '\nURAI startet sich neu…\n')
+      const kind = spawn(
+        '/bin/zsh',
+        ['-lc', `sleep 2; cd ${JSON.stringify(ROOT)} && node --experimental-sqlite --no-warnings server/index.js`],
+        { cwd: ROOT, detached: true, stdio: 'ignore' }
+      )
+      kind.unref()
+      setTimeout(() => process.exit(0), 700)
+      return `${schritte.join('\n')}\nNeustart läuft — in ein paar Sekunden bin ich mit dem neuen Code wieder da.`
     },
   },
   {
