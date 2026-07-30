@@ -28,12 +28,12 @@ Alles läuft auf dem eigenen Rechner. Der Server hört nur auf 127.0.0.1.`,
   {
     titel: 'Agenten und Abläufe',
     text: 'Wie URAI sich selbst Helfer erschafft und wie gespeicherte Abläufe laufen.',
-    dateien: ['server/crew.js', 'server/ablauf.js', 'server/aktivitaet.js'],
+    dateien: ['server/crew.js', 'server/ablauf.js', 'server/ausloeser.js', 'server/aktivitaet.js'],
   },
   {
     titel: 'Sehen und Steuern',
     text: 'Bildschirm lesen mit Apples Vision-Framework, dann klicken und tippen.',
-    dateien: ['server/screen.js', 'server/ocr.jxa.js', 'server/live.js', 'server/tools/computer.js'],
+    dateien: ['server/screen.js', 'server/ocr.jxa.js', 'server/beweis.js', 'server/live.js', 'server/tools/computer.js'],
   },
   {
     titel: 'Werkzeuge',
@@ -43,7 +43,7 @@ Alles läuft auf dem eigenen Rechner. Der Server hört nur auf 127.0.0.1.`,
   {
     titel: 'Gedächtnis und Obsidian',
     text: 'Was bleibt: Vektor-Gedächtnis, Notizen, Themen-Knoten, der Graph.',
-    dateien: ['server/memory.js', 'server/obsidian.js', 'server/themen.js', 'server/graph.js'],
+    dateien: ['server/memory.js', 'server/obsidian.js', 'server/themen.js', 'server/graph.js', 'server/kontingent.js'],
   },
   {
     titel: 'Selbst-Umbau',
