@@ -44,6 +44,26 @@ export default function Settings({ onClose, onSaved }) {
       maxAgentDepth: Number(cfg.maxAgentDepth) || 3,
       maxAgentsPerRun: Number(cfg.maxAgentsPerRun) || 12,
     }
+
+    // Feineinstellung: alles, was vorher fest im Code stand.
+    // Zahlenfelder liefern Strings — hier werden sie zu echten Zahlen,
+    // sonst landet "14000" als Text in der Konfiguration und Vergleiche kippen.
+    const ZAHLEN = [
+      'brainMaxWaitS', 'brainPauseMs', 'brainRunden',
+      'toolResultMax', 'kontextFrisch', 'kontextAltMax', 'recallTreffer',
+      'shellTimeoutMs', 'shellMaxOutput', 'fsMaxBytes',
+      'webMaxChars', 'webTimeoutMs',
+      'bildschirmNummer', 'liveOcrBreite', 'liveVorschauBreite',
+      'liveNotizen', 'liveStrafeMaxMs', 'liveTimeoutMs',
+      'maxAgentsParallel', 'selfBuildTimeoutMs', 'graphMaxKnoten', 'agentSteps',
+    ]
+    for (const k of ZAHLEN) if (cfg[k] !== undefined && cfg[k] !== '') patch[k] = Number(cfg[k])
+
+    const SCHALTER = ['browserSichtbar', 'selbstumbauErlaubt', 'liveRemember']
+    for (const k of SCHALTER) if (cfg[k] !== undefined) patch[k] = !!cfg[k]
+
+    const TEXTE = ['brainOrder', 'geminiFastModel', 'groqModel', 'openrouterModel', 'elevenModel']
+    for (const k of TEXTE) if (cfg[k] !== undefined) patch[k] = cfg[k]
     patch.elevenVoice = cfg.elevenVoice
     for (const k of ['geminiKey', 'cerebrasKey', 'groqKey', 'openrouterKey', 'elevenKey'])
       if (keys[k].trim()) patch[k] = keys[k].trim()
@@ -372,6 +392,115 @@ export default function Settings({ onClose, onSaved }) {
           <input type="number" value={cfg.maxSteps} onChange={(e) => setCfg({ ...cfg, maxSteps: e.target.value })} />
         </div>
 
+        </details>
+
+        <details className="abschnitt">
+          <summary>Feineinstellung</summary>
+
+          <div className="field">
+            <label>Reihenfolge der Gehirne — antippen schiebt nach vorn</label>
+            <div className="chips">
+              {(cfg.brainOrder || ['gemini', 'cerebras', 'groq', 'openrouter']).map((p, i) => (
+                <button
+                  key={p}
+                  className={`chip ${i === 0 ? 'on' : ''}`}
+                  onClick={() => {
+                    const o = [...(cfg.brainOrder || ['gemini', 'cerebras', 'groq', 'openrouter'])]
+                    if (i > 0) [o[i - 1], o[i]] = [o[i], o[i - 1]]
+                    setCfg({ ...cfg, brainOrder: o })
+                  }}
+                >
+                  {i + 1}. {p}
+                </button>
+              ))}
+            </div>
+            <div className="note">Nur wer einen Schlüssel hat, kommt überhaupt in die Kette.</div>
+          </div>
+
+          {[
+            ['toolResultMax', 'Werkzeug-Ergebnis: Zeichen zurück ins Gehirn', 'Der größte Hebel gegen aufgebrauchtes Kontingent — jedes Zeichen kostet bei jedem weiteren Zug erneut.'],
+            ['kontextFrisch', 'Wie viele Ergebnisse im Wortlaut bleiben', 'Ältere werden gestutzt.'],
+            ['kontextAltMax', 'Ältere Ergebnisse stutzen auf … Zeichen', ''],
+            ['recallTreffer', 'Gedächtnis-Zeilen pro Auftrag', ''],
+            ['brainMaxWaitS', 'Höchstens warten, wenn alle Gehirne dicht sind (s)', 'Danach gibt URAI auf statt dich hinzuhalten.'],
+            ['brainPauseMs', 'Sperre nach harter Absage (ms)', 'Schlüssel falsch, Geld alle, Modell weg.'],
+            ['brainRunden', 'Wie oft die ganze Kette durchprobiert wird', ''],
+            ['shellTimeoutMs', 'Terminal-Befehl: Abbruch nach (ms)', 'npm install braucht mehr als zwei Minuten.'],
+            ['shellMaxOutput', 'Terminal-Ausgabe: Zeichen bis Abbruch', ''],
+            ['fsMaxBytes', 'Datei lesen: Bytes bis Verweigerung', ''],
+            ['webMaxChars', 'Webseite: Zeichen die gelesen werden', ''],
+            ['webTimeoutMs', 'Webseite: Abbruch nach (ms)', ''],
+            ['bildschirmNummer', 'Welcher Bildschirm', 'Bei zwei Monitoren guckt URAI sonst dauerhaft auf den falschen.'],
+            ['liveOcrBreite', 'Live: Bildbreite für die Texterkennung', 'Höher liest kleinen Text, kostet Rechenzeit.'],
+            ['liveVorschauBreite', 'Live: Bildbreite fürs Fenster', ''],
+            ['liveNotizen', 'Live: wie weit zurückgeblickt wird', ''],
+            ['liveStrafeMaxMs', 'Live: längste Pause nach Kontingent-Absage (ms)', ''],
+            ['liveTimeoutMs', 'Live: Abbruch beim Hinschauen (ms)', ''],
+            ['maxAgentsParallel', 'Agenten gleichzeitig in einer Gruppe', 'Alle auf einmal reißen das Minuten-Kontingent.'],
+            ['agentSteps', 'Schritte pro Unter-Agent', ''],
+            ['selfBuildTimeoutMs', 'Selbstumbau: Abbruch beim Bauen (ms)', ''],
+            ['graphMaxKnoten', 'Graph: höchstens so viele Notizen', ''],
+          ].map(([k, label, note]) => (
+            <div className="field" key={k}>
+              <label>{label}</label>
+              <input type="number" value={cfg[k] ?? ''} onChange={(e) => setCfg({ ...cfg, [k]: e.target.value })} />
+              {note && <div className="note">{note}</div>}
+            </div>
+          ))}
+
+          <div className="field">
+            <label>Schalter</label>
+            <div className="chips">
+              {[
+                ['selbstumbauErlaubt', 'Selbstumbau'],
+                ['browserSichtbar', 'Browser sichtbar'],
+                ['liveRemember', 'Live merkt sich Wichtiges'],
+              ].map(([k, label]) => (
+                <button
+                  key={k}
+                  className={`chip ${cfg[k] ? 'on' : ''}`}
+                  onClick={() => setCfg({ ...cfg, [k]: !cfg[k] })}
+                >
+                  {label}: {cfg[k] ? t('on') : t('off')}
+                </button>
+              ))}
+            </div>
+            <div className="note">
+              Selbstumbau aus heißt: self_edit, self_patch, self_write und self_restart verweigern den Dienst.
+              Das ist die einzige Fähigkeit, mit der URAI sich selbst zerlegen kann.
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Flinkes Gemini-Modell (Zusammenfassungen, Live-Notizen)</label>
+            <input
+              value={cfg.geminiFastModel || ''}
+              onChange={(e) => setCfg({ ...cfg, geminiFastModel: e.target.value })}
+            />
+          </div>
+
+          <div className="field">
+            <label>Groq-Modell</label>
+            <input value={cfg.groqModel || ''} onChange={(e) => setCfg({ ...cfg, groqModel: e.target.value })} />
+          </div>
+
+          <div className="field">
+            <label>OpenRouter-Modell</label>
+            <input
+              value={cfg.openrouterModel || ''}
+              onChange={(e) => setCfg({ ...cfg, openrouterModel: e.target.value })}
+            />
+            <div className="note">Leer lassen: URAI sucht sich selbst das beste Gratis-Modell mit Werkzeugen.</div>
+          </div>
+
+          <div className="field">
+            <label>ElevenLabs-Modell</label>
+            <input value={cfg.elevenModel || ''} onChange={(e) => setCfg({ ...cfg, elevenModel: e.target.value })} />
+          </div>
+
+          <div className="note">
+            Live-Einstellungen greifen erst nach Aus und wieder An — der Zeitgeber liest sie nur beim Start.
+          </div>
         </details>
 
         <details className="abschnitt">

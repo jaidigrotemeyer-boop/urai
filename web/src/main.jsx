@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import Hud from './Hud.jsx'
 import './styles.css'
+import './werkstatt.css'
 
 // ?hud=1 zeigt nur die Notch — für ein kleines Fenster, das oben klebt
 const nurNotch = new URLSearchParams(location.search).has('hud')

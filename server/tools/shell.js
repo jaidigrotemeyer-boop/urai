@@ -11,7 +11,10 @@ const HARD_NO = [
   />\s*\/dev\/(disk|rdisk)/,
 ]
 
-export function runCommand(cmd, { cwd, timeout = 120000, onData } = {}) {
+export function runCommand(cmd, { cwd, timeout, onData } = {}) {
+  const cfg = loadConfig()
+  timeout = timeout || cfg.shellTimeoutMs
+  const maxAus = cfg.shellMaxOutput
   for (const re of HARD_NO) {
     if (re.test(cmd)) return Promise.reject(new Error(`Befehl gesperrt: ${cmd}`))
   }
@@ -21,7 +24,7 @@ export function runCommand(cmd, { cwd, timeout = 120000, onData } = {}) {
     const push = (s) => {
       out += s
       onData?.(s)
-      if (out.length > 100_000) child.kill('SIGKILL')
+      if (out.length > maxAus) child.kill('SIGKILL')
     }
     child.stdout.on('data', (d) => push(d.toString()))
     child.stderr.on('data', (d) => push(d.toString()))
@@ -32,7 +35,7 @@ export function runCommand(cmd, { cwd, timeout = 120000, onData } = {}) {
     })
     child.on('close', (code) => {
       clearTimeout(t)
-      resolve(`exit=${code}\n${out.slice(0, 100_000) || '(keine Ausgabe)'}`)
+      resolve(`exit=${code}\n${out.slice(0, maxAus) || '(keine Ausgabe)'}`)
     })
   })
 }

@@ -8,6 +8,7 @@ import { obsidianTools } from '../obsidian.js'
 import { crewTools } from '../crew.js'
 import { liveTools } from '../live.js'
 import { selfTools } from '../self.js'
+import { ablaufTools } from '../ablauf.js'
 
 export const ALL_TOOLS = [
   ...fileTools,
@@ -19,6 +20,7 @@ export const ALL_TOOLS = [
   ...crewTools,
   ...liveTools,
   ...selfTools,
+  ...ablaufTools,
 ]
 
 export const TOOL_MAP = new Map(ALL_TOOLS.map((t) => [t.name, t]))
@@ -42,4 +44,5 @@ export const TOOL_GROUPS = {
   agenten: crewTools.map((t) => t.name),
   live: liveTools.map((t) => t.name),
   selbst: selfTools.map((t) => t.name),
+  ablaeufe: ablaufTools.map((t) => t.name),
 }

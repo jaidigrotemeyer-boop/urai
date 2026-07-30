@@ -17,7 +17,8 @@ const ART = {
 /**
  * @returns {Promise<{knoten: Array, kanten: Array, stand: string}>}
  */
-export async function graphLesen({ maxKnoten = 400 } = {}) {
+export async function graphLesen({ maxKnoten } = {}) {
+  maxKnoten = maxKnoten || loadConfig().graphMaxKnoten
   const vault = vaultPath()
   if (!vault) return { knoten: [], kanten: [], fehler: 'Kein Obsidian-Vault gefunden.' }
 

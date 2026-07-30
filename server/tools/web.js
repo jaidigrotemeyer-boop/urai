@@ -1,4 +1,6 @@
 // Kraft 2: Web. Holen, suchen, lesen. Ohne Schlüssel, ohne Kosten.
+import { loadConfig } from '../config.js'
+
 
 function htmlToText(html) {
   return html
@@ -31,11 +33,13 @@ export const webTools = [
       },
       required: ['url'],
     },
-    async run({ url, max_chars = 20000 }) {
+    async run({ url, max_chars }) {
+      const cfg = loadConfig()
+      max_chars = max_chars || cfg.webMaxChars
       const res = await fetch(url, {
         headers: { 'user-agent': 'Mozilla/5.0 (Macintosh) URAI/0.1', accept: 'text/html,application/json,*/*' },
         redirect: 'follow',
-        signal: AbortSignal.timeout(25000),
+        signal: AbortSignal.timeout(cfg.webTimeoutMs),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status} bei ${url}`)
       const ct = res.headers.get('content-type') || ''
@@ -104,7 +108,7 @@ export const webTools = [
       } catch {
         throw new Error('Playwright fehlt. Erst: npm i -D playwright && npx playwright install chromium')
       }
-      const browser = await chromium.launch({ headless: false })
+      const browser = await chromium.launch({ headless: !loadConfig().browserSichtbar })
       try {
         const page = await browser.newPage()
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })

@@ -12,6 +12,7 @@ import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import os from 'node:os'
+import { loadConfig } from './config.js'
 
 const pexec = promisify(execFile)
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -50,6 +51,19 @@ async function pruefen(abs) {
   if (!/\.(js|mjs|jsx)$/.test(abs)) return
   if (abs.endsWith('.jsx')) return // JSX kann node nicht lesen, das prüft der Vite-Bau
   await pexec('node', ['--check', abs], { cwd: ROOT, timeout: 15000 })
+}
+
+/**
+ * Der Aus-Knopf für den Selbstumbau. Ohne ihn kann URAI sich jederzeit
+ * verändern und neu starten — auch wenn der Nutzer das gerade nicht will.
+ */
+function selbstumbauPruefen(was) {
+  if (loadConfig().selbstumbauErlaubt === false) {
+    throw new Error(
+      `Selbstumbau ist ausgeschaltet — ${was} geht nicht. ` +
+        'Einstellungen → Selbstumbau wieder einschalten, wenn du das willst.'
+    )
+  }
 }
 
 /** "12\tconst x" → "const x". Nur wenn wirklich jede Zeile so aussieht. */
@@ -179,6 +193,7 @@ export const selfTools = [
       required: ['path', 'old_string', 'new_string'],
     },
     async run({ path: p, old_string, new_string, why = 'Selbst-Änderung' }) {
+      selbstumbauPruefen('Ändern')
       const { abs, rel } = eigenerWeg(p)
       const vorher = await fs.readFile(abs, 'utf8')
 
@@ -226,6 +241,7 @@ export const selfTools = [
       required: ['path', 'content'],
     },
     async run({ path: p, content, why = 'neue Datei', force = false }) {
+      selbstumbauPruefen('Schreiben')
       const { abs, rel } = eigenerWeg(p)
       const gabEs = fssync.existsSync(abs)
       const vorher = gabEs ? await fs.readFile(abs, 'utf8') : null
@@ -262,6 +278,7 @@ export const selfTools = [
       required: ['patch'],
     },
     async run({ patch, why = 'Patch' }) {
+      selbstumbauPruefen('Patchen')
       const stand = await sichern(`Patch: ${why}`)
       const datei = path.join(os.tmpdir(), `urai-patch-${Date.now()}.diff`)
       const text = patch.endsWith('\n') ? patch : patch + '\n'
@@ -323,6 +340,7 @@ export const selfTools = [
     },
     danger: true,
     async run({ neustart = true }, ctx) {
+      selbstumbauPruefen('Neustarten')
       const schritte = []
 
       const dateien = (await git('ls-files', 'server')).split('\n').filter((f) => f.endsWith('.js'))
@@ -347,7 +365,7 @@ export const selfTools = [
       }
 
       try {
-        await pexec('npm', ['run', 'build'], { cwd: ROOT, timeout: 180000 })
+        await pexec('npm', ['run', 'build'], { cwd: ROOT, timeout: loadConfig().selfBuildTimeoutMs })
         schritte.push('Web-App gebaut')
       } catch (err) {
         return `Abgebrochen — Web-Bau kaputt:\n${String(err.stdout || err.message).slice(-400)}`
@@ -411,7 +429,7 @@ export const selfTools = [
 
       if (build) {
         try {
-          const { stdout } = await pexec('npm', ['run', 'build'], { cwd: ROOT, timeout: 180000 })
+          const { stdout } = await pexec('npm', ['run', 'build'], { cwd: ROOT, timeout: loadConfig().selfBuildTimeoutMs })
           zeilen.push(`Web-Bau OK:\n${stdout.split('\n').slice(-4).join('\n')}`)
         } catch (err) {
           zeilen.push(`Web-Bau KAPUTT:\n${String(err.stdout || err.message).slice(-800)}`)
@@ -428,6 +446,7 @@ export const selfTools = [
     parameters: { type: 'object', properties: {} },
     danger: true,
     async run(_a, ctx) {
+      selbstumbauPruefen('Neustarten')
       // Erst prüfen — ein kaputter Neustart wäre das Ende
       const dateien = (await git('ls-files', 'server')).split('\n').filter((f) => f.endsWith('.js'))
       for (const f of dateien) {
@@ -438,7 +457,7 @@ export const selfTools = [
         }
       }
       try {
-        await pexec('npm', ['run', 'build'], { cwd: ROOT, timeout: 180000 })
+        await pexec('npm', ['run', 'build'], { cwd: ROOT, timeout: loadConfig().selfBuildTimeoutMs })
       } catch (err) {
         throw new Error(`Kein Neustart — Web-Bau kaputt: ${String(err.stdout || err.message).slice(-500)}`)
       }

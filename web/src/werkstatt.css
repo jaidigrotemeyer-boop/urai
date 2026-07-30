@@ -1,0 +1,898 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   werkstatt.css — Ablauf-Bauer + neue App-Bewegungen
+   ──────────────────────────────────────────────────────────────────────────
+   Groq-Skelett unter Clicky-Haut: harte 1px-Kanten und Monospace-Zahlen im
+   Innern, weiche Kapseln und Material-Unschärfe an den Rändern.
+   Kein einziger fester Farbwert außer Weiß/Schwarz mit Alpha — damit der
+   ganze Bauer am Farbrad (theme.js) mitdreht.
+   Wird NACH styles.css geladen; alle Keyframe-Namen sind zweiteilig, weil
+   einteilige Namen dort schon vergeben sind und still überschrieben würden.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Registrierter Winkel — nur so lässt sich ein conic-gradient animieren;
+   unregistrierte Custom Properties sind für den Animator bloß Text. */
+@property --winkel {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* WARUM diese Doppelung: fehlt @property (ältere Firefox), ist var(--winkel)
+   ohne diese Zeile ungültig, die conic-Border fällt komplett aus und die
+   laufende Karte sieht aus wie ein Renderfehler. Mit dem normalen Fallback
+   steht der Farbverlauf einfach still statt zu verschwinden. */
+.baustein,
+.notch,
+.step,
+.group { --winkel: 0deg; }
+
+
+/* ══ GERÜST ═══════════════════════════════════════════════════════════════ */
+
+/* container-type statt @media, weil die Bahn in .split neben dem Chat steht
+   und die Fensterbreite dort über die echte Spaltenbreite lügt. */
+.ablauf {
+  position: relative;              /* Anker für Fuß, Fahne und Plus-Knopf */
+  display: grid;
+  grid-template-columns: 236px 1fr;
+  height: 100%;
+  min-height: 0;
+  container-type: inline-size;
+  container-name: ablauf;
+}
+
+/* Die Palette ist Rand, kein Inhalt — sie darf unscharf sein. */
+.ablauf-lade {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  gap: 10px;
+  padding: 68px 12px 18px;
+  border-right: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--panel-solid) 70%, transparent);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+.lade-suche {
+  flex: none;
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 7px 11px;
+  border-radius: 99px;                    /* anfassbar → weich */
+}
+
+.lade-gruppe {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.lade-gruppe > h4 {
+  margin: 0 0 2px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+  font-weight: 600;
+}
+
+.lade-kachel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-soft);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12.5px;
+  cursor: grab;
+  transition: border-color .2s var(--ease), background .2s var(--ease), transform .2s var(--spring);
+  /* Kacheln treffen gestaffelt ein, damit die Palette sich aufbaut statt
+     schlagartig dazustehen — --i setzt die Liste per inline-Style. */
+  animation: ladeKachelRein .34s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 26ms);
+}
+.lade-kachel:hover { border-color: var(--accent-line); background: var(--accent-soft); transform: translateX(2px); }
+.lade-kachel:active { cursor: grabbing; }
+.lade-kachel .marke {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+  border-radius: 4px;                     /* strukturell → harte Kante */
+}
+.lade-kachel.hat-gefahr .marke { color: var(--warn); }
+
+/* 68px oben sind Pflicht: darunter liegt die schwebende Notch. Fällt der
+   Wert weg, verschwindet der erste Baustein — und zwar nur bei kurzen
+   Abläufen, also genau dann, wenn man beim Bauen nicht hinschaut. */
+.ablauf-bahn {
+  overflow-y: auto;
+  min-height: 0;
+  padding: 68px 22px 96px;
+  scroll-behavior: smooth;
+}
+
+/* position:relative ist der Anker, gegen den die Adern gemessen werden. */
+.ablauf-spur {
+  position: relative;
+  max-width: 640px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Lücke zwischen zwei Bausteinen ─────────────────────────────────────── */
+.bau-luecke {
+  position: relative;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  z-index: 2;                             /* der +-Knopf liegt über den Adern */
+  transition: height .34s var(--spring);
+}
+/* Die Lücke wächst zuerst auf, dann fällt die Karte ein — die Nachbarn
+   schieben sich also auseinander, statt von der neuen Karte gerammt zu werden. */
+.bau-luecke.ist-neu { height: 0; }
+
+.bau-einfuegen {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: var(--panel-solid);
+  color: var(--dim);
+  line-height: 1;
+  opacity: 0;
+  transform: scale(.7);
+  transition: opacity .2s var(--ease), transform .24s var(--spring), border-color .2s var(--ease);
+}
+.bau-luecke:hover .bau-einfuegen,
+.bau-luecke:focus-within .bau-einfuegen { opacity: 1; transform: scale(1); }
+.bau-einfuegen:hover { border-color: var(--accent-line); color: var(--accent); }
+
+
+/* ══ BAUSTEIN ═════════════════════════════════════════════════════════════ */
+
+/* Bewusst KEIN backdrop-filter: zwanzig blurende Karten gleichzeitig
+   kosten mehr Bildrate als der ganze Rest der Ansicht zusammen. */
+.baustein {
+  position: relative;
+  z-index: 1;                             /* über dem Adern-SVG (z-index:0) */
+  border: 1px solid var(--line);
+  border-radius: 14px;                    /* anfassbar → weich */
+  background: var(--panel-solid);
+  overflow: hidden;
+  transition:
+    border-color .25s var(--ease),
+    transform .22s var(--spring),
+    box-shadow .3s var(--ease);
+  animation: bausteinRein .42s var(--spring) both;
+}
+.baustein:hover { border-color: var(--line); transform: translateY(-1px); }
+
+.baustein-kopf {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+}
+
+.baustein-punkt {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dimmer);
+  flex: none;
+  transition: background .25s var(--ease);
+}
+
+.baustein-marke {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+  border-radius: 4px;                     /* die Groq-Seite: harte Kante */
+  border: 1px solid var(--line-soft);
+  padding: 2px 5px;
+  white-space: nowrap;
+}
+
+.baustein-name {
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* tabular-nums, damit die Zahl beim Hochzählen nicht zappelt. */
+.baustein-takt {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--dim);
+  white-space: nowrap;
+  flex: none;
+}
+
+/* Die 0fr→1fr-Falte kollabiert nur mit min-height:0 UND overflow:hidden
+   am Kind — fehlt eins, klappt gar nichts zu. */
+.baustein-leib {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows .38s var(--spring), opacity .26s var(--ease), padding .38s var(--spring);
+  padding: 0 14px;
+}
+.baustein-leib > * { min-height: 0; overflow: hidden; }
+.baustein.ist-offen .baustein-leib {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  padding: 0 14px 11px;
+}
+
+.baustein-feld {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.baustein-feld > label {
+  flex: none;
+  min-width: 82px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+}
+.baustein-feld input,
+.baustein-feld textarea {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 5px 9px;
+  border-radius: 4px;
+}
+/* Ein Verweis wie {{b1.text}} auf einen gelöschten oder nach hinten
+   geschobenen Baustein muss HIER auffallen — sonst bekommt das Werkzeug
+   undefined und der Fehler taucht dort auf, wo ihn niemand zuordnet. */
+.baustein-feld.ist-lose input,
+.baustein-feld.ist-lose textarea {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: rgba(255, 122, 122, .07);
+}
+.baustein-feld.ist-lose > label { color: var(--danger); }
+
+.baustein-fuss {
+  padding: 8px 14px;
+  border-top: 1px solid var(--line-soft);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--dim);
+  background: rgba(0, 0, 0, .14);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Der Griff taucht erst beim Zeigen auf — sonst rauscht jede Karte. */
+.baustein-griff {
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 18px;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity .2s var(--ease);
+  background-image: radial-gradient(circle, var(--dimmer) 1px, transparent 1.2px);
+  background-size: 5px 6px;
+  background-position: 1px 1px;
+}
+.baustein:hover .baustein-griff,
+.baustein:focus-within .baustein-griff { opacity: 1; }
+.baustein-griff:active { cursor: grabbing; }
+
+/* Eigener Zieh-Klon statt HTML5-Drag-and-Drop: Safari malt sonst ein
+   halbtransparentes Geisterbild, sobald die Karte gefiltert ist — und
+   Pointer-Events lösen den Touch-Fall gleich mit. */
+.baustein.ist-gezogen {
+  position: fixed;
+  z-index: 40;
+  pointer-events: none;
+  opacity: .92;
+  box-shadow: 0 22px 50px -18px rgba(0, 0, 0, .8);
+  transform: scale(1.02) rotate(.4deg);
+  animation: none;
+}
+
+/* ── Messpunkte für die Adern ───────────────────────────────────────────── */
+/* 0 breit, 1px hoch: rein geometrisch, nie sichtbar. Die Ankunfts-Animation
+   hängt trotzdem hier, weil der Ring genau am Eintrittspunkt aufgehen soll. */
+.baustein-anker {
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 1px;
+  pointer-events: none;
+}
+.baustein-anker[data-anker='ein'] { top: 0; }
+.baustein-anker[data-anker='aus'] { bottom: 0; }
+
+/* ── Zustände ───────────────────────────────────────────────────────────── */
+.baustein.ist-ruhe .baustein-punkt { background: var(--dimmer); }
+.baustein.ist-bereit { border-color: var(--line); }
+.baustein.ist-bereit .baustein-punkt { background: var(--dim); }
+
+.baustein.ist-fertig .baustein-punkt { background: var(--accent); }
+.baustein.ist-fertig { border-color: var(--accent-line); }
+
+.baustein.ist-fehler { border-color: var(--danger); }
+.baustein.ist-fehler .baustein-punkt { background: var(--danger); }
+.baustein.ist-fehler .baustein-fuss { color: var(--danger); }
+
+.baustein.ist-uebersprungen { opacity: .42; }
+.baustein.ist-uebersprungen .baustein-marke { text-decoration: line-through; }
+
+.baustein.ist-gewaehlt {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* danger:true aus der Werkzeug-Registry — die einzige Stelle im Bauer,
+   an der eine andere Farbe als der Akzent auftaucht. */
+.baustein.hat-gefahr { border-color: rgba(255, 192, 107, .34); }
+.baustein.hat-gefahr .baustein-marke { color: var(--warn); border-color: rgba(255, 192, 107, .34); }
+
+/* LÄUFT: kein Blinken (das liest sich als Fehler), sondern ein wanderndes
+   Licht auf der Kante — dieselbe Sprache wie ein Terminal-Cursor. */
+.baustein.ist-laeuft {
+  border: 1px solid transparent;
+  border-color: var(--accent-line);       /* Rückfall, falls conic ausfällt */
+  background:
+    linear-gradient(var(--panel-solid), var(--panel-solid)) padding-box,
+    conic-gradient(from var(--winkel),
+      transparent 0 62%,
+      var(--accent-line) 78%,
+      var(--accent) 88%,
+      transparent 96%) border-box;
+  animation: randKreisen 2.4s linear infinite;
+}
+.baustein.ist-laeuft .baustein-punkt { background: var(--accent); }
+/* Senkrechter Scan durch den Leib — zeigt Arbeit an, ohne Layout zu bewegen. */
+.baustein.ist-laeuft::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 35%, rgba(255, 255, 255, .06) 50%, transparent 65%);
+  transform: translateY(-100%);
+  animation: bausteinScan 1.9s var(--ease) infinite;
+}
+
+/* Ankunft eines Datenpakets: ein einmaliger Ring, kein Dauerpuls. */
+.baustein.ist-ankunft { animation: bausteinAnkunft .5s var(--ease) 1; }
+
+/* Beim Fertigwerden rastet der Stapel ein, von oben nach unten gestaffelt. */
+.ablauf.ist-fertig .baustein {
+  animation: bausteinSetzen .34s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+
+/* ══ GABEL — Parallelität ohne freie Fläche ═══════════════════════════════ */
+
+/* crew.js agent_team läuft parallel; das gehört in EINE Bahnzeile mit
+   nebeneinander stehenden Zweigen, nicht in eine Wolke aus Koordinaten. */
+.bau-gabel {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(220px, 1fr);
+  gap: 14px;
+  position: relative;
+}
+.bau-zweig {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.bau-zweig-marke {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+  padding: 0 0 5px 2px;
+}
+/* Der Zusammenfluss hängt am Unterrand der GABEL, nicht der Karte —
+   sonst enden die kurzen Zweige mitten in der Luft. */
+.bau-gabel-anker {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 0;
+  height: 1px;
+  pointer-events: none;
+}
+
+
+/* ══ ADERN — echte SVG-Bézier ═════════════════════════════════════════════ */
+
+/* Das SVG liegt IN der Spur, nicht im Scroll-Container: dort scrollt es
+   einfach mit, statt bei jedem Scroll-Event neu gesetzt werden zu müssen. */
+.ablauf-adern {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 0;
+}
+
+.ader-grund {
+  stroke: var(--line);
+  stroke-width: 1;
+  fill: none;
+  stroke-linecap: butt;
+}
+
+.ader-fluss {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-dasharray: 4 10;
+  opacity: 0;
+  transition: opacity .25s var(--ease);
+}
+/* stroke-dashoffset läuft NICHT auf dem Compositor. Deshalb fließen nur die
+   aktiven Adern, und will-change hängt ausschließlich hier — bei 25 dauernd
+   fließenden Adern hakt sonst die Eingabe. */
+.ader.ist-aktiv .ader-fluss {
+  opacity: 1;
+  will-change: stroke-dashoffset;
+  animation: adernFluss .9s linear infinite;
+}
+
+/* --laenge setzt JS aus path.getTotalLength(); ohne den echten Wert
+   zeichnet sich der Strich entweder gar nicht oder springt. */
+.ader-zug {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-dasharray: var(--laenge);
+  stroke-dashoffset: var(--laenge);
+}
+.ablauf.ist-fertig .ader-zug {
+  animation: adernZug .5s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+/* Das Paket ist SMIL (animateMotion + mpath), nicht offset-path: CSS rechnet
+   im Kasten des Elements statt in SVG-Nutzereinheiten und springt bei jeder
+   Neuberechnung der Pfade. paketFlug blendet nur Anfang und Ende weich. */
+.paket {
+  fill: var(--accent);
+  filter: drop-shadow(0 0 7px var(--accent));
+  animation: paketFlug .7s var(--ease) both;
+}
+
+
+/* ══ FUSS, FAHNE, BLATT ═══════════════════════════════════════════════════ */
+
+/* absolute statt fixed: .ablauf trägt container-type:inline-size und wäre
+   damit selbst der Bezug jedes position:fixed — der Fuß säße dann falsch. */
+.ablauf-fuss {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--panel-solid) 78%, transparent);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+.ablauf-fuss .gesamt {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+/* Zentriert über margin-inline, NICHT über translateX(-50%): sonst müsste
+   fahneRein den Versatz mitschleppen und jede Ableitung des Keyframes
+   (Blatt, Dialog) würde seitlich verrutschen. */
+.ablauf-fahne {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 62px;
+  width: max-content;
+  margin-inline: auto;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  border: 1px solid var(--accent-line);
+  background: color-mix(in srgb, var(--panel-solid) 76%, transparent);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11.5px;
+  color: var(--text);
+  animation: fahneRein .45s var(--spring) both;
+}
+
+/* Einmaliger Lichtwisch über die ganze Spur, wenn der Ablauf durch ist —
+   der visuelle Punkt hinter den Satz. */
+.ablauf.ist-fertig .ablauf-spur::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background: linear-gradient(180deg, transparent, var(--accent-soft) 50%, transparent);
+  animation: spurWaschen .9s var(--ease) 1 both;
+}
+
+
+/* ══ ZEHN APP-WEITE BEWEGUNGEN ════════════════════════════════════════════ */
+
+/* (1) randKreisen — der Beschäftigt-Rand für alles Laufende. Ersetzt das
+   nervöse breathe: ein wanderndes Licht liest sich als Arbeit, ein
+   pulsierender Punkt als Warnung. */
+.notch.is-arbeit,
+.step:not(.ok):not(.fail),
+.group:not(.ok) {
+  border: 1px solid transparent;
+  border-color: var(--accent-line);
+  background:
+    linear-gradient(var(--panel-solid), var(--panel-solid)) padding-box,
+    conic-gradient(from var(--winkel),
+      transparent 0 66%,
+      var(--accent-line) 80%,
+      var(--accent) 90%,
+      transparent 97%) border-box;
+  animation: randKreisen 2.6s linear infinite;
+}
+.step:not(.ok):not(.fail) .dot,
+.group:not(.ok) .group-head .dot { animation: none; }
+
+/* (2) zifferRollen — die Groq-Zahl. Jede Stelle ist ein Streifen 0-9, der
+   auf die richtige Ziffer geschoben wird; neue Stellen rollen von unten
+   herein statt aufzupoppen. */
+.zahl {
+  display: inline-flex;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.ziffer {
+  display: block;
+  height: 1em;
+  overflow: hidden;
+  animation: zifferRollen .3s var(--ease) both;
+}
+.ziffer i {
+  display: block;
+  font-style: normal;
+  transform: translateY(calc(var(--z, 0) * -1em));
+  transition: transform .34s var(--spring);
+}
+
+/* (3) kapselMorph — eine Klasse statt fünf handgeschriebener Falten.
+   @starting-style zieht den Eintritt ohne JS-Klassenwechsel. */
+.kapsel {
+  transition:
+    max-width .5s var(--spring),
+    border-radius .45s var(--spring),
+    height .42s var(--spring),
+    opacity .3s var(--ease);
+}
+.kapsel { animation: kapselMorph .42s var(--spring) both; }
+@starting-style {
+  .kapsel { opacity: 0; transform: scale(.94); }
+}
+
+/* (4) blattStaffel — Listen treffen nacheinander ein statt als Block.
+   --i kommt per inline-Style aus der jeweiligen map(). */
+.messages > *,
+.bereich-karte,
+.verlauf-zeile {
+  animation: blattStaffel .42s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 38ms);
+}
+
+/* (5) druckSenke — jeder Knopf gibt unter dem Finger nach. */
+button:active { animation: druckSenke .22s var(--spring); }
+
+/* (6) zahlZucken — ein Wert, der sich gerade geändert hat, blitzt kurz auf.
+   Ohne das übersieht man jede stille Aktualisierung. */
+.zuckt { animation: zahlZucken .26s var(--ease) 1; border-radius: 4px; }
+
+/* (7) ringWandern — der Fokusring geht auf, statt hart aufzupoppen; löst
+   das outline:2px der Notch ab. */
+:focus-visible {
+  outline: none;
+  animation: ringWandern .3s var(--ease) both;
+}
+
+/* (8) wischWechsel — echter Ansichtswechsel über die View-Transition-API.
+   Das Element, das die Ansicht trägt, braucht diesen Namen. --richtung
+   kommt aus der Tab-Reihenfolge (+1 nach rechts, -1 nach links). */
+.wechsel-buehne { view-transition-name: wurzel; }
+::view-transition-old(wurzel) { animation: wischRaus .26s var(--ease) both; }
+::view-transition-new(wurzel) { animation: wischRein .3s var(--ease) both; }
+
+/* (9) nebelRein — alles, was frisch vom Server kommt, kondensiert herein. */
+.summary-body,
+.step pre,
+.frisch { animation: nebelRein .5s var(--ease) both; }
+
+/* (10) taktStrich — 1px-Haarlinie über dem Composer, Breite = Fortschritt,
+   mit vorauslaufendem Glanzpunkt. Der Groq-Akzent genau dort, wo der
+   Nutzer während der Antwort ohnehin hinsieht. */
+.takt {
+  height: 1px;
+  background: var(--line);
+  overflow: hidden;
+}
+.takt i {
+  display: block;
+  height: 100%;
+  width: var(--p, 0%);
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  transition: width .2s linear;
+}
+.takt.ist-aktiv i { animation: taktStrich 1.6s ease-in-out infinite; }
+
+
+/* ══ KEYFRAMES ════════════════════════════════════════════════════════════
+   Alle Namen zweiteilig — einteilige (rise, pop, sweep, welle, rollen,
+   reveal, fade, breathe, drift, …) sind in styles.css vergeben, und die
+   letzte Definition im Blatt gewinnt still.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Die Karte fällt aus der Unschärfe in die schon aufgeschobene Lücke. */
+@keyframes bausteinRein {
+  from { opacity: 0; transform: translateY(-8px) scale(.955); filter: blur(7px); }
+  55%  { filter: blur(0); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+@keyframes bausteinScan {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(100%); }
+}
+@keyframes bausteinAnkunft {
+  0%   { box-shadow: 0 0 0 0 var(--accent); }
+  100% { box-shadow: 0 0 0 13px rgba(110, 231, 168, 0); }
+}
+/* Wie ein einrastender Stapel — minimal, sonst wirkt das Ende hektisch. */
+@keyframes bausteinSetzen {
+  0%, 100% { transform: none; }
+  45%      { transform: scale(.992); }
+}
+@keyframes randKreisen { to { --winkel: 360deg; } }
+@keyframes adernFluss  { to { stroke-dashoffset: -14; } }
+@keyframes adernZug    { to { stroke-dashoffset: 0; } }
+@keyframes paketFlug {
+  from { opacity: 0; transform: scale(.4); }
+  18%  { opacity: 1; transform: none; }
+  88%  { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes spurWaschen {
+  from { transform: translateY(-100%); opacity: .9; }
+  to   { transform: translateY(100%);  opacity: 0; }
+}
+@keyframes fahneRein {
+  from { opacity: 0; transform: translateY(22px); filter: blur(10px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+@keyframes zifferRollen {
+  from { transform: translateY(.5em); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+@keyframes ladeKachelRein {
+  from { opacity: 0; transform: translateX(-7px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes kapselMorph {
+  from { opacity: 0; transform: scale(.94); filter: blur(9px); border-radius: 34px; }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+@keyframes blattStaffel {
+  from { opacity: 0; transform: translateY(9px) scale(.985); filter: blur(4px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+@keyframes druckSenke {
+  0%   { transform: scale(1); }
+  34%  { transform: scale(.945); box-shadow: 0 1px 0 0 rgba(0, 0, 0, .4) inset; }
+  100% { transform: scale(1); }
+}
+@keyframes zahlZucken {
+  0%   { color: var(--accent); background: var(--accent-soft); }
+  100% { color: inherit; background: transparent; }
+}
+@keyframes ringWandern {
+  from { box-shadow: 0 0 0 7px rgba(110, 231, 168, 0), 0 0 0 0 var(--accent); }
+  to   { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--accent-line); }
+}
+@keyframes wischRein {
+  from { opacity: 0; transform: translateX(calc(var(--richtung, 1) * 22px)); filter: blur(6px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+@keyframes wischRaus {
+  from { opacity: 1; transform: none; filter: none; }
+  to   { opacity: 0; transform: translateX(calc(var(--richtung, 1) * -18px)); filter: blur(6px); }
+}
+@keyframes nebelRein {
+  from { opacity: 0; filter: blur(10px) saturate(.4); transform: scale(1.008); }
+  to   { opacity: 1; filter: none; transform: none; }
+}
+@keyframes taktStrich {
+  0%   { opacity: .35; }
+  50%  { opacity: 1; }
+  100% { opacity: .35; }
+}
+
+
+/* ══ SCHMALE FENSTER — @container, nicht @media ═══════════════════════════
+   Die Bahn steht in .split neben dem Chat; die Fensterbreite sagt dort
+   nichts über die Breite, die der Bahn tatsächlich bleibt.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@container ablauf (max-width: 900px) {
+  .ablauf { grid-template-columns: 1fr; }
+
+  /* Die Palette wird zum wischbaren Streifen über der Bahn. */
+  .ablauf-lade.ist-streifen {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    padding: 6px 14px;
+    border-right: none;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .ablauf-lade.ist-streifen .lade-gruppe { flex-direction: row; }
+  .ablauf-lade.ist-streifen .lade-gruppe > h4 { display: none; }
+  .ablauf-lade.ist-streifen .lade-suche { display: none; }
+  .lade-kachel { scroll-snap-align: start; flex: none; }
+
+  .ablauf-bahn { padding-inline: 16px; }
+}
+
+@container ablauf (max-width: 620px) {
+  /* Zweige stapeln sich; die Adern stimmen automatisch weiter, weil sie
+     aus DOM-Rects kommen und nicht aus gespeicherten Koordinaten. */
+  .bau-gabel { grid-auto-flow: row; }
+  /* Ohne Marke wäre nach dem Stapeln nicht mehr zu sehen, dass die Zweige
+     parallel laufen — genau die Information, die die Gabel transportiert. */
+  .bau-zweig-marke { display: block; }
+
+  /* Details-Semantik: der Leib startet zugeklappt, sonst füllt ein
+     einziger Baustein den ganzen Schirm. */
+  .baustein-leib { grid-template-rows: 0fr; opacity: 0; padding: 0 14px; }
+  .baustein.ist-offen .baustein-leib { grid-template-rows: 1fr; opacity: 1; padding: 0 14px 11px; }
+
+  /* Nur noch ms — tok/s ist der Sekundärwert und fliegt zuerst raus. */
+  .baustein-takt .zweitwert { display: none; }
+}
+
+/* Grundzustand versteckt — so braucht es keine zweite, gegenläufige
+   Container-Abfrage, die bei jeder Breitenänderung mitgepflegt werden müsste. */
+.ablauf-plus {
+  display: none;
+  position: absolute;
+  right: 16px;
+  bottom: 62px;
+  z-index: 4;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 99px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 20px;
+  line-height: 1;
+  place-items: center;
+}
+
+@container ablauf (max-width: 460px) {
+  .ablauf-lade { display: none; }
+  .ablauf-plus { display: grid; }
+}
+
+/* Das Blatt hängt im DOM AUSSERHALB von .ablauf — innerhalb würde
+   container-type:inline-size das position:fixed am Container verankern
+   statt am Fenster, und es säße auf schmalen Fenstern falsch. */
+.lade-blatt {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  max-height: 62vh;
+  overflow-y: auto;
+  padding: 16px 16px 24px;
+  border-radius: 22px 22px 0 0;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel-solid) 74%, transparent);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  animation: fahneRein .38s var(--spring) both;
+}
+.lade-blatt .lade-kachel { width: 100%; }
+
+
+/* ══ WENIGER BEWEGUNG ═════════════════════════════════════════════════════
+   Der Pauschal-Block in styles.css setzt animation-duration auf .01ms für
+   ALLES. Damit wäre der Datenfluss unsichtbar — also genau die einzige
+   Stelle, an der die Oberfläche zeigt, dass überhaupt etwas passiert.
+   Deshalb hier ein statischer Ersatz statt gar nichts.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  /* Durchgezogene Akzentlinie statt Fluss: der Weg bleibt lesbar. */
+  .ader.ist-aktiv .ader-fluss {
+    opacity: 1;
+    stroke-dasharray: none;
+    will-change: auto;
+  }
+  .ader-zug { stroke-dashoffset: 0; }
+  .paket { display: none; }
+
+  /* Ruhige Kante statt kreisendem Licht — und kein leerer Rand, falls die
+     conic-Border ohne Animation nicht greift. */
+  .baustein.ist-laeuft,
+  .notch.is-arbeit,
+  .step:not(.ok):not(.fail),
+  .group:not(.ok) {
+    border: 1px solid var(--accent-line);
+    background: var(--panel-solid);
+    animation: none;
+  }
+  .baustein.ist-laeuft::after { display: none; }
+
+  /* Zustand bleibt am Punkt ablesbar, ohne dass etwas wandert. */
+  .baustein.ist-laeuft .baustein-punkt { background: var(--accent); }
+  .ablauf.ist-fertig .ablauf-spur::after { display: none; }
+
+  /* Der Fokusring darf nicht wegoptimiert werden — er ist Bedienung, nicht Zierde. */
+  :focus-visible {
+    animation: none;
+    box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--accent-line);
+  }
+
+  .ziffer i { transition: none; }
+  .takt.ist-aktiv i { animation: none; opacity: 1; }
+}

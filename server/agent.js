@@ -117,13 +117,13 @@ function kuerzen(text, max) {
  * Die letzten paar bleiben ganz — was älter ist, braucht niemand mehr im Wortlaut.
  * Ohne das reißt schon ein einziger Zug das Minuten-Kontingent.
  */
-function eindampfen(messages, frisch = 4) {
+function eindampfen(messages, frisch, altMax) {
   const werkzeugStellen = messages.map((m, i) => (m.role === 'tool' ? i : -1)).filter((i) => i >= 0)
   const behalten = new Set(werkzeugStellen.slice(-frisch))
   return messages.map((m, i) => {
     if (m.role !== 'tool' || behalten.has(i)) return m
     const t = String(m.content ?? '')
-    return t.length <= 400 ? m : { ...m, content: `${t.slice(0, 400)}\n… [gekürzt, ${t.length} Zeichen]` }
+    return t.length <= altMax ? m : { ...m, content: `${t.slice(0, altMax)}\n… [gekürzt, ${t.length} Zeichen]` }
   })
 }
 
@@ -233,7 +233,7 @@ export class Agent {
     // Passendes aus dem Gedächtnis dazulegen
     if (!quiet) {
       try {
-        const hits = await recall(userText, 4)
+        const hits = await recall(userText, cfg.recallTreffer)
         if (hits.length) {
           this.messages.push({
             role: 'system',
@@ -254,7 +254,7 @@ export class Agent {
         const zugStart = Date.now()
         let zeichen = 0
         const res = await chat({
-          messages: eindampfen(this.messages),
+          messages: eindampfen(this.messages, cfg.kontextFrisch, cfg.kontextAltMax),
           tools,
           signal,
           onWait: ({ sekunden, grund }) => this.emit({ type: 'waiting', sekunden, grund }),
@@ -437,7 +437,7 @@ export class Agent {
         ...wort,
       })
       // Was zurück ins Gehirn geht, kostet Kontingent — also deckeln
-      return kuerzen(text, 14000)
+      return kuerzen(text, cfg.toolResultMax)
     } catch (err) {
       this.emit({ type: 'tool_end', name: call.name, ok: false, result: err.message, ms: Date.now() - begonnen, ...wort })
       return `Fehler bei ${call.name}: ${err.message}`

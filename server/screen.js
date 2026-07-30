@@ -9,6 +9,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { loadConfig } from './config.js'
 
 const pexec = promisify(execFile)
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -64,7 +65,7 @@ export async function capture({ ocrWidth = 1600, viewWidth = 1200 } = {}) {
 
   // Erst Hauptbildschirm, sonst ohne Display-Angabe. Scheitert beides: Erlaubnis fehlt.
   try {
-    await pexec('screencapture', ['-x', '-D', '1', file], { timeout: 20000 })
+    await pexec('screencapture', ['-x', '-D', String(loadConfig().bildschirmNummer || 1), file], { timeout: 20000 })
   } catch (first) {
     try {
       await pexec('screencapture', ['-x', file], { timeout: 20000 })

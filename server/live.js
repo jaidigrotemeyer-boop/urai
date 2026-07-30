@@ -72,7 +72,7 @@ export class LiveWatcher {
     try {
       const cfg = loadConfig()
       const size = await screenSize()
-      const shot = await capture({ ocrWidth: 1280, viewWidth: 900 })
+      const shot = await capture({ ocrWidth: cfg.liveOcrBreite, viewWidth: cfg.liveVorschauBreite })
 
       const bildHash = hash(shot.base64)
       let lines = []
@@ -120,7 +120,7 @@ export class LiveWatcher {
 
       if (note) {
         this.notes.push({ t: Date.now(), app: front.app, note })
-        if (this.notes.length > 60) this.notes.shift()
+        if (this.notes.length > cfg.liveNotizen) this.notes.shift()
         this.emit({ type: 'live_note', text: note, app: front.app })
       }
     } catch (err) {
@@ -189,7 +189,7 @@ export class LiveWatcher {
       // Gratis-Kontingent alle: einfach langsamer weitermachen.
       // Das muss der Nutzer nicht in seiner Mitschrift lesen — es steht im Gehirn-Tab.
       if (/429|quota|rate limit/i.test(m)) {
-        this.strafe = Math.min((this.strafe || cfg.liveTalkGapMs) * 2, 15 * 60_000)
+        this.strafe = Math.min((this.strafe || cfg.liveTalkGapMs) * 2, cfg.liveStrafeMaxMs)
         this.emit({ type: 'live_pause', bis: Date.now() + this.strafe })
       }
       return null

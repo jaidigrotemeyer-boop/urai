@@ -184,7 +184,18 @@ export const crewTools = [
           parent.messages.push({ role: 'system', content: `Zwischenstand von ${m.name}:\n${r}` })
         }
       } else {
-        results = await Promise.all(members.map((m) => spawn(parent, { ...m, group: name })))
+        // Nicht alle auf einmal: acht Mitglieder gleichzeitig reißen mit einem
+        // Schlag das Minuten-Kontingent. Immer nur N Stück, Reihenfolge bleibt.
+        const gleichzeitig = Math.max(1, loadConfig().maxAgentsParallel || 3)
+        results = new Array(members.length)
+        let naechster = 0
+        const arbeiter = Array.from({ length: Math.min(gleichzeitig, members.length) }, async () => {
+          while (naechster < members.length) {
+            const i = naechster++
+            results[i] = await spawn(parent, { ...members[i], group: name })
+          }
+        })
+        await Promise.all(arbeiter)
       }
 
       const zusammen = results.join('\n\n───\n\n')

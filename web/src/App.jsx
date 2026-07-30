@@ -9,6 +9,7 @@ import Farbrad from './components/Farbrad.jsx'
 import Graph3D from './components/Graph3D.jsx'
 import Bereiche from './components/Bereiche.jsx'
 import Verlauf from './components/Verlauf.jsx'
+import Werkstatt from './components/Werkstatt.jsx'
 import { farbeLesen, useFarbe } from './theme.js'
 import { t, useSprache, sprache } from './i18n.js'
 import { hoeren, sprechen, still, kannHoeren, weckwortHoeren } from './stimme.js'
@@ -46,7 +47,8 @@ export default function App() {
   const [stimmeAn, setStimmeAn] = useState(() => localStorage.getItem('urai-stimme') !== 'aus')
   const [weckAn, setWeckAn] = useState(() => localStorage.getItem('urai-weckwort') === 'an')
   const [geweckt, setGeweckt] = useState(false) // Weckwort gehört, wartet auf den Befehl
-  const [ansicht, setAnsicht] = useState('chat') // chat | bereiche | graph
+  const [ansicht, setAnsicht] = useState('chat') // chat | bereiche | werkstatt | graph
+  const [ablaufEreignisse, setAblaufEreignisse] = useState([])
   const [farbradAuf, setFarbradAuf] = useState(false)
   const [verlaufAuf, setVerlaufAuf] = useState(false)
   const [sitzung, setSitzung] = useState(SESSION)
@@ -200,6 +202,11 @@ export default function App() {
       case 'tool_stream':
         if (msg.kind === 'terminal') setTerminal((x) => (x + msg.data).slice(-40000))
         if (msg.kind === 'screen') setScreen(msg.data)
+        // Die Werkstatt schaut einem laufenden Ablauf live zu
+        if (msg.kind?.startsWith('ablauf_')) {
+          if (msg.kind === 'ablauf_start') setAblaufEreignisse([{ type: msg.kind, ...msg.data }])
+          else setAblaufEreignisse((xs) => [...xs.slice(-300), { type: msg.kind, ...msg.data }])
+        }
         break
 
       case 'tool_end':
@@ -419,7 +426,8 @@ export default function App() {
         }
       />
 
-      <div className={`split ${showEye ? 'show-eye' : ''}`}>
+      {/* Werkstatt und Graph brauchen die ganze Fläche — der Chat tritt beiseite */}
+      <div className={`split ${showEye ? 'show-eye' : ''} ${ansicht === 'werkstatt' || ansicht === 'graph' ? 'voll' : ''}`}>
         <section className="chat">
           <div className="messages" ref={scroller}>
             {items.length === 0 && (
@@ -536,6 +544,13 @@ export default function App() {
 
         {ansicht === 'graph' ? (
           <Graph3D offen />
+        ) : ansicht === 'werkstatt' ? (
+          <Werkstatt
+            onSenden={send}
+            busy={busy}
+            ereignisse={ablaufEreignisse}
+            onStopp={() => ws.current?.send(JSON.stringify({ type: 'stop' }))}
+          />
         ) : ansicht === 'bereiche' ? (
           <Bereiche onSenden={send} busy={busy} />
         ) : (
@@ -600,6 +615,7 @@ function Fussleiste({ ansicht, setAnsicht, status, brain, onFarbe, onModell, onV
           {[
             ['chat', t('screen')],
             ['bereiche', 'Bereiche'],
+            ['werkstatt', 'Werkstatt'],
             ['graph', 'Graph'],
           ].map(([id, label]) => (
             <button key={id} className={ansicht === id ? 'on' : ''} onClick={() => setAnsicht(id)}>

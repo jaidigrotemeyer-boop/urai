@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 import { loadConfig } from '../config.js'
 
 const pexec = promisify(execFile)
-const MAX_BYTES = 200_000
+const maxBytes = () => loadConfig().fsMaxBytes
 
 function resolve(p) {
   const c = loadConfig()
@@ -51,7 +51,7 @@ export const fileTools = [
     async run({ path: p, offset = 1, limit = 800 }) {
       const abs = resolve(p)
       const stat = await fs.stat(abs)
-      if (stat.size > MAX_BYTES * 5) throw new Error('Datei zu fett. Nimm offset/limit oder fs_search.')
+      if (stat.size > maxBytes() * 5) throw new Error('Datei zu fett. Nimm offset/limit oder fs_search.')
       const lines = (await fs.readFile(abs, 'utf8')).split('\n')
       const slice = lines.slice(offset - 1, offset - 1 + limit)
       return slice.map((l, i) => `${offset + i}\t${l}`).join('\n')
@@ -118,10 +118,10 @@ export const fileTools = [
           ? ['-rniE', pattern, abs]
           : ['-n', '--max-count', '5', '--max-columns', '200', ...(glob ? ['-g', glob] : []), pattern, abs]
       try {
-        const { stdout } = await pexec(bin, args, { maxBuffer: MAX_BYTES })
+        const { stdout } = await pexec(bin, args, { maxBuffer: maxBytes() })
         return stdout.split('\n').slice(0, 200).join('\n') || '(nichts gefunden)'
       } catch (e) {
-        return e.stdout?.slice(0, MAX_BYTES) || '(nichts gefunden)'
+        return e.stdout?.slice(0, maxBytes()) || '(nichts gefunden)'
       }
     },
   },

@@ -57,6 +57,48 @@ const DEFAULTS = {
   maxAgentDepth: 3, // wie tief dürfen Agenten Agenten erschaffen
   maxAgentsPerRun: 12, // Notbremse gegen endloses Vermehren
   agentSteps: 14, // Schritte pro Unter-Agent
+
+  // ── Feineinstellung: bisher fest im Code verdrahtet ──────────────────
+
+  // Gehirn-Kette: wie hartnäckig URAI ist, wenn ein Anbieter zickt.
+  // Wer nur einen Gratis-Schlüssel hat, wartet lieber, als aufzugeben.
+  brainMaxWaitS: 150,
+  brainPauseMs: 600000, // Sperre nach 401/402/403/404
+  brainRunden: 3, // wie oft die ganze Kette durchprobiert wird
+
+  // Kontext-Haushalt — der größte Hebel gegen "Kontingent aufgebraucht":
+  // was vom Werkzeug zurück ins Gehirn geht, kostet bei JEDEM weiteren Zug erneut.
+  toolResultMax: 14000,
+  kontextFrisch: 4, // letzte N Werkzeug-Ergebnisse im Wortlaut
+  kontextAltMax: 400, // ältere auf so viel stutzen
+  recallTreffer: 4, // Gedächtnis-Zeilen pro Auftrag
+
+  // Werkzeug-Grenzen. Der Standard reicht für Kleinkram, nicht für npm install.
+  shellTimeoutMs: 120000,
+  shellMaxOutput: 100000,
+  fsMaxBytes: 200000,
+  webMaxChars: 20000,
+  webTimeoutMs: 25000,
+  browserSichtbar: true, // false = Playwright unsichtbar, für Arbeit im Hintergrund
+
+  // Live-Mitgucken: Genauigkeit gegen Lüfter — und WELCHER Bildschirm.
+  // Bei zwei Monitoren guckt URAI sonst dauerhaft auf den falschen.
+  bildschirmNummer: 1,
+  liveOcrBreite: 1280, // höher = liest kleinen Text, kostet Rechenzeit
+  liveVorschauBreite: 900,
+  liveNotizen: 60, // wie weit live_report zurückblicken kann
+  liveStrafeMaxMs: 900000, // Deckel der Verdopplungs-Strafe nach 429
+
+  // agent_team startet sonst ALLE Mitglieder gleichzeitig und reißt
+  // mit einem Schlag das Minuten-Kontingent.
+  maxAgentsParallel: 3,
+
+  // Selbstumbau — die einzige Fähigkeit, mit der URAI sich selbst zerlegen kann,
+  // und bisher die einzige ohne Aus-Knopf.
+  selbstumbauErlaubt: true,
+  selfBuildTimeoutMs: 180000,
+
+  graphMaxKnoten: 400,
 }
 
 let cache = null

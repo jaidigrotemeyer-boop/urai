@@ -16,6 +16,13 @@ import { LiveWatcher, watchers } from './live.js'
 import { raeumeAuf } from './screen.js'
 import { elevenBereit, sprechen as elevenSprechen, stimmenListe } from './eleven.js'
 import { graphLesen } from './graph.js'
+import {
+  ablaufListe,
+  ablaufLesen,
+  ablaufSpeichern,
+  ablaufLoeschen,
+  pruefen as ablaufPruefen,
+} from './ablauf.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PORT = Number(process.env.PORT || 3017)
@@ -49,6 +56,14 @@ app.post('/api/config', (req, res) => {
     'liveMode', 'liveIntervalMs', 'liveTalkGapMs', 'liveMaxPerHour',
     'obsidianVault', 'obsidianFolder', 'obsidianAuto',
     'maxAgentDepth', 'maxAgentsPerRun', 'agentSteps',
+    'brainMaxWaitS', 'brainPauseMs', 'brainRunden',
+    'toolResultMax', 'kontextFrisch', 'kontextAltMax', 'recallTreffer',
+    'shellTimeoutMs', 'shellMaxOutput', 'fsMaxBytes',
+    'webMaxChars', 'webTimeoutMs', 'browserSichtbar',
+    'bildschirmNummer', 'liveOcrBreite', 'liveVorschauBreite',
+    'liveNotizen', 'liveStrafeMaxMs', 'liveTimeoutMs', 'liveRemember',
+    'maxAgentsParallel', 'selbstumbauErlaubt', 'selfBuildTimeoutMs',
+    'graphMaxKnoten', 'geminiFastModel',
   ]
   const patch = {}
   for (const k of allowed) if (k in req.body) patch[k] = req.body[k]
@@ -69,6 +84,56 @@ app.post('/api/speak', async (req, res) => {
 })
 
 app.get('/api/voices', async (_req, res) => res.json(await stimmenListe()))
+
+// ── Abläufe: die Werkstatt spricht über REST, gestartet wird über den WebSocket ──
+app.get('/api/ablaeufe', async (_req, res) => {
+  try {
+    res.json(await ablaufListe())
+  } catch (err) {
+    res.status(500).json({ fehler: err.message })
+  }
+})
+
+app.get('/api/ablaeufe/:id', async (req, res) => {
+  try {
+    res.json(await ablaufLesen(req.params.id))
+  } catch (err) {
+    res.status(404).json({ fehler: err.message })
+  }
+})
+
+app.post('/api/ablaeufe', async (req, res) => {
+  try {
+    res.json(await ablaufSpeichern(req.body, { modus: 'neu' }))
+  } catch (err) {
+    res.status(400).json({ fehler: err.message, stellen: err.stellen })
+  }
+})
+
+app.put('/api/ablaeufe/:id', async (req, res) => {
+  try {
+    res.json(await ablaufSpeichern({ ...req.body, id: req.params.id }, { modus: 'ersetzen' }))
+  } catch (err) {
+    res.status(400).json({ fehler: err.message, stellen: err.stellen })
+  }
+})
+
+app.delete('/api/ablaeufe/:id', async (req, res) => {
+  try {
+    res.json(await ablaufLoeschen(req.params.id))
+  } catch (err) {
+    res.status(400).json({ fehler: err.message })
+  }
+})
+
+// Nur prüfen, nicht speichern — damit die Werkstatt beim Zeichnen schon warnen kann
+app.post('/api/ablaeufe/:id/pruefen', (req, res) => {
+  try {
+    res.json(ablaufPruefen({ ...req.body, id: req.params.id }))
+  } catch (err) {
+    res.json({ ok: false, fehler: [err.message] })
+  }
+})
 
 app.get('/api/graph', async (_req, res) => {
   try {
