@@ -1162,3 +1162,42 @@ body.hat-zeiger * { cursor: none !important; }
 /* Werkstatt und Graph brauchen die ganze Breite — der Chat tritt beiseite */
 .split.voll { grid-template-columns: 1fr; }
 .split.voll .chat { display: none; }
+
+/* ── Kontingent-Ampel: sehen, wie viel noch da ist, bevor es knallt ── */
+.ampel { display: flex; align-items: center; gap: 4px; margin-left: 10px; }
+.ampel-balken {
+  width: 26px; height: 4px; border-radius: 99px;
+  background: var(--line); overflow: hidden; display: block;
+}
+.ampel-balken i {
+  display: block; height: 100%; border-radius: 99px;
+  background: var(--accent);
+  transition: width .6s var(--ease), background .4s var(--ease);
+}
+.ampel-balken.gelb i { background: var(--warn); }
+.ampel-balken.rot i { background: var(--danger); animation: ampelPuls 1.4s ease-in-out infinite; }
+@keyframes ampelPuls { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+.ampel-warnung { font-size: 10px; color: var(--warn); margin-left: 4px; white-space: nowrap; }
+
+/* ── Auslöser: gleich passiert etwas von selbst — mit Notbremse ── */
+.ausloeser {
+  align-self: flex-start; max-width: 92%;
+  border: 1px solid var(--warn); border-left: 2px solid var(--warn);
+  border-radius: var(--r); padding: 12px 14px;
+  background: rgba(255, 192, 107, .05);
+  animation: rise .4s var(--ease) both;
+}
+.ausloeser.läuft, .ausloeser.fertig { border-color: var(--accent-line); background: var(--accent-soft); }
+.ausloeser.abgebrochen { opacity: .5; border-color: var(--line); background: transparent; }
+.ausloeser-kopf { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; font-size: 13px; }
+.ausloeser-kopf .dot { background: var(--warn); animation: breathe 1.3s ease-in-out infinite; }
+.ausloeser .row { display: flex; align-items: center; gap: 10px; }
+
+/* Der Balken läuft ab — man sieht, wie viel Zeit zum Abwürgen bleibt */
+.ausloeser-balken {
+  flex: 1; height: 3px; border-radius: 99px;
+  background: linear-gradient(90deg, var(--warn), var(--warn));
+  background-size: 100% 100%; background-repeat: no-repeat;
+  animation: karenz linear forwards;
+}
+@keyframes karenz { from { background-size: 100% 100%; } to { background-size: 0% 100%; } }

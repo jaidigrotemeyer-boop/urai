@@ -1,6 +1,7 @@
 // Gehirn-Wähler: nimmt das erste Gehirn, das lebt.
 // Reihenfolge: Gemini → Cerebras → Groq → OpenRouter. Alles über API, nichts lokal.
 import { loadConfig, saveConfig } from './config.js'
+import { zaehle, stand as kontingentStand } from './kontingent.js'
 
 // Modellname, der immer existiert — Rettung, wenn Google einen alten Namen abschaltet
 const FALLBACK_GEMINI = 'gemini-flash-latest'
@@ -114,6 +115,7 @@ export async function brainStatus() {
   return {
     chain: providerChain(),
     kaputt: brokenBrains(),
+    kontingent: kontingentStand(providerChain()),
     gemini: !!c.geminiKey,
     cerebras: !!c.cerebrasKey,
     groq: !!c.groqKey,
@@ -162,9 +164,11 @@ export async function chat({ messages, tools = [], onDelta = () => {}, signal, o
             ? await geminiChat({ messages, tools, onDelta, signal, model: flink ? loadConfig().geminiFastModel : undefined })
             : await openaiChat({ provider, messages, tools, onDelta, signal })
         kaputt.delete(provider)
+        zaehle(provider, true, out.text?.length || 0)
         return out
       } catch (err) {
         if (err?.name === 'AbortError') throw err
+        zaehle(provider, false)
         melde(provider, err.message)
         errors.push(`${provider}: ${err.message}`)
       }

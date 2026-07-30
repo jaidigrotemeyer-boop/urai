@@ -99,6 +99,17 @@ const DEFAULTS = {
   selfBuildTimeoutMs: 180000,
 
   graphMaxKnoten: 400,
+
+  // Beweis-Pflicht: nach jedem Klick nachsehen, ob er gewirkt hat.
+  // Kostet einen halben Blick pro Handlung, verhindert dafür,
+  // dass URAI Erfolg meldet, den es nie gab.
+  beweisPflicht: true,
+  beweisWartenMs: 450,
+
+  // Auslöser: Abläufe starten von selbst. Die Karenzzeit ist Absicht —
+  // der Nutzer soll sehen, was gleich passiert, und es abwürgen können.
+  ausloeserAn: true,
+  ausloeserKarenzS: 10,
 }
 
 let cache = null

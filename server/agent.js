@@ -6,6 +6,7 @@ import { loadConfig, saveConfig, sprachName } from './config.js'
 import { logMessage, recall, history } from './memory.js'
 import { saveSession, addToIndex } from './obsidian.js'
 import { beschreiben } from './aktivitaet.js'
+import { mitBeweis } from './beweis.js'
 
 const SYSTEM = `Du bist URAI — ein Agent, der auf dem Mac des Nutzers wirklich handelt.
 
@@ -426,7 +427,9 @@ export class Agent {
         signal,
         agent: this, // damit agent_spawn / agent_team Kinder anlegen können
       }
-      const result = await tool.run(call.args || {}, ctx)
+      // Handlungen am Mac werden nachgeprüft — sonst meldet er Erfolg,
+      // obwohl der Klick ins Leere ging.
+      const result = await mitBeweis(call.name, () => tool.run(call.args || {}, ctx))
       const text = String(result ?? '')
       this.emit({
         type: 'tool_end',

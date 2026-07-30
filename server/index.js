@@ -16,6 +16,7 @@ import { LiveWatcher, watchers } from './live.js'
 import { raeumeAuf } from './screen.js'
 import { elevenBereit, sprechen as elevenSprechen, stimmenListe } from './eleven.js'
 import { graphLesen } from './graph.js'
+import { Waechter, lesen as ausloeserLesen, schreiben as ausloeserSchreiben } from './ausloeser.js'
 import {
   ablaufListe,
   ablaufLesen,
@@ -23,6 +24,9 @@ import {
   ablaufLoeschen,
   pruefen as ablaufPruefen,
 } from './ablauf.js'
+
+// Ein Wächter pro offener Seite — beim Ändern der Liste müssen alle neu aufsetzen
+const waechterListe = new Set()
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PORT = Number(process.env.PORT || 3017)
@@ -64,6 +68,7 @@ app.post('/api/config', (req, res) => {
     'liveNotizen', 'liveStrafeMaxMs', 'liveTimeoutMs', 'liveRemember',
     'maxAgentsParallel', 'selbstumbauErlaubt', 'selfBuildTimeoutMs',
     'graphMaxKnoten', 'geminiFastModel',
+    'beweisPflicht', 'beweisWartenMs', 'ausloeserAn', 'ausloeserKarenzS',
   ]
   const patch = {}
   for (const k of allowed) if (k in req.body) patch[k] = req.body[k]
@@ -135,6 +140,18 @@ app.post('/api/ablaeufe/:id/pruefen', (req, res) => {
   }
 })
 
+app.get('/api/ausloeser', (_req, res) => res.json(ausloeserLesen()))
+
+app.post('/api/ausloeser', (req, res) => {
+  try {
+    const liste = ausloeserSchreiben(req.body)
+    for (const w of waechterListe) w.neuLaden()
+    res.json(liste)
+  } catch (err) {
+    res.status(400).json({ fehler: err.message })
+  }
+})
+
 app.get('/api/graph', async (_req, res) => {
   try {
     res.json(await graphLesen())
@@ -185,6 +202,11 @@ wss.on('connection', (ws) => {
     send({ type: 'queue', laenge: 0, arbeitet: false })
   }
 
+  // Auslöser: startet Abläufe von selbst. Meldet sich vorher hier.
+  const waechter = new Waechter({ emit: send })
+  waechterListe.add(waechter)
+  if (loadConfig().ausloeserAn) waechter.start()
+
   // Live-Modus: guckt von selbst mit, solange die Seite offen ist
   const watcher = new LiveWatcher({ emit: send })
   watchers.add(watcher)
@@ -207,6 +229,7 @@ wss.on('connection', (ws) => {
       return
     }
     if (msg.type === 'approval') return agent?.approve(msg.id, msg.ok, msg.always)
+    if (msg.type === 'ausloeser_abbrechen') return waechter.abbrechen(msg.id)
     if (msg.type === 'stop') {
       schlange.length = 0 // Wartende Aufträge auch wegwerfen
       return agent?.stop()
@@ -228,6 +251,8 @@ wss.on('connection', (ws) => {
     agent?.stop()
     watcher.stop()
     watchers.delete(watcher)
+    waechter.stop()
+    waechterListe.delete(waechter)
   })
 })
 

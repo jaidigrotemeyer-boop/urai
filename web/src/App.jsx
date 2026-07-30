@@ -122,6 +122,17 @@ export default function App() {
     if (el) el.scrollTop = el.scrollHeight
   }, [items])
 
+  // Die Ampel muss mitlaufen, sonst zeigt sie einen Stand von vor einer Stunde
+  useEffect(() => {
+    const holen = () =>
+      fetch('/api/status')
+        .then((r) => r.json())
+        .then(setStatus)
+        .catch(() => {})
+    const i = setInterval(holen, 20000)
+    return () => clearInterval(i)
+  }, [])
+
   // Weckwort: lauscht leise mit, bis jemand "Hey URAI" sagt
   useEffect(() => {
     if (!weckAn || !kannHoeren()) return
@@ -271,6 +282,34 @@ export default function App() {
 
       case 'obsidian':
         push({ kind: 'note', text: `${t('savedTo')}: ${msg.note}` })
+        break
+
+      // Ein Auslöser will einen Ablauf starten — mit Karenzzeit zum Abwürgen
+      case 'ausloeser_gleich':
+        push({
+          kind: 'ausloeser',
+          id: msg.id,
+          name: msg.name,
+          grund: msg.grund,
+          karenzS: msg.karenzS,
+          offen: true,
+        })
+        break
+
+      case 'ausloeser_abgebrochen':
+        patchLast((x) => x.kind === 'ausloeser' && x.id === msg.id, { offen: false, zustand: 'abgebrochen' })
+        break
+
+      case 'ausloeser_start':
+        patchLast((x) => x.kind === 'ausloeser' && x.id === msg.id, { offen: false, zustand: 'läuft' })
+        break
+
+      case 'ausloeser_fertig':
+        patchLast((x) => x.kind === 'ausloeser' && x.id === msg.id, { zustand: 'fertig', ergebnis: msg.ergebnis })
+        break
+
+      case 'ausloeser_fehler':
+        push({ kind: 'msg', role: 'error', text: `Auslöser: ${msg.text}` })
         break
 
       case 'summarizing':
@@ -438,7 +477,12 @@ export default function App() {
               </div>
             )}
             {items.map((it) => (
-              <Item key={it.key} item={it} onApprove={answerApproval} />
+              <Item
+                key={it.key}
+                item={it}
+                onApprove={answerApproval}
+                onAbbrechen={(id) => ws.current?.send(JSON.stringify({ type: 'ausloeser_abbrechen', id }))}
+              />
             ))}
             <Aktivitaet tun={tun} warte={warte} schritt={schritt} tempo={tempo} queue={queue} agents={live} />
           </div>
@@ -593,6 +637,26 @@ export default function App() {
  * Die Leiste ganz unten: welche Ansicht, welches Gehirn, welche Farbe.
  * Immer da, immer gleich — das Fundament unter allem.
  */
+/**
+ * Kontingent-Ampel: wie voll die Gratis-Stufen sind, bevor es knallt.
+ * Ein Balken pro Gehirn — grün ist Luft, gelb wird eng, rot heißt gleich vorbei.
+ */
+function Ampel({ kontingent }) {
+  if (!kontingent?.length) return null
+  const eng = kontingent.filter((k) => k.eng)
+
+  return (
+    <div className="ampel" title={kontingent.map((k) => `${k.name}: ${k.minute}/${k.minuteMax} pro Minute · ${k.tag}/${k.tagMax} heute`).join('\n')}>
+      {kontingent.map((k) => (
+        <span key={k.provider} className={`ampel-balken ${k.anteil > 0.9 ? 'rot' : k.eng ? 'gelb' : ''}`}>
+          <i style={{ width: `${Math.max(3, k.anteil * 100)}%` }} />
+        </span>
+      ))}
+      {eng.length > 0 && <span className="ampel-warnung">{eng[0].name} wird eng</span>}
+    </div>
+  )
+}
+
 function Fussleiste({ ansicht, setAnsicht, status, brain, onFarbe, onModell, onVerlauf }) {
   const [modellAuf, setModellAuf] = useState(false)
   const f = farbeLesen()
@@ -630,6 +694,7 @@ function Fussleiste({ ansicht, setAnsicht, status, brain, onFarbe, onModell, onV
             <span>{aktuell[0] || erstes || t('noKey')}</span>
             <span className="fuss-dim">{aktuell[1] || modelle[erstes] || ''}</span>
           </button>
+          <Ampel kontingent={status?.brain?.kontingent} />
         </div>
 
         <div className="fuss-rechts">
@@ -679,7 +744,7 @@ function Fussleiste({ ansicht, setAnsicht, status, brain, onFarbe, onModell, onV
   )
 }
 
-function Item({ item, onApprove }) {
+function Item({ item, onApprove, onAbbrechen }) {
   if (item.kind === 'msg') {
     return (
       <div className={`msg ${item.role} ${item.wartet ? 'wartet' : ''}`}>
@@ -690,6 +755,28 @@ function Item({ item, onApprove }) {
   }
 
   if (item.kind === 'note') return <span className="pill live">{item.text}</span>
+
+  if (item.kind === 'ausloeser') {
+    return (
+      <div className={`ausloeser ${item.zustand || ''}`}>
+        <div className="ausloeser-kopf">
+          <span className="dot" />
+          <strong>{item.name}</strong>
+          <span className="tail">{item.grund}</span>
+        </div>
+        {item.offen ? (
+          <div className="row">
+            <span className="ausloeser-balken" style={{ animationDuration: `${item.karenzS || 10}s` }} />
+            <button className="danger" onClick={() => onAbbrechen(item.id)}>
+              {t('stop')}
+            </button>
+          </div>
+        ) : (
+          <span className="chip-mini">{item.zustand}{item.ergebnis ? ` · ${item.ergebnis.slice(0, 80)}` : ''}</span>
+        )}
+      </div>
+    )
+  }
 
   if (item.kind === 'summary') {
     return (
