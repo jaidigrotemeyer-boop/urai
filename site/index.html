@@ -121,6 +121,19 @@
   }
   .sprachwahl button:hover { color: var(--ink); }
   .sprachwahl button.on { color: var(--void); background: var(--iris); }
+  .ghkopf {
+    display: flex; align-items: center; color: var(--ink-dim); padding: 6px;
+    border-radius: 99px; transition: color .2s var(--ease), background .2s var(--ease);
+  }
+  .ghkopf:hover { color: var(--ink); background: var(--raise); }
+  .ghzeile { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .ghlink {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--ink-dim); text-decoration: none; font-size: 12.5px;
+    padding: 6px 12px; border-radius: 99px; border: 1px solid var(--hair-soft);
+    transition: color .2s var(--ease), border-color .2s var(--ease), background .2s var(--ease);
+  }
+  .ghlink:hover { color: var(--ink); border-color: var(--hair); background: var(--raise); }
   @media (max-width: 640px) {
     .bar a { display: none; }
   }
@@ -324,6 +337,9 @@
     <a href="#kann" data-i18n="navKann">Was er kann</a>
     <a href="#gehirn" data-i18n="navGehirn">Gehirne</a>
     <a href="#start" data-i18n="navStart">Loslegen</a>
+    <a class="ghkopf" href="https://github.com/jaidigrotemeyer-boop/urai" target="_blank" rel="noreferrer" aria-label="GitHub">
+      <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+    </a>
     <span class="sprachwahl" id="sprachwahl">
       <button type="button" data-lang="de">DE</button>
       <button type="button" data-lang="en">EN</button>
@@ -345,14 +361,14 @@
     </p>
 
     <div class="run" style="flex-wrap: wrap;">
-      <a class="dl" id="dl-mac" href="http://localhost:3017/api/download" download="urai.zip">
+      <a class="dl" id="dl-mac" href="https://github.com/jaidigrotemeyer-boop/urai/archive/refs/heads/main.zip" download="urai.zip">
         <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
           <path d="M16.365 1.43c0 1.14-.462 2.096-1.203 2.799-.804.766-2.033 1.362-3.09 1.293-.14-1.104.41-2.264 1.15-2.99C13.99.775 15.24.17 16.365 1.43zm4.14 15.354c-.4.926-.9 1.83-1.612 2.62-1.014 1.13-1.75 1.914-3.08 1.914-1.24 0-1.63-.804-3.11-.804-1.51 0-1.94.78-3.11.83-1.29.05-2.09-1.06-3.13-2.2-2.1-2.34-3.7-6.63-1.55-9.53 1.06-1.44 2.87-2.34 4.65-2.37 1.24-.025 2.32.834 3.05.834.71 0 2.06-1.03 3.47-.88.59.025 2.25.24 3.32 1.8-.086.054-1.98 1.155-1.96 3.45.024 2.75 2.41 3.66 2.44 3.67-.02.075-.38 1.31-1.25 2.6z"/>
         </svg>
         <span data-i18n="dlMac">Für Mac</span>
         <span class="tag" id="tag-mac" hidden data-i18n="empfohlen">empfohlen</span>
       </a>
-      <a class="dl alt" id="dl-win" href="http://localhost:3017/api/download" download="urai.zip">
+      <a class="dl alt" id="dl-win" href="https://github.com/jaidigrotemeyer-boop/urai/archive/refs/heads/main.zip" download="urai.zip">
         <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
           <rect x="2.5" y="3.6" width="8.3" height="8.3"/>
           <rect x="13.2" y="3.6" width="8.3" height="8.3"/>
@@ -369,8 +385,16 @@
       </span>
     </div>
     <p class="note" style="margin-top:10px" data-i18n="heroNote">
-      macOS oder Windows · Node 22 · ein Gratis-API-Schlüssel · Download braucht ein laufendes URAI auf diesem Rechner
+      macOS oder Windows · Node 22 · ein Gratis-API-Schlüssel
     </p>
+    <div class="ghzeile">
+      <a class="ghlink" href="https://github.com/jaidigrotemeyer-boop/urai" target="_blank" rel="noreferrer">
+        <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        <span data-i18n="ghAnsehen">Auf GitHub ansehen</span>
+      </a>
+      <a class="ghlink" href="https://github.com/jaidigrotemeyer-boop/urai/releases" target="_blank" rel="noreferrer" data-i18n="ghReleases">Releases</a>
+      <a class="ghlink" href="https://github.com/jaidigrotemeyer-boop/urai/issues" target="_blank" rel="noreferrer" data-i18n="ghIssues">Fehler melden</a>
+    </div>
 
     <div class="demo">
       <div class="demo-bar">
@@ -529,7 +553,7 @@
 </footer>
 
 <script>
-  const cmd = 'git clone <dein-repo> urai && cd urai && npm install && npm start'
+  const cmd = 'git clone https://github.com/jaidigrotemeyer-boop/urai.git && cd urai && npm install && npm start'
   const KOPIERT = { de: 'kopiert', en: 'copied', es: 'copiado' }
   const GING_NICHT = { de: 'ging nicht', en: "didn't work", es: 'no funcionó' }
   document.getElementById('copy').addEventListener('click', async (e) => {
@@ -570,7 +594,8 @@
       heroKicker: '<span class="rec"></span>guckt mit, während du arbeitest',
       heroTitel: 'Ein Agent, der auf deinem Rechner <em>wirklich handelt</em>.',
       heroText: 'URAI liest deinen Bildschirm, klickt, tippt, schreibt Code und stellt sich selbst Agenten-Teams zusammen. Alles läuft bei dir daheim. <strong>Kostet nichts</strong> — Gratis-Schlüssel reichen.',
-      heroNote: 'macOS oder Windows · Node 22 · ein Gratis-API-Schlüssel · Download braucht ein laufendes URAI auf diesem Rechner',
+      heroNote: 'macOS oder Windows · Node 22 · ein Gratis-API-Schlüssel',
+      ghAnsehen: 'Auf GitHub ansehen', ghReleases: 'Releases', ghIssues: 'Fehler melden',
       demoFrage: 'Finde raus, was drei Konkurrenten für Versand nehmen.',
       demoGruppe: 'Gruppe: Preis-Check · 3 Mitglieder', demoSpaeherA: 'Späher A · web_fetch', demoSpaeherB: 'Späher B · web_fetch',
       demoPruefer: 'Prüfer · obsidian_write', demoArbeiten: '3 Agenten arbeiten',
@@ -624,7 +649,8 @@
       heroKicker: '<span class="rec"></span>watches along while you work',
       heroTitel: 'An agent that <em>really acts</em> on your computer.',
       heroText: "URAI reads your screen, clicks, types, writes code, and assembles its own agent teams. Everything runs at home. <strong>Costs nothing</strong> — free API keys are enough.",
-      heroNote: 'macOS or Windows · Node 22 · one free API key · Download needs a running URAI on this machine',
+      heroNote: 'macOS or Windows · Node 22 · one free API key',
+      ghAnsehen: 'View on GitHub', ghReleases: 'Releases', ghIssues: 'Report an issue',
       demoFrage: 'Find out what three competitors charge for shipping.',
       demoGruppe: 'Team: Price check · 3 members', demoSpaeherA: 'Scout A · web_fetch', demoSpaeherB: 'Scout B · web_fetch',
       demoPruefer: 'Reviewer · obsidian_write', demoArbeiten: '3 agents working',
@@ -678,7 +704,8 @@
       heroKicker: '<span class="rec"></span>te acompaña mientras trabajas',
       heroTitel: 'Un agente que <em>actúa de verdad</em> en tu ordenador.',
       heroText: 'URAI lee tu pantalla, hace clic, escribe, programa y arma sus propios equipos de agentes. Todo funciona en tu casa. <strong>No cuesta nada</strong> — con claves gratuitas basta.',
-      heroNote: 'macOS o Windows · Node 22 · una clave de API gratuita · La descarga necesita un URAI en marcha en este equipo',
+      heroNote: 'macOS o Windows · Node 22 · una clave de API gratuita',
+      ghAnsehen: 'Ver en GitHub', ghReleases: 'Versiones', ghIssues: 'Reportar un error',
       demoFrage: 'Averigua cuánto cobran tres competidores por el envío.',
       demoGruppe: 'Equipo: Comparar precios · 3 miembros', demoSpaeherA: 'Explorador A · web_fetch', demoSpaeherB: 'Explorador B · web_fetch',
       demoPruefer: 'Revisor · obsidian_write', demoArbeiten: '3 agentes trabajando',
