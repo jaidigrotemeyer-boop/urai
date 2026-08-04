@@ -10,6 +10,7 @@ import Graph3D from './components/Graph3D.jsx'
 import Bereiche from './components/Bereiche.jsx'
 import Verlauf from './components/Verlauf.jsx'
 import Werkstatt from './components/Werkstatt.jsx'
+import Onboarding from './components/Onboarding.jsx'
 import { farbeLesen, useFarbe } from './theme.js'
 import { t, useSprache, sprache } from './i18n.js'
 import { hoeren, sprechen, still, kannHoeren, weckwortHoeren } from './stimme.js'
@@ -52,6 +53,7 @@ export default function App() {
   const [farbradAuf, setFarbradAuf] = useState(false)
   const [verlaufAuf, setVerlaufAuf] = useState(false)
   const [sitzung, setSitzung] = useState(SESSION)
+  const [onboardingZeigen, setOnboardingZeigen] = useState(false)
   const mikro = useRef(null)
   const weck = useRef(null)
 
@@ -98,7 +100,11 @@ export default function App() {
 
     fetch('/api/status')
       .then((r) => r.json())
-      .then((s) => alive && setStatus(s))
+      .then((s) => {
+        if (!alive) return
+        setStatus(s)
+        if (!s.config?.onboardingFertig) setOnboardingZeigen(true)
+      })
       .catch(() => {})
 
     return () => {
@@ -438,6 +444,14 @@ export default function App() {
     <div className={`app ${wach ? 'wach' : ''}`}>
       {!wach && <Boot onDone={() => setWach(true)} />}
       <Cursor busy={busy} />
+      {onboardingZeigen && (
+        <Onboarding
+          onFertig={() => {
+            setOnboardingZeigen(false)
+            fetch('/api/status').then((r) => r.json()).then(setStatus).catch(() => {})
+          }}
+        />
+      )}
 
       <Notch
         busy={busy}
@@ -471,7 +485,7 @@ export default function App() {
           <div className="messages" ref={scroller}>
             {items.length === 0 && (
               <div className="empty">
-                {t('emptyTitle')}
+                {status?.config?.profilName ? `${t('gruss')}, ${status.config.profilName}.` : t('emptyTitle')}
                 <br />
                 {t('emptySub')}
               </div>
@@ -678,9 +692,9 @@ function Fussleiste({ ansicht, setAnsicht, status, brain, onFarbe, onModell, onV
         <div className="fuss-tabs">
           {[
             ['chat', t('screen')],
-            ['bereiche', 'Bereiche'],
-            ['werkstatt', 'Werkstatt'],
-            ['graph', 'Graph'],
+            ['bereiche', t('navBereiche')],
+            ['werkstatt', t('navWerkstatt')],
+            ['graph', t('navGraph')],
           ].map(([id, label]) => (
             <button key={id} className={ansicht === id ? 'on' : ''} onClick={() => setAnsicht(id)}>
               {label}
@@ -698,7 +712,7 @@ function Fussleiste({ ansicht, setAnsicht, status, brain, onFarbe, onModell, onV
         </div>
 
         <div className="fuss-rechts">
-          <button className="fuss-verlauf" onClick={onVerlauf} title="Alte Gespräche">
+          <button className="fuss-verlauf" onClick={onVerlauf} title={t('navVerlauf')}>
             Verlauf
           </button>
           <button
@@ -713,6 +727,26 @@ function Fussleiste({ ansicht, setAnsicht, status, brain, onFarbe, onModell, onV
       {modellAuf && (
         <div className="modellwahl" onClick={() => setModellAuf(false)}>
           <div className="modellkarte" onClick={(e) => e.stopPropagation()}>
+            <div className="field">
+              <label>Anstrengung — wie viel Mühe sich URAI gibt</label>
+              <div className="chips">
+                {[
+                  ['schnell', 'Schnell', 'Wenige Schritte, kürzerer Kontext'],
+                  ['normal', 'Normal', 'Ausgewogen'],
+                  ['gruendlich', 'Gründlich', 'Mehr Schritte, mehr Versuche, langsamer'],
+                ].map(([id, label, hinweis]) => (
+                  <button
+                    key={id}
+                    className={`chip ${status?.config?.anstrengung === id ? 'on' : ''}`}
+                    title={hinweis}
+                    onClick={() => onModell({ anstrengung: id })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="sub">Reihenfolge: {kette.join(' → ') || 'kein Schlüssel'}</div>
             {kette
               .filter((p) => MODELLE[p])

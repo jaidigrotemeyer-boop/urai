@@ -1,6 +1,35 @@
 import React, { useEffect, useState } from 'react'
 import { t, SPRACHEN, sprache, setzeSprache, useSprache } from '../i18n.js'
 
+/** Kleines Formular, um einen eigenen OpenAI-kompatiblen Anbieter einzutragen. */
+function EigenerAnbieterFormular({ onHinzu }) {
+  const [name, setName] = useState('')
+  const [url, setUrl] = useState('')
+  const [model, setModel] = useState('')
+  const [key, setKey] = useState('')
+
+  function hinzu() {
+    if (!name.trim() || !url.trim() || !model.trim() || !key.trim()) return
+    onHinzu({ id: `p${Date.now().toString(36)}`, name: name.trim(), url: url.trim(), model: model.trim(), key: key.trim() })
+    setName('')
+    setUrl('')
+    setModel('')
+    setKey('')
+  }
+
+  return (
+    <div className="eigen-formular">
+      <input placeholder="Name (z.B. Together)" value={name} onChange={(e) => setName(e.target.value)} />
+      <input placeholder="https://api.…/v1/chat/completions" value={url} onChange={(e) => setUrl(e.target.value)} />
+      <input placeholder="Modell-Kennung" value={model} onChange={(e) => setModel(e.target.value)} />
+      <input placeholder="API-Schlüssel" type="password" value={key} onChange={(e) => setKey(e.target.value)} />
+      <button onClick={hinzu} disabled={!name.trim() || !url.trim() || !model.trim() || !key.trim()}>
+        Hinzufügen
+      </button>
+    </div>
+  )
+}
+
 export default function Settings({ onClose, onSaved }) {
   useSprache()
   const [cfg, setCfg] = useState(null)
@@ -9,11 +38,40 @@ export default function Settings({ onClose, onSaved }) {
   const [stimmen, setStimmen] = useState(null)
   const [probeLaeuft, setProbeLaeuft] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [unterstuetzer, setUnterstuetzer] = useState(null)
+  const [gutscheinCode, setGutscheinCode] = useState('')
+  const [gutscheinAntwort, setGutscheinAntwort] = useState(null)
+  const [onboardingErneut, setOnboardingErneut] = useState(false)
+  const [bildschirme, setBildschirme] = useState([])
 
   useEffect(() => {
-    fetch('/api/status').then((r) => r.json()).then((s) => setCfg(s.config))
+    fetch('/api/status').then((r) => r.json()).then((s) => {
+      setCfg(s.config)
+      setUnterstuetzer(s.unterstuetzer)
+    })
+    fetch('/api/bildschirme').then((r) => r.json()).then(setBildschirme).catch(() => {})
     fetch('/api/tools').then((r) => r.json()).then((t) => setTools(t.tools))
   }, [])
+
+  async function codeEinloesen() {
+    try {
+      const r = await fetch('/api/gutschein', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code: gutscheinCode }),
+      })
+      const j = await r.json()
+      if (j.ok) {
+        setUnterstuetzer({ stufe: j.stufe, bis: j.bis, aktiv: true })
+        setGutscheinAntwort({ ok: true, text: `${t('onbCodeOk')} ${j.hinweis || ''}` })
+        setGutscheinCode('')
+      } else {
+        setGutscheinAntwort({ ok: false, text: j.fehler })
+      }
+    } catch {
+      setGutscheinAntwort({ ok: false, text: 'Verbindung fehlgeschlagen.' })
+    }
+  }
 
   if (!cfg) return null
 
@@ -43,7 +101,10 @@ export default function Settings({ onClose, onSaved }) {
       obsidianAuto: cfg.obsidianAuto,
       maxAgentDepth: Number(cfg.maxAgentDepth) || 3,
       maxAgentsPerRun: Number(cfg.maxAgentsPerRun) || 12,
+      spendenLink: cfg.spendenLink || '',
+      customProviders: cfg.customProviders || [],
     }
+    if (onboardingErneut) patch.onboardingFertig = false
 
     // Feineinstellung: alles, was vorher fest im Code stand.
     // Zahlenfelder liefern Strings — hier werden sie zu echten Zahlen,
@@ -85,7 +146,7 @@ export default function Settings({ onClose, onSaved }) {
         <div className="sub">{t('setLocal')}</div>
 
         <details className="abschnitt" open>
-          <summary>Sprache</summary>
+          <summary>{t('einstSprache')}</summary>
 
         <div className="field">
           <label>{t('language')}</label>
@@ -109,7 +170,7 @@ export default function Settings({ onClose, onSaved }) {
         </details>
 
         <details className="abschnitt">
-          <summary>Gehirne und Schlüssel</summary>
+          <summary>{t('einstGehirne')}</summary>
 
         <div className="field">
           <label>
@@ -178,10 +239,37 @@ export default function Settings({ onClose, onSaved }) {
           <input value={cfg.embedModel || ''} onChange={(e) => setCfg({ ...cfg, embedModel: e.target.value })} />
         </div>
 
+        <div className="field">
+          <label>Eigene Gehirne — jeder OpenAI-kompatible Anbieter</label>
+          <div className="note" style={{ marginBottom: 8 }}>
+            Together, Fireworks, Mistral, DeepSeek, Perplexity, ein eigener lokaler Server — alles, was die
+            <code style={{ margin: '0 4px' }}>/chat/completions</code>-Form spricht.
+          </div>
+          {(cfg.customProviders || []).map((p, i) => (
+            <div key={p.id} className="eigen-zeile">
+              <span className="chip-mini">{p.name || p.id}</span>
+              <span className="fuss-dim">{p.model}</span>
+              <button
+                className="danger"
+                onClick={() =>
+                  setCfg({ ...cfg, customProviders: cfg.customProviders.filter((x) => x.id !== p.id) })
+                }
+              >
+                Entfernen
+              </button>
+            </div>
+          ))}
+          <EigenerAnbieterFormular
+            onHinzu={(neu) =>
+              setCfg({ ...cfg, customProviders: [...(cfg.customProviders || []), neu] })
+            }
+          />
+        </div>
+
         </details>
 
         <details className="abschnitt">
-          <summary>Revier und Verhalten</summary>
+          <summary>{t('einstRevier')}</summary>
 
         <div className="field">
           <label>Revier — hier darf URAI Dateien anfassen</label>
@@ -207,7 +295,7 @@ export default function Settings({ onClose, onSaved }) {
         </details>
 
         <details className="abschnitt">
-          <summary>Stimme</summary>
+          <summary>{t('einstStimme')}</summary>
 
         <div className="field">
           <label>
@@ -292,10 +380,10 @@ export default function Settings({ onClose, onSaved }) {
         </details>
 
         <details className="abschnitt">
-          <summary>Live-Mitgucken</summary>
+          <summary>{t('einstLiveMitgucken')}</summary>
 
         <div className="field">
-          <label>Live-Mitgucken</label>
+          <label>{t('einstLiveMitgucken')}</label>
           <div className="chips">
             <button className={`chip ${cfg.liveMode ? 'on' : ''}`} onClick={() => setCfg({ ...cfg, liveMode: !cfg.liveMode })}>
               {cfg.liveMode ? 'an — guckt immer mit' : 'aus'}
@@ -339,7 +427,7 @@ export default function Settings({ onClose, onSaved }) {
         </details>
 
         <details className="abschnitt">
-          <summary>Obsidian</summary>
+          <summary>{t('einstObsidian')}</summary>
 
         <div className="field">
           <label>Obsidian-Vault — hier landet alles automatisch</label>
@@ -366,7 +454,7 @@ export default function Settings({ onClose, onSaved }) {
         </details>
 
         <details className="abschnitt">
-          <summary>Agenten</summary>
+          <summary>{t('einstAgenten')}</summary>
 
         <div className="field">
           <label>Agenten dürfen Agenten erschaffen — wie tief?</label>
@@ -395,7 +483,7 @@ export default function Settings({ onClose, onSaved }) {
         </details>
 
         <details className="abschnitt">
-          <summary>Feineinstellung</summary>
+          <summary>{t('einstFeineinstellung')}</summary>
 
           <div className="field">
             <label>Reihenfolge der Gehirne — antippen schiebt nach vorn</label>
@@ -430,7 +518,13 @@ export default function Settings({ onClose, onSaved }) {
             ['fsMaxBytes', 'Datei lesen: Bytes bis Verweigerung', ''],
             ['webMaxChars', 'Webseite: Zeichen die gelesen werden', ''],
             ['webTimeoutMs', 'Webseite: Abbruch nach (ms)', ''],
-            ['bildschirmNummer', 'Welcher Bildschirm', 'Bei zwei Monitoren guckt URAI sonst dauerhaft auf den falschen.'],
+            [
+              'bildschirmNummer',
+              'Welcher Bildschirm',
+              bildschirme.length > 1
+                ? `Erkannt: ${bildschirme.map((b) => `${b.nummer}${b.haupt ? ' (Haupt)' : ''}: ${b.width}×${b.height}`).join(' · ')}`
+                : 'Bei zwei Monitoren guckt URAI sonst dauerhaft auf den falschen.',
+            ],
             ['liveOcrBreite', 'Live: Bildbreite für die Texterkennung', 'Höher liest kleinen Text, kostet Rechenzeit.'],
             ['liveVorschauBreite', 'Live: Bildbreite fürs Fenster', ''],
             ['liveNotizen', 'Live: wie weit zurückgeblickt wird', ''],
@@ -504,7 +598,7 @@ export default function Settings({ onClose, onSaved }) {
         </details>
 
         <details className="abschnitt">
-          <summary>Werkzeuge ohne Rückfrage</summary>
+          <summary>{t('einstWerkzeuge')}</summary>
 
         <div className="field">
           <label>Ohne Rückfrage erlauben — Rot = fragt sonst immer</label>
@@ -523,6 +617,67 @@ export default function Settings({ onClose, onSaved }) {
           </div>
         </div>
 
+        </details>
+
+        <details className="abschnitt">
+          <summary>
+            {t('onbUnterstTitel')}
+            {unterstuetzer?.aktiv && <span className="unterst-abzeichen">{t(`unterstStufe_${unterstuetzer.stufe}`)}</span>}
+          </summary>
+
+          <div className="field">
+            <label>{t('einstGutscheinTitel')}</label>
+            <div className="chips" style={{ gap: 6 }}>
+              <input
+                style={{ flex: 1, minWidth: 160 }}
+                placeholder={t('onbCodePlatzhalter')}
+                value={gutscheinCode}
+                onChange={(e) => setGutscheinCode(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && codeEinloesen()}
+              />
+              <button onClick={codeEinloesen} disabled={!gutscheinCode.trim()}>
+                {t('onbEinloesen')}
+              </button>
+            </div>
+            {gutscheinAntwort && (
+              <div className={`note ${gutscheinAntwort.ok ? '' : 'note-fehler'}`}>{gutscheinAntwort.text}</div>
+            )}
+            {unterstuetzer?.aktiv && (
+              <div className="note">
+                {t(`unterstStufe_${unterstuetzer.stufe}`)}
+                {unterstuetzer.bis ? ` · bis ${new Date(unterstuetzer.bis).toLocaleDateString()}` : ''}
+              </div>
+            )}
+          </div>
+
+          <div className="field">
+            <label>{t('einstSpendenLink')}</label>
+            <input
+              placeholder="https://ko-fi.com/…"
+              value={cfg.spendenLink || ''}
+              onChange={(e) => setCfg({ ...cfg, spendenLink: e.target.value })}
+            />
+            {cfg.spendenLink && (
+              <div className="chips" style={{ marginTop: 8 }}>
+                <a className="chip on" href={cfg.spendenLink} target="_blank" rel="noreferrer">
+                  {t('einstSpendenKnopf')} ↗
+                </a>
+              </div>
+            )}
+            <div className="note">
+              Kein Bezahlsystem — nur dein eigener Link (Ko-fi, PayPal.me, GitHub Sponsors, …). Ohne Link bleibt der
+              Knopf einfach weg.
+            </div>
+          </div>
+
+          <div className="field">
+            <button onClick={() => setOnboardingErneut(true)}>{t('einstOnboardingWiederholen')}</button>
+            {onboardingErneut && (
+              <div className="note">
+                Nach dem Speichern startet der Erststart beim nächsten Öffnen neu.
+              </div>
+            )}
+          </div>
         </details>
 
         <div className="sheet-actions">

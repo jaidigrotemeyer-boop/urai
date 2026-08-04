@@ -10,13 +10,29 @@ import {
   ocr,
   osa,
   screenSize,
+  bildschirmListe,
   frontContext,
   uiElements,
   findText,
   report,
   eigeneFenster,
   ohneEigene,
+  IST_MAC,
+  macPruefen,
 } from '../screen.js'
+import { loadConfig } from '../config.js'
+import {
+  screenSizeWin,
+  captureWin,
+  frontContextWin,
+  appsWin,
+  openAppWin,
+  clickWin,
+  moveWin,
+  typeWin,
+  keyWin,
+  scrollWin,
+} from '../screen.win.js'
 
 const pexec = promisify(execFile)
 const CLICLICK = ['/opt/homebrew/bin/cliclick', '/usr/local/bin/cliclick'].find((p) => fssync.existsSync(p))
@@ -25,6 +41,23 @@ const CLICLICK = ['/opt/homebrew/bin/cliclick', '/usr/local/bin/cliclick'].find(
 let lastLook = { lines: [], at: 0, size: null }
 
 async function lookAtScreen({ withVision, question, emit } = {}) {
+  // Windows hat keine Vision-OCR und keinen Bedienhilfen-Baum — dafür
+  // reicht das Bild-Modell. Ungenauer (keine Klick-Boxen), aber ehrlich.
+  if (!IST_MAC) {
+    const size = await screenSizeWin()
+    const shot = await captureWin()
+    emit?.('screen', shot.base64)
+    const front = await frontContextWin().catch(() => ({}))
+    const note = `Augen-Modell sagt: ${await look({
+      imageBase64: shot.base64,
+      question: question || 'Beschreibe knapp, was auf diesem Bildschirm zu sehen ist und was der Nutzer gerade tut.',
+    }).catch((e) => `(nicht erreichbar: ${e.message})`)}`
+    const lines = []
+    const ui = { items: [] }
+    lastLook = { lines, at: Date.now(), size }
+    return { size, lines, front, ui, text: report({ size, front, lines, ui, note }) }
+  }
+
   const size = await screenSize()
   const shot = await capture()
   emit?.('screen', shot.base64)
@@ -70,6 +103,10 @@ async function lookAtScreen({ withVision, question, emit } = {}) {
 async function clickAt(x, y, button = 'left') {
   const X = Math.round(x)
   const Y = Math.round(y)
+  if (!IST_MAC) {
+    await clickWin(X, Y, button)
+    return { x: X, y: Y }
+  }
   if (CLICLICK) {
     const cmd = button === 'right' ? `rc:${X},${Y}` : button === 'double' ? `dc:${X},${Y}` : `c:${X},${Y}`
     await pexec(CLICLICK, [cmd])
@@ -112,6 +149,12 @@ export const computerTools = [
       required: ['text'],
     },
     async run({ text, rescan = false }, ctx) {
+      if (!IST_MAC) {
+        throw new Error(
+          'Auf Windows gibt es noch keine Text-Erkennung mit Klick-Punkten. ' +
+            'Nimm mac_read_screen mit describe=true für eine Beschreibung, dann mac_click mit geschätzten Koordinaten.'
+        )
+      }
       const stale = Date.now() - lastLook.at > 8000
       const lines = rescan || stale || !lastLook.lines.length
         ? (await lookAtScreen({ emit: ctx?.emit })).lines
@@ -136,6 +179,11 @@ export const computerTools = [
     },
     danger: true,
     async run({ text, nth = 1, button = 'left' }, ctx) {
+      if (!IST_MAC) {
+        throw new Error(
+          'Auf Windows fehlt die Text-Erkennung mit Klick-Punkten. Nimm mac_click mit Koordinaten.'
+        )
+      }
       const fresh = await lookAtScreen({ emit: ctx?.emit })
       // Erst die echten UI-Elemente (verlässlich), dann OCR-Text
       const uiHit = (fresh.ui.items || []).filter(
@@ -156,6 +204,13 @@ export const computerTools = [
       properties: { question: { type: 'string', description: 'Frage ans Bild-Modell' } },
     },
     async run({ question }, ctx) {
+      if (!IST_MAC) {
+        const size = await screenSizeWin()
+        const shot = await captureWin()
+        ctx?.emit?.('screen', shot.base64)
+        if (!question) return `Bild gemacht. Bildschirm ${size.width}x${size.height} Punkte.`
+        return `Bildschirm ${size.width}x${size.height}.\n${await look({ imageBase64: shot.base64, question })}`
+      }
       const size = await screenSize()
       const shot = await capture()
       ctx?.emit?.('screen', shot.base64)
@@ -170,6 +225,7 @@ export const computerTools = [
       'Nur die bedienbaren Elemente der vordersten App holen (Knöpfe, Felder, Links) — schnell, ohne Foto.',
     parameters: { type: 'object', properties: {} },
     async run() {
+      macPruefen('Der Bedienhilfen-Baum')
       const [front, ui] = await Promise.all([frontContext(), uiElements()])
       if (ui.error) return `Bedienhilfen-Baum nicht lesbar: ${ui.error}\nErlaubnis geben: Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen.`
       if (!ui.items.length) return `Vorne: ${front.app}. Keine bedienbaren Elemente gefunden — nimm mac_read_screen.`
@@ -198,6 +254,7 @@ export const computerTools = [
     parameters: { type: 'object', properties: { x: { type: 'number' }, y: { type: 'number' } }, required: ['x', 'y'] },
     danger: true,
     async run({ x, y }) {
+      if (!IST_MAC) return moveWin(x, y)
       if (!CLICLICK) throw new Error('Braucht cliclick: brew install cliclick')
       await pexec(CLICLICK, [`m:${Math.round(x)},${Math.round(y)}`])
       return `Maus bei ${Math.round(x)},${Math.round(y)}`
@@ -218,6 +275,7 @@ export const computerTools = [
     },
     danger: true,
     async run({ text, langsam = false }) {
+      if (!IST_MAC) return typeWin(text)
       const heikel = /[^\x20-\x7E]/.test(text) || text.length > 60 || text.includes('\n')
 
       if (!langsam && heikel) {
@@ -268,6 +326,7 @@ export const computerTools = [
     },
     danger: true,
     async run({ von_x, von_y, nach_x, nach_y }) {
+      macPruefen('Ziehen')
       const r = (n) => Math.round(n)
       if (!CLICLICK) throw new Error('Ziehen braucht cliclick: brew install cliclick')
       // Erst hin, drücken, in Schritten rüber, loslassen — sonst merkt macOS das Ziehen nicht
@@ -297,6 +356,7 @@ export const computerTools = [
     },
     danger: true,
     async run({ menue, punkt, unterpunkt }) {
+      macPruefen('Menü-Steuerung')
       const q = (s) => String(s).replace(/"/g, '\\"')
       const front = await frontContext({ eigeneUeberspringen: false })
       const script = unterpunkt
@@ -322,6 +382,7 @@ export const computerTools = [
     },
     danger: true,
     async run({ was, x = 0, y = 0, breite, hoehe }) {
+      macPruefen('Fenster-Steuerung')
       const front = await frontContext({ eigeneUeberspringen: false })
       const size = await screenSize()
       const q = (s) => String(s).replace(/"/g, '\\"')
@@ -352,6 +413,14 @@ export const computerTools = [
       'Nutze das, wenn Klicken oder Bildschirmlesen scheitert.',
     parameters: { type: 'object', properties: {} },
     async run() {
+      if (!IST_MAC) {
+        return [
+          'Windows-Modus: eingeschränkt.',
+          'Bildschirm lesen und Grundsteuerung (Klick/Tipp/Taste/Scroll/App öffnen) gehen über',
+          'PowerShell-Bordmittel — ungetestet auf echtem Windows, bitte einmal ausprobieren.',
+          'Nicht verfügbar: Text-Klick-Punkte (OCR), Bedienhilfen-Baum, Menü- und Fenster-Steuerung, Ziehen.',
+        ].join('\n')
+      }
       const zeilen = []
 
       // Bildschirmaufnahme: klappt ein Foto?
@@ -372,6 +441,14 @@ export const computerTools = [
 
       zeilen.push(CLICLICK ? `Klicken: cliclick (${CLICLICK}) — genau` : 'Klicken: über System Events — ok, cliclick wäre genauer')
 
+      const bildschirme = await bildschirmListe().catch(() => [])
+      if (bildschirme.length) {
+        zeilen.push(
+          `Bildschirme: ${bildschirme.map((b) => `${b.nummer}${b.haupt ? ' (Haupt)' : ''}: ${b.width}x${b.height}`).join(' · ')}` +
+            ` — eingestellt: ${loadConfig().bildschirmNummer || 1}`
+        )
+      }
+
       const fehlt = zeilen.some((z) => z.includes('NEIN'))
       if (fehlt) {
         zeilen.push('')
@@ -390,6 +467,7 @@ export const computerTools = [
     parameters: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] },
     danger: true,
     async run({ key }) {
+      if (!IST_MAC) return keyWin(key)
       const parts = key.toLowerCase().split('+')
       const base = parts.pop()
       const mods = parts
@@ -418,6 +496,7 @@ export const computerTools = [
     },
     danger: true,
     async run({ direction, amount = 5 }) {
+      if (!IST_MAC) return scrollWin(direction, amount)
       const codes = { up: 126, down: 125, left: 123, right: 124 }
       const code = codes[direction]
       if (!code) throw new Error('Richtung: up, down, left oder right')
@@ -431,6 +510,7 @@ export const computerTools = [
     parameters: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },
     danger: true,
     async run({ name }) {
+      if (!IST_MAC) return openAppWin(name)
       await pexec('open', ['-a', name], { timeout: 15000 })
       await new Promise((r) => setTimeout(r, 800))
       await osa(`tell application "${name.replace(/"/g, '')}" to activate`).catch(() => {})
@@ -442,6 +522,11 @@ export const computerTools = [
     description: 'Welche Apps laufen, welche ist vorne?',
     parameters: { type: 'object', properties: {} },
     async run() {
+      if (!IST_MAC) {
+        const front = await frontContextWin()
+        const list = await appsWin()
+        return `Vorne: ${front.app}${front.window ? ` — "${front.window}"` : ''}\nOffen: ${list.join(', ')}`
+      }
       const front = await frontContext()
       const list = await osa(
         'tell application "System Events" to get name of every application process whose background only is false'
@@ -455,6 +540,7 @@ export const computerTools = [
     parameters: { type: 'object', properties: { script: { type: 'string' } }, required: ['script'] },
     danger: true,
     async run({ script }) {
+      macPruefen('AppleScript')
       return (await osa(script)) || '(ok, keine Ausgabe)'
     },
   },
@@ -467,6 +553,10 @@ export const computerTools = [
       required: ['message'],
     },
     async run({ title = 'URAI', message }) {
+      if (!IST_MAC) {
+        console.log(`[URAI] ${title}: ${message}`)
+        return 'Meldung im Terminal ausgegeben (Windows-Systembenachrichtigung noch nicht angebunden).'
+      }
       await osa(`display notification "${message.replace(/"/g, "'")}" with title "${title.replace(/"/g, "'")}"`)
       return 'Meldung gezeigt.'
     },

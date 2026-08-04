@@ -15,6 +15,21 @@ const pexec = promisify(execFile)
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const OCR_SCRIPT = path.join(HERE, 'ocr.jxa.js')
 
+// Bildschirm lesen und steuern läuft über AppleScript, Vision-Framework und
+// System Events — alles reine macOS-Bordmittel. Auf anderen Systemen soll
+// das ehrlich scheitern statt kryptisch abzustürzen. Chat, Abläufe, Dateien,
+// Web und Obsidian sind reines Node und laufen überall gleich.
+export const IST_MAC = process.platform === 'darwin'
+
+export function macPruefen(was) {
+  if (!IST_MAC) {
+    throw new Error(
+      `${was} geht nur auf macOS — dafür braucht es AppleScript und Apples Vision-Framework. ` +
+        'Auf diesem System nicht verfügbar.'
+    )
+  }
+}
+
 /**
  * Beim Start alle liegengebliebenen Bildschirmfotos wegräumen.
  * Normalerweise löscht jeder Blick sein Bild sofort — falls aber mal
@@ -40,18 +55,55 @@ export async function osa(script, lang = 'AppleScript', timeout = 30000) {
   return stdout.trim()
 }
 
-/** Bildschirmgröße in Punkten (nicht Pixeln). */
-export async function screenSize() {
+/**
+ * Ehrlich gesagt: screencapture zählt "1 ist Hauptbildschirm, 2 zweiter, ..."
+ * genau wie hier NSScreen.screens[0] als Hauptbildschirm zählt — bei zwei
+ * Bildschirmen passt das zuverlässig. Bei drei oder mehr kann die Reihenfolge
+ * abweichen, weil Apple für beide Listen keine identische Sortierung zusagt.
+ * Nie an echter Mehr-Bildschirm-Hardware getestet — bei einem Monitor ist das
+ * hier exakt der alte, geprüfte Weg (Bildschirm 1, 0,0-Ursprung).
+ *
+ * Alle Bildschirme mit Größe UND Position in globalen Klick-Koordinaten
+ * (oben links = 0,0, wie screencapture/cliclick sie erwarten — nicht das
+ * Cocoa-Koordinatensystem, das unten links anfängt und nach oben zählt).
+ * Bildschirm 1 ist immer der Hauptbildschirm (mit der Menüleiste).
+ */
+export async function bildschirmListe() {
+  macPruefen('Bildschirme auflisten')
+  const script = `
+    ObjC.import('AppKit')
+    function run() {
+      const screens = $.NSScreen.screens
+      const out = []
+      const hauptHoehe = screens.objectAtIndex(0).frame.size.height
+      for (let i = 0; i < screens.count; i++) {
+        const f = screens.objectAtIndex(i).frame
+        out.push({
+          nummer: i + 1,
+          x: Math.round(f.origin.x),
+          y: Math.round(hauptHoehe - (f.origin.y + f.size.height)),
+          width: Math.round(f.size.width),
+          height: Math.round(f.size.height),
+          haupt: i === 0,
+        })
+      }
+      return JSON.stringify(out)
+    }`
   try {
-    const out = await osa('tell application "Finder" to get bounds of window of desktop')
-    const nums = out.split(',').map((s) => parseInt(s.trim(), 10))
-    if (nums.length === 4 && nums[2] > 0) return { width: nums[2], height: nums[3] }
+    const out = await osa(script, 'JavaScript', 8000)
+    const liste = JSON.parse(out || '[]')
+    if (liste.length) return liste
   } catch {}
-  const out = await osa(
-    'tell application "System Events" to get size of first desktop'
-  ).catch(() => '1512, 982')
-  const [w, h] = out.split(',').map((s) => parseInt(s.trim(), 10))
-  return { width: w || 1512, height: h || 982 }
+  return [{ nummer: 1, x: 0, y: 0, width: 1512, height: 982, haupt: true }]
+}
+
+/** Größe UND Position des eingestellten Bildschirms, in globalen Klick-Koordinaten. */
+export async function screenSize() {
+  macPruefen('Bildschirm-Größe lesen')
+  const nummer = loadConfig().bildschirmNummer || 1
+  const liste = await bildschirmListe()
+  const treffer = liste.find((b) => b.nummer === nummer) || liste[0]
+  return { width: treffer.width, height: treffer.height, x: treffer.x, y: treffer.y }
 }
 
 /**
@@ -60,6 +112,7 @@ export async function screenSize() {
  * Darum: eine mittlere Kopie für OCR, eine kleine fürs Anschauen.
  */
 export async function capture({ ocrWidth = 1600, viewWidth = 1200 } = {}) {
+  macPruefen('Bildschirmfoto')
   const base = path.join(os.tmpdir(), `urai-${process.pid}-${Date.now()}`)
   const file = `${base}.png`
 
@@ -111,14 +164,18 @@ export async function ocr(file, size) {
   }
   const W = size.width
   const H = size.height
+  // size.x/y verschieben auf den globalen Klick-Punkt, wenn der gewählte
+  // Bildschirm nicht der Hauptbildschirm ist (der bei 0,0 anfängt)
+  const OX = size.x || 0
+  const OY = size.y || 0
   return raw
     .filter((r) => r.t && r.t.trim())
     .map((r) => ({
       text: r.t.trim(),
       conf: Math.round((r.c ?? 0) * 100) / 100,
       // Vision zählt von links UNTEN, der Bildschirm von links OBEN
-      x: Math.round((r.x + r.w / 2) * W),
-      y: Math.round((1 - r.y - r.h / 2) * H),
+      x: Math.round((r.x + r.w / 2) * W) + OX,
+      y: Math.round((1 - r.y - r.h / 2) * H) + OY,
       w: Math.round(r.w * W),
       h: Math.round(r.h * H),
     }))
@@ -279,7 +336,8 @@ export function findText(lines, needle, { fuzzy = true } = {}) {
 /** Alles zusammen als lesbarer Bericht fürs Gehirn. */
 export function report({ size, front, lines, ui, note }) {
   const parts = []
-  parts.push(`Bildschirm: ${size.width}x${size.height} Punkte (0,0 = links oben)`)
+  const wo = size.x || size.y ? ` ab (${size.x},${size.y})` : ''
+  parts.push(`Bildschirm: ${size.width}x${size.height} Punkte${wo} (0,0 = links oben vom Hauptbildschirm)`)
   if (front?.app) parts.push(`Vorne: ${front.app}${front.window ? ` — Fenster "${front.window}"` : ''}${front.geometry ? ` @ ${front.geometry}` : ''}`)
   if (note) parts.push(note)
 

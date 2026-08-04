@@ -1201,3 +1201,18 @@ body.hat-zeiger * { cursor: none !important; }
   animation: karenz linear forwards;
 }
 @keyframes karenz { from { background-size: 100% 100%; } to { background-size: 0% 100%; } }
+
+/* ── Unterstützer ── */
+.unterst-abzeichen {
+  font-size: 10px; padding: 2px 9px; border-radius: 99px;
+  background: linear-gradient(120deg, #ffd76a, #ff9d5c);
+  color: #3a2200; font-weight: 700; letter-spacing: .02em;
+  margin-left: 8px; vertical-align: middle;
+}
+.note-fehler { color: var(--danger) !important; }
+
+/* ── Eigene Gehirne ── */
+.eigen-zeile { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
+.eigen-formular { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+.eigen-formular input { font-size: 12.5px; }
+.eigen-formular button { grid-column: 1 / -1; }

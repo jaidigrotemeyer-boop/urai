@@ -33,7 +33,7 @@ Alles läuft auf dem eigenen Rechner. Der Server hört nur auf 127.0.0.1.`,
   {
     titel: 'Sehen und Steuern',
     text: 'Bildschirm lesen mit Apples Vision-Framework, dann klicken und tippen.',
-    dateien: ['server/screen.js', 'server/ocr.jxa.js', 'server/beweis.js', 'server/live.js', 'server/tools/computer.js'],
+    dateien: ['server/screen.js', 'server/screen.win.js', 'server/ocr.jxa.js', 'server/beweis.js', 'server/live.js', 'server/tools/computer.js'],
   },
   {
     titel: 'Werkzeuge',
@@ -89,6 +89,11 @@ Alles läuft auf dem eigenen Rechner. Der Server hört nur auf 127.0.0.1.`,
     titel: 'Aussehen',
     text: '',
     dateien: ['web/src/styles.css', 'web/src/werkstatt.css'],
+  },
+  {
+    titel: 'Erststart und Unterstützen',
+    text: 'Erststart-Assistent, Gutschein-Codes und die kleine, freiwillige Unterstützung — nichts davon sperrt Kernfunktionen.',
+    dateien: ['server/gutschein.js', 'web/src/components/Onboarding.jsx', 'web/src/onboarding.css'],
   },
   {
     titel: 'Prüfen',

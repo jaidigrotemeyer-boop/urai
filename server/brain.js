@@ -107,7 +107,18 @@ export function providerChain() {
     if (p === 'groq' && c.groqKey) chain.push('groq')
     if (p === 'openrouter' && c.openrouterKey) chain.push('openrouter')
   }
+  // Eigene Anbieter — jeder mit Schlüssel und Adresse kommt hinten dran
+  for (const eigener of c.customProviders || []) {
+    if (eigener.key && eigener.url) chain.push(`eigen:${eigener.id}`)
+  }
   return chain
+}
+
+/** Konfiguration eines eigenen Anbieters finden, anhand seiner Kennung. */
+function eigenerAnbieter(provider) {
+  if (!provider.startsWith('eigen:')) return null
+  const id = provider.slice('eigen:'.length)
+  return (loadConfig().customProviders || []).find((p) => p.id === id) || null
 }
 
 export async function brainStatus() {
@@ -318,7 +329,13 @@ async function gratisRouterModell(c) {
 
 async function openaiChat({ provider, messages, tools, onDelta, signal }) {
   const c = loadConfig()
-  const cfg = OPENAI_STYLE[provider]
+  const eigener = eigenerAnbieter(provider)
+  // Eigener Anbieter trägt Adresse, Schlüssel und Modell selbst mit sich —
+  // die eingebauten lesen sie stattdessen aus der Konfiguration.
+  const cfg = eigener
+    ? { url: eigener.url, key: '__eigen__', modelKey: '__eigen__', model: eigener.model }
+    : OPENAI_STYLE[provider]
+  const schluessel = eigener ? eigener.key : c[cfg.key]
   const msgs = messages.map((m) => {
     if (m.role === 'tool') return { role: 'tool', tool_call_id: m.toolCallId, content: String(m.content ?? '') }
     if (m.role === 'assistant' && m.toolCalls?.length) {
@@ -334,7 +351,11 @@ async function openaiChat({ provider, messages, tools, onDelta, signal }) {
     }
     return { role: m.role, content: m.content || '' }
   })
-  const model = provider === 'openrouter' ? await gratisRouterModell(c) : c[cfg.modelKey] || cfg.model
+  const model = eigener
+    ? eigener.model
+    : provider === 'openrouter'
+      ? await gratisRouterModell(c)
+      : c[cfg.modelKey] || cfg.model
   const body = { model, messages: msgs, stream: true }
   tools = werkzeugeFuer(provider, tools)
   if (tools.length) {
@@ -345,7 +366,7 @@ async function openaiChat({ provider, messages, tools, onDelta, signal }) {
   }
   const res = await fetch(cfg.url, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${c[cfg.key]}` },
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${schluessel}` },
     body: JSON.stringify(body),
     signal,
   })

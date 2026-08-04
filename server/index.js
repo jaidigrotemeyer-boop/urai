@@ -2,21 +2,23 @@
 import express from 'express'
 import { WebSocketServer } from 'ws'
 import http from 'node:http'
+import { spawn as spawnProc } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { Agent } from './agent.js'
-import { loadConfig, saveConfig, publicConfig } from './config.js'
+import { loadConfig, saveConfig, publicConfig, ANSTRENGUNGSSTUFEN } from './config.js'
 import { brainStatus } from './brain.js'
 import { TOOL_GROUPS, ALL_TOOLS } from './tools/index.js'
 import { history, sessions } from './memory.js'
 import { vaultPath, obsidianReady } from './obsidian.js'
 import { ROLLEN } from './crew.js'
 import { LiveWatcher, watchers } from './live.js'
-import { raeumeAuf } from './screen.js'
+import { raeumeAuf, bildschirmListe, IST_MAC } from './screen.js'
 import { elevenBereit, sprechen as elevenSprechen, stimmenListe } from './eleven.js'
 import { graphLesen } from './graph.js'
 import { Waechter, lesen as ausloeserLesen, schreiben as ausloeserSchreiben } from './ausloeser.js'
+import { einloesen as gutscheinEinloesen, stand as gutscheinStand } from './gutschein.js'
 import {
   ablaufListe,
   ablaufLesen,
@@ -41,7 +43,38 @@ app.get('/api/status', async (_req, res) => {
     config: publicConfig(),
     obsidian: { vault: vaultPath(), ready: obsidianReady() },
     rollen: Object.keys(ROLLEN),
+    unterstuetzer: gutscheinStand(),
   })
+})
+
+// Erststart: Profil, Herkunft und Nutzungsbedingungen in einem Zug speichern
+app.post('/api/onboarding', (req, res) => {
+  const { herkunft = '', agbAkzeptiert = false, profilName = '', profilAlter = null, profilZweck = '' } = req.body || {}
+  const patch = {
+    onboardingFertig: true,
+    herkunft: String(herkunft).slice(0, 60),
+    profilName: String(profilName).slice(0, 40),
+    profilAlter: Number.isFinite(profilAlter) ? Math.max(1, Math.min(120, profilAlter)) : null,
+    profilZweck: String(profilZweck).slice(0, 60),
+  }
+  if (agbAkzeptiert) {
+    patch.agbAkzeptiert = true
+    patch.agbVersion = 1
+  }
+  res.json(saveConfig(patch))
+})
+
+app.post('/api/gutschein', (req, res) => {
+  try {
+    res.json({ ok: true, ...gutscheinEinloesen(req.body?.code) })
+  } catch (err) {
+    res.status(400).json({ ok: false, fehler: err.message })
+  }
+})
+
+app.get('/api/bildschirme', async (_req, res) => {
+  if (!IST_MAC) return res.json([])
+  res.json(await bildschirmListe().catch(() => []))
 })
 
 app.get('/api/tools', (_req, res) => {
@@ -67,11 +100,16 @@ app.post('/api/config', (req, res) => {
     'bildschirmNummer', 'liveOcrBreite', 'liveVorschauBreite',
     'liveNotizen', 'liveStrafeMaxMs', 'liveTimeoutMs', 'liveRemember',
     'maxAgentsParallel', 'selbstumbauErlaubt', 'selfBuildTimeoutMs',
-    'graphMaxKnoten', 'geminiFastModel',
+    'graphMaxKnoten', 'geminiFastModel', 'customProviders',
     'beweisPflicht', 'beweisWartenMs', 'ausloeserAn', 'ausloeserKarenzS',
+    'anstrengung', 'spendenLink', 'onboardingFertig',
   ]
   const patch = {}
   for (const k of allowed) if (k in req.body) patch[k] = req.body[k]
+  // Anstrengung ist eine Abkürzung: eine Wahl setzt gleich mehrere Regler
+  if (patch.anstrengung && ANSTRENGUNGSSTUFEN[patch.anstrengung]) {
+    Object.assign(patch, ANSTRENGUNGSSTUFEN[patch.anstrengung])
+  }
   saveConfig(patch)
   res.json(publicConfig())
 })
@@ -158,6 +196,19 @@ app.get('/api/graph', async (_req, res) => {
   } catch (err) {
     res.status(500).json({ fehler: err.message, knoten: [], kanten: [] })
   }
+})
+
+// Den ganzen Code als Zip — für den Download-Knopf auf der Marketing-Seite.
+// Läuft nur lokal, kein Zusatzpaket: das Bordmittel "zip" reicht.
+app.get('/api/download', (_req, res) => {
+  res.set('content-type', 'application/zip')
+  res.set('content-disposition', 'attachment; filename="urai.zip"')
+  const zip = spawnProc(
+    'zip', ['-r', '-x', 'node_modules/*', '-x', 'data/*', '-x', 'dist/*', '-x', '.git/*', '-', '.'],
+    { cwd: root }
+  )
+  zip.stdout.pipe(res)
+  zip.on('error', () => res.status(500).end())
 })
 
 app.get('/api/sessions', (_req, res) => res.json(sessions()))

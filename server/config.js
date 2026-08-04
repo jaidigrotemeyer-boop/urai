@@ -106,10 +106,38 @@ const DEFAULTS = {
   beweisPflicht: true,
   beweisWartenMs: 450,
 
+  // Anstrengung: eine Wahl statt zehn Regler. Wirkt auf Schrittzahl,
+  // wie viel Kontext frisch bleibt und wie hartnäckig das Gehirn wechselt.
+  anstrengung: 'normal', // schnell | normal | gruendlich
+
   // Auslöser: Abläufe starten von selbst. Die Karenzzeit ist Absicht —
   // der Nutzer soll sehen, was gleich passiert, und es abwürgen können.
   ausloeserAn: true,
   ausloeserKarenzS: 10,
+
+  // Erststart: Willkommen, Herkunft, Nutzungsbedingungen, Unterstützen.
+  // Läuft genau einmal, lässt sich in den Einstellungen erneut abspielen.
+  onboardingFertig: false,
+  herkunft: '', // woher der Nutzer URAI kennt — nur fürs eigene Interesse
+  agbAkzeptiert: false,
+  agbVersion: 0,
+  // Kurzes, freiwilliges Profil aus dem Erststart — nur zur Personalisierung,
+  // bleibt komplett lokal in dieser Datei, geht nirgendwo hin.
+  profilName: '',
+  profilAlter: null,
+  profilZweck: '',
+
+  // Unterstützen: kein Bezahlsystem — der Nutzer trägt seinen EIGENEN
+  // Spenden-Link ein (Ko-fi, PayPal.me, GitHub Sponsors, was auch immer).
+  // URAI erfindet hier keine Adresse.
+  spendenLink: '',
+  unterstuetzerStufe: 'keine', // keine | unterstuetzer | lebenslang
+  unterstuetzerBis: null, // Zeitstempel, nur bei "unterstuetzer"
+
+  // Eigene Gehirne: jeder OpenAI-kompatible Anbieter geht — Together, Fireworks,
+  // Mistral, DeepSeek, Perplexity, ein eigener lokaler Server, was auch immer.
+  // je { id, name, url, key, model }
+  customProviders: [],
 }
 
 let cache = null
@@ -125,6 +153,14 @@ const SPRACHNAMEN = {
 }
 
 /** Name der eingestellten Sprache, so wie ein Modell ihn versteht. */
+// Feste Werte je Anstrengungsstufe. Wechselt der Nutzer die Stufe,
+// werden diese Werte direkt in die Konfiguration geschrieben.
+export const ANSTRENGUNGSSTUFEN = {
+  schnell: { maxSteps: 10, agentSteps: 6, kontextFrisch: 2, brainRunden: 1, maxAgentsParallel: 4 },
+  normal: { maxSteps: 24, agentSteps: 14, kontextFrisch: 4, brainRunden: 3, maxAgentsParallel: 3 },
+  gruendlich: { maxSteps: 48, agentSteps: 24, kontextFrisch: 8, brainRunden: 5, maxAgentsParallel: 2 },
+}
+
 export function sprachName() {
   return SPRACHNAMEN[loadConfig().language] || 'English'
 }

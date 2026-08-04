@@ -1,0 +1,111 @@
+/* ── Erststart: Willkommen, Herkunft, Nutzungsbedingungen, Unterstützen ── */
+.onb-buehne {
+  position: fixed; inset: 0; z-index: 150;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 26px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(28px) saturate(160%);
+  animation: onbAuf .5s var(--ease) both;
+}
+.onb-buehne.raus { animation: onbZu .5s var(--ease) both; pointer-events: none; }
+@keyframes onbAuf { from { opacity: 0; } to { opacity: 1; } }
+@keyframes onbZu { to { opacity: 0; transform: scale(1.02); } }
+
+.onb-punkte { display: flex; gap: 7px; }
+.onb-punkt {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--line); transition: background .3s var(--ease), transform .3s var(--spring);
+}
+.onb-punkt.fertig { background: var(--accent-line); }
+.onb-punkt.on { background: var(--accent); transform: scale(1.5); }
+
+.onb-karte {
+  width: min(420px, calc(100vw - 40px));
+  max-height: 78vh; overflow-y: auto;
+  padding: 34px 30px;
+  border-radius: 26px;
+  border: 1px solid var(--line);
+  background: var(--panel-solid);
+  box-shadow: 0 40px 100px -30px rgba(0, 0, 0, .8);
+  text-align: center;
+  /* Jede Karte fährt weich rein — das Wechseln der Schritte fühlt sich wie
+     eine echte Seite an, nicht wie ein Umschalten */
+  animation: onbKarteRein .55s var(--spring) both;
+}
+@keyframes onbKarteRein {
+  from { opacity: 0; transform: translateY(18px) scale(.96); filter: blur(6px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+
+.onb-karte h1 { font-size: 24px; letter-spacing: -.02em; margin: 4px 0 10px; text-wrap: balance; }
+.onb-karte h2 { font-size: 19px; letter-spacing: -.01em; margin: 0 0 8px; }
+.onb-karte p { color: var(--dim); line-height: 1.6; margin: 0 0 6px; }
+.onb-dim { font-size: 13px; }
+
+.onb-auge { display: flex; justify-content: center; margin-bottom: 6px; }
+.onb-auge .orb { animation: blinzeln 3.4s var(--ease) infinite, onbAugePop .7s var(--spring) both; }
+@keyframes onbAugePop { from { opacity: 0; transform: scale(.4) rotate(-15deg); } to { opacity: 1; transform: none; } }
+
+.onb-weiter { width: 100%; margin-top: 20px; padding: 12px; border-radius: 14px; font-size: 14px; }
+
+.onb-raster { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 18px 0 4px; }
+.onb-wahl {
+  padding: 13px 10px; border-radius: 13px;
+  border: 1px solid var(--line-soft); background: var(--panel);
+  font-size: 13px;
+  transition: transform .18s var(--spring), border-color .2s var(--ease), background .2s var(--ease);
+}
+.onb-wahl:hover { transform: translateY(-1px); }
+.onb-wahl.on { border-color: var(--accent-line); background: var(--accent-soft); color: var(--text); }
+
+.onb-profil-felder { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin: 16px 0 4px; }
+.onb-feld-label { display: block; font-size: 12px; color: var(--dimmer); text-align: left; margin: 14px 2px 8px; }
+
+.onb-farben { display: flex; gap: 10px; flex-wrap: wrap; }
+.onb-farbe {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 2px solid transparent; padding: 0; cursor: pointer;
+  transition: transform .18s var(--spring), border-color .2s var(--ease);
+}
+.onb-farbe:hover { transform: scale(1.1); }
+.onb-farbe.on { border-color: var(--text); transform: scale(1.12); }
+
+.onb-agb-text { text-align: left; font-size: 12.5px; max-height: 200px; overflow-y: auto; margin: 12px 0; padding-right: 4px; }
+.onb-agb-text p { margin: 0 0 10px; }
+.onb-check {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border-radius: 13px;
+  border: 1px solid var(--line-soft); background: var(--panel);
+  font-size: 13px; cursor: pointer; text-align: left;
+}
+.onb-check input { width: auto; accent-color: var(--accent); }
+
+.onb-gutschein { display: flex; gap: 8px; margin: 16px 0 8px; }
+.onb-gutschein-antwort {
+  font-size: 12.5px; padding: 9px 12px; border-radius: 11px; margin-bottom: 8px;
+  animation: rise .3s var(--ease) both;
+}
+.onb-gutschein-antwort.ok { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-line); }
+.onb-gutschein-antwort.fehler { background: rgba(255, 122, 122, .1); color: var(--danger); border: 1px solid rgba(255, 122, 122, .3); }
+.onb-hinweis { font-size: 11.5px; color: var(--dimmer); }
+
+/* Ein kleines Konfetti aus reinem CSS — Apple mag genau so einen Moment,
+   kurz, dann ist er vorbei, nichts blinkt für immer weiter */
+.onb-konfetti { position: relative; height: 46px; margin-bottom: -10px; pointer-events: none; }
+.onb-konfetti-teil {
+  position: absolute; top: 50%; left: 50%;
+  width: 6px; height: 6px; border-radius: 2px;
+  background: hsl(calc(var(--i) * 26deg) 75% 62%);
+  animation: onbFallen 1.1s var(--ease) both;
+  animation-delay: calc(var(--i) * 30ms);
+}
+@keyframes onbFallen {
+  0%   { transform: translate(-50%, -50%) scale(0) rotate(0); opacity: 0; }
+  25%  { opacity: 1; transform: translate(calc(-50% + (var(--i) - 7) * 9px), -70%) scale(1) rotate(90deg); }
+  100% { opacity: 0; transform: translate(calc(-50% + (var(--i) - 7) * 15px), 10px) scale(.6) rotate(280deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onb-karte { animation-duration: .01ms; }
+  .onb-konfetti-teil { animation: none; opacity: 0; }
+}

@@ -1,4 +1,4 @@
-<title>URAI — der Agent, der auf deinem Mac wirklich handelt</title>
+<title>URAI — der Agent, der auf deinem Rechner wirklich handelt</title>
 
 <style>
   :root {
@@ -55,6 +55,7 @@
 
   body {
     margin: 0;
+    overflow-x: hidden;
     background: var(--void);
     color: var(--ink);
     font-family: var(--sans);
@@ -112,6 +113,17 @@
   }
   .bar a:hover { color: var(--ink); background: var(--raise); }
   .bar a:focus-visible { outline: 2px solid var(--iris); outline-offset: 2px; }
+  .sprachwahl { display: flex; gap: 2px; margin-left: 6px; padding: 3px; border-radius: 99px; background: var(--ground); border: 1px solid var(--hair-soft); }
+  .sprachwahl button {
+    font: inherit; font-size: 11.5px; font-weight: 650; letter-spacing: .02em;
+    color: var(--ink-faint); background: none; border: none; cursor: pointer;
+    padding: 5px 9px; border-radius: 99px; transition: color .2s var(--ease), background .2s var(--ease);
+  }
+  .sprachwahl button:hover { color: var(--ink); }
+  .sprachwahl button.on { color: var(--void); background: var(--iris); }
+  @media (max-width: 640px) {
+    .bar a { display: none; }
+  }
 
   /* ── Bühne ── */
   .hero { padding: 96px 0 72px; position: relative; }
@@ -159,6 +171,29 @@
     display: inline-flex; align-items: center; gap: 11px;
   }
   .cmd .prompt { color: var(--iris); }
+  .dl {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 12px 20px; border-radius: 14px;
+    background: var(--iris); color: #04150d; font-weight: 650; font-size: 14.5px;
+    text-decoration: none; border: none; cursor: pointer;
+    box-shadow: 0 10px 30px -10px var(--iris);
+    transition: transform .18s var(--spring), filter .2s var(--ease);
+  }
+  .dl:hover { transform: translateY(-1px); filter: brightness(1.06); }
+  .dl:active { transform: scale(.97); }
+  .dl svg { width: 16px; height: 16px; }
+  .dl.alt {
+    background: var(--ground); color: var(--ink); border: 1px solid var(--hair);
+    box-shadow: none;
+  }
+  .dl.alt:hover { filter: none; border-color: var(--hair-strong, var(--iris)); }
+  .dl .tag {
+    font-size: 10px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase;
+    background: rgba(4, 21, 13, .18); color: inherit; padding: 2px 6px; border-radius: 6px;
+    margin-left: 2px;
+  }
+  .dl.alt .tag { background: var(--raise); color: var(--ink-faint); }
+  .dl[hidden] { display: none; }
   .copy {
     font: inherit; font-size: 11px; font-family: var(--mono);
     color: var(--ink-faint); background: none; border: none; cursor: pointer;
@@ -286,32 +321,56 @@
     <span class="eye" style="--s:18px"></span>
     <span class="mark">UR<b>AI</b></span>
     <span class="grow"></span>
-    <a href="#kann">Was er kann</a>
-    <a href="#gehirn">Gehirne</a>
-    <a href="#start">Loslegen</a>
+    <a href="#kann" data-i18n="navKann">Was er kann</a>
+    <a href="#gehirn" data-i18n="navGehirn">Gehirne</a>
+    <a href="#start" data-i18n="navStart">Loslegen</a>
+    <span class="sprachwahl" id="sprachwahl">
+      <button type="button" data-lang="de">DE</button>
+      <button type="button" data-lang="en">EN</button>
+      <button type="button" data-lang="es">ES</button>
+    </span>
   </div>
 </header>
 
 <main class="wrap">
   <div class="hero">
-    <span class="kicker"><span class="rec"></span>guckt mit, während du arbeitest</span>
+    <span class="kicker" data-i18n="heroKicker"><span class="rec"></span>guckt mit, während du arbeitest</span>
 
-    <h1>Ein Agent, der auf deinem Mac <em>wirklich handelt</em>.</h1>
+    <h1 data-i18n="heroTitel">Ein Agent, der auf deinem Rechner <em>wirklich handelt</em>.</h1>
 
-    <p class="lede">
+    <p class="lede" data-i18n="heroText">
       URAI liest deinen Bildschirm, klickt, tippt, schreibt Code und stellt sich selbst
       Agenten-Teams zusammen. Alles läuft bei dir daheim. <strong>Kostet nichts</strong> —
       Gratis-Schlüssel reichen.
     </p>
 
-    <div class="run">
+    <div class="run" style="flex-wrap: wrap;">
+      <a class="dl" id="dl-mac" href="http://localhost:3017/api/download" download="urai.zip">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+          <path d="M16.365 1.43c0 1.14-.462 2.096-1.203 2.799-.804.766-2.033 1.362-3.09 1.293-.14-1.104.41-2.264 1.15-2.99C13.99.775 15.24.17 16.365 1.43zm4.14 15.354c-.4.926-.9 1.83-1.612 2.62-1.014 1.13-1.75 1.914-3.08 1.914-1.24 0-1.63-.804-3.11-.804-1.51 0-1.94.78-3.11.83-1.29.05-2.09-1.06-3.13-2.2-2.1-2.34-3.7-6.63-1.55-9.53 1.06-1.44 2.87-2.34 4.65-2.37 1.24-.025 2.32.834 3.05.834.71 0 2.06-1.03 3.47-.88.59.025 2.25.24 3.32 1.8-.086.054-1.98 1.155-1.96 3.45.024 2.75 2.41 3.66 2.44 3.67-.02.075-.38 1.31-1.25 2.6z"/>
+        </svg>
+        <span data-i18n="dlMac">Für Mac</span>
+        <span class="tag" id="tag-mac" hidden data-i18n="empfohlen">empfohlen</span>
+      </a>
+      <a class="dl alt" id="dl-win" href="http://localhost:3017/api/download" download="urai.zip">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+          <rect x="2.5" y="3.6" width="8.3" height="8.3"/>
+          <rect x="13.2" y="3.6" width="8.3" height="8.3"/>
+          <rect x="2.5" y="12.1" width="8.3" height="8.3"/>
+          <rect x="13.2" y="12.1" width="8.3" height="8.3"/>
+        </svg>
+        <span data-i18n="dlWin">Für Windows</span>
+        <span class="tag" id="tag-win" hidden data-i18n="empfohlen">empfohlen</span>
+      </a>
       <span class="cmd">
         <span class="prompt">$</span>
         <span id="cmd">git clone … &amp;&amp; npm start</span>
-        <button class="copy" id="copy" type="button">kopieren</button>
+        <button class="copy" id="copy" type="button" data-i18n="kopieren">kopieren</button>
       </span>
-      <span class="note">macOS · Node 22 · ein Gratis-API-Schlüssel</span>
     </div>
+    <p class="note" style="margin-top:10px" data-i18n="heroNote">
+      macOS oder Windows · Node 22 · ein Gratis-API-Schlüssel · Download braucht ein laufendes URAI auf diesem Rechner
+    </p>
 
     <div class="demo">
       <div class="demo-bar">
@@ -322,105 +381,105 @@
       </div>
       <div class="demo-body">
         <div class="demo-left">
-          <div class="bubble me line" style="animation-delay:.15s">Finde raus, was drei Konkurrenten für Versand nehmen.</div>
-          <div class="tool agent line" style="animation-delay:.75s"><span class="tick"></span>Gruppe: Preis-Check · 3 Mitglieder</div>
-          <div class="tool nest line" style="animation-delay:1.05s"><span class="tick"></span>Späher A · web_fetch</div>
-          <div class="tool nest line" style="animation-delay:1.25s"><span class="tick"></span>Späher B · web_fetch</div>
-          <div class="tool nest line" style="animation-delay:1.45s"><span class="tick"></span>Prüfer · obsidian_write</div>
+          <div class="bubble me line" style="animation-delay:.15s" data-i18n="demoFrage">Finde raus, was drei Konkurrenten für Versand nehmen.</div>
+          <div class="tool agent line" style="animation-delay:.75s"><span class="tick"></span><span data-i18n="demoGruppe">Gruppe: Preis-Check · 3 Mitglieder</span></div>
+          <div class="tool nest line" style="animation-delay:1.05s"><span class="tick"></span><span data-i18n="demoSpaeherA">Späher A · web_fetch</span></div>
+          <div class="tool nest line" style="animation-delay:1.25s"><span class="tick"></span><span data-i18n="demoSpaeherB">Späher B · web_fetch</span></div>
+          <div class="tool nest line" style="animation-delay:1.45s"><span class="tick"></span><span data-i18n="demoPruefer">Prüfer · obsidian_write</span></div>
           <div class="thinking line" style="animation-delay:1.75s">
             <span class="eye" style="--s:17px"></span>
             <span class="eye" style="--s:12px"></span>
             <span class="eye" style="--s:10px"></span>
-            <span>3 Agenten arbeiten</span>
+            <span data-i18n="demoArbeiten">3 Agenten arbeiten</span>
           </div>
-          <div class="bubble it line" style="animation-delay:2.3s">Fertig. Alle drei liegen zwischen 4,90 € und 6,50 €. Notiz in Obsidian.</div>
+          <div class="bubble it line" style="animation-delay:2.3s" data-i18n="demoAntwort">Fertig. Alle drei liegen zwischen 4,90 € und 6,50 €. Notiz in Obsidian.</div>
         </div>
         <div class="demo-right">
-          <div class="feedrow line" style="animation-delay:.45s"><span class="t">14:02</span><span class="tag">Safari</span><span>Preisliste geöffnet</span></div>
-          <div class="feedrow line" style="animation-delay:.95s"><span class="t">14:02</span><span class="tag">Safari</span><span>Tabelle mit Versandkosten sichtbar</span></div>
-          <div class="feedrow keep line" style="animation-delay:1.55s"><span class="t">14:03</span><span class="tag">gemerkt</span><span>Versand ab 39 € frei, sonst 4,90 €</span></div>
-          <div class="feedrow line" style="animation-delay:2.05s"><span class="t">14:03</span><span class="tag">Obsidian</span><span>Notiz angelegt</span></div>
+          <div class="feedrow line" style="animation-delay:.45s"><span class="t">14:02</span><span class="tag">Safari</span><span data-i18n="demoFeed1">Preisliste geöffnet</span></div>
+          <div class="feedrow line" style="animation-delay:.95s"><span class="t">14:02</span><span class="tag">Safari</span><span data-i18n="demoFeed2">Tabelle mit Versandkosten sichtbar</span></div>
+          <div class="feedrow keep line" style="animation-delay:1.55s"><span class="t">14:03</span><span class="tag" data-i18n="demoGemerkt">gemerkt</span><span data-i18n="demoFeed3">Versand ab 39 € frei, sonst 4,90 €</span></div>
+          <div class="feedrow line" style="animation-delay:2.05s"><span class="t">14:03</span><span class="tag">Obsidian</span><span data-i18n="demoFeed4">Notiz angelegt</span></div>
         </div>
       </div>
     </div>
   </div>
 
   <section id="kann">
-    <h2>Vier Kräfte</h2>
-    <p class="sub">Keine Sandbox, kein Spielzeug. URAI arbeitet auf dem echten Rechner.</p>
+    <h2 data-i18n="kannTitel">Vier Kräfte</h2>
+    <p class="sub" data-i18n="kannSub">Keine Sandbox, kein Spielzeug. URAI arbeitet auf dem echten Rechner.</p>
 
     <div class="grid">
       <div class="cell">
-        <h3><span class="eye" style="--s:15px"></span>Bildschirm lesen</h3>
-        <p>Jeder sichtbare Text mit Klick-Punkt, dazu die echten Knöpfe der vordersten App.
+        <h3><span class="eye" style="--s:15px"></span><span data-i18n="kraft1Titel">Bildschirm lesen</span></h3>
+        <p data-i18n="kraft1Text">Jeder sichtbare Text mit Klick-Punkt, dazu die echten Knöpfe der vordersten App.
         Texterkennung macht Apples eigenes Vision-Framework — offline, gratis, rund zwei Sekunden.</p>
       </div>
       <div class="cell">
-        <h3>Mac steuern</h3>
-        <p>Klickt am liebsten auf Beschriftung statt auf Koordinaten. Tippt, drückt Tasten,
-        öffnet Apps, steuert Mail, Notizen und Kalender über AppleScript.</p>
+        <h3 data-i18n="kraft2Titel">Rechner steuern</h3>
+        <p data-i18n="kraft2Text">Klickt am liebsten auf Beschriftung statt auf Koordinaten. Tippt, drückt Tasten,
+        öffnet Apps — auf dem Mac auch Mail, Notizen und Kalender über AppleScript.</p>
       </div>
       <div class="cell">
-        <h3>Dateien und Code</h3>
-        <p>Lesen, schreiben, ändern, durchsuchen, Terminal-Befehle laufen lassen —
+        <h3 data-i18n="kraft3Titel">Dateien und Code</h3>
+        <p data-i18n="kraft3Text">Lesen, schreiben, ändern, durchsuchen, Terminal-Befehle laufen lassen —
         begrenzt auf ein Revier, das du selbst festlegst.</p>
       </div>
       <div class="cell">
-        <h3>Agenten-Teams</h3>
-        <p>Ist ein Auftrag groß, stellt URAI selbst eine Gruppe auf. Unter-Agenten dürfen
+        <h3 data-i18n="kraft4Titel">Agenten-Teams</h3>
+        <p data-i18n="kraft4Text">Ist ein Auftrag groß, stellt URAI selbst eine Gruppe auf. Unter-Agenten dürfen
         weitere Agenten erschaffen — drei Ebenen tief, zwölf pro Auftrag.</p>
       </div>
       <div class="cell">
-        <h3>Live mitgucken</h3>
-        <p>Schaut alle paar Sekunden hin und erkennt sogar Videos. Sagt nur etwas, wenn sich
+        <h3 data-i18n="kraft5Titel">Live mitgucken</h3>
+        <p data-i18n="kraft5Text">Schaut alle paar Sekunden hin und erkennt sogar Videos. Sagt nur etwas, wenn sich
         wirklich etwas ändert. Fragst du später, weiß er noch, was lief.</p>
       </div>
       <div class="cell">
-        <h3>Baut sich selbst um</h3>
-        <p>Liest seinen eigenen Code, ändert ihn, prüft sich und startet neu.
+        <h3 data-i18n="kraft6Titel">Baut sich selbst um</h3>
+        <p data-i18n="kraft6Text">Liest seinen eigenen Code, ändert ihn, prüft sich und startet neu.
         Jede Änderung liegt in Git — <code>self_undo</code> dreht sie zurück.</p>
       </div>
     </div>
   </section>
 
   <section>
-    <h2>Alles landet in Obsidian</h2>
-    <p class="sub">Gespräche, Agenten-Läufe, Gruppen, Gemerktes — automatisch als Markdown, verlinkt und durchsuchbar.</p>
+    <h2 data-i18n="obsidianTitel">Alles landet in Obsidian</h2>
+    <p class="sub" data-i18n="obsidianSub">Gespräche, Agenten-Läufe, Gruppen, Gemerktes — automatisch als Markdown, verlinkt und durchsuchbar.</p>
 <pre>&lt;Vault&gt;/URAI/
-  <span class="k">Übersicht.md</span>     <span class="c">— jeder Auftrag, neueste zuerst</span>
-  <span class="k">Sitzungen/</span>       <span class="c">— Verlauf plus Zusammenfassung obendrauf</span>
-  <span class="k">Agenten/</span>         <span class="c">— jeder Lauf mit Auftrag und Ergebnis</span>
-  <span class="k">Gruppen/</span>         <span class="c">— Teams mit Mitgliedern und Gesamtergebnis</span>
-  <span class="k">Wissen/</span>          <span class="c">— was URAI sich gemerkt hat</span></pre>
+  <span class="k">Übersicht.md</span>     <span class="c" data-i18n="obsZeile1">— jeder Auftrag, neueste zuerst</span>
+  <span class="k">Sitzungen/</span>       <span class="c" data-i18n="obsZeile2">— Verlauf plus Zusammenfassung obendrauf</span>
+  <span class="k">Agenten/</span>         <span class="c" data-i18n="obsZeile3">— jeder Lauf mit Auftrag und Ergebnis</span>
+  <span class="k">Gruppen/</span>         <span class="c" data-i18n="obsZeile4">— Teams mit Mitgliedern und Gesamtergebnis</span>
+  <span class="k">Wissen/</span>          <span class="c" data-i18n="obsZeile5">— was URAI sich gemerkt hat</span></pre>
   </section>
 
   <section id="gehirn">
-    <h2>Vier Gehirne, alle gratis</h2>
-    <p class="sub">Gefragt wird der Reihe nach. Fällt eins aus — Kontingent leer, Modell abgeschaltet —
+    <h2 data-i18n="gehirnTitel">Vier Gehirne, alle gratis</h2>
+    <p class="sub" data-i18n="gehirnSub">Gefragt wird der Reihe nach. Fällt eins aus — Kontingent leer, Modell abgeschaltet —
     merkt URAI sich das und nimmt beim nächsten Zug das nächste.</p>
 
     <div class="chain">
-      <div class="link"><span class="n">1</span><span class="who">Gemini</span><span class="what">Kann als einziges Bilder sehen — trägt Live-Modus und Bildschirm-Verstehen</span><span class="price">gratis</span></div>
-      <div class="link"><span class="n">2</span><span class="who">Cerebras</span><span class="what">Sehr schnell, wenn dein Konto Kontingent hat</span><span class="price">gratis</span></div>
-      <div class="link"><span class="n">3</span><span class="who">Groq</span><span class="what">Schnelle Reserve, knappes Minuten-Kontingent — kriegt darum eine schlanke Werkzeugliste</span><span class="price">gratis</span></div>
-      <div class="link"><span class="n">4</span><span class="who">OpenRouter</span><span class="what">Sucht sich selbst das beste Gratis-Modell, das Werkzeuge kann</span><span class="price">gratis</span></div>
+      <div class="link"><span class="n">1</span><span class="who">Gemini</span><span class="what" data-i18n="hirn1">Kann als einziges Bilder sehen — trägt Live-Modus und Bildschirm-Verstehen</span><span class="price" data-i18n="gratis">gratis</span></div>
+      <div class="link"><span class="n">2</span><span class="who">Cerebras</span><span class="what" data-i18n="hirn2">Sehr schnell, wenn dein Konto Kontingent hat</span><span class="price" data-i18n="gratis">gratis</span></div>
+      <div class="link"><span class="n">3</span><span class="who">Groq</span><span class="what" data-i18n="hirn3">Schnelle Reserve, knappes Minuten-Kontingent — kriegt darum eine schlanke Werkzeugliste</span><span class="price" data-i18n="gratis">gratis</span></div>
+      <div class="link"><span class="n">4</span><span class="who">OpenRouter</span><span class="what" data-i18n="hirn4">Sucht sich selbst das beste Gratis-Modell, das Werkzeuge kann</span><span class="price" data-i18n="gratis">gratis</span></div>
     </div>
   </section>
 
   <section>
-    <h2>Was URAI nicht tut</h2>
-    <p class="sub">Ein Agent mit Tastatur und Maus braucht harte Grenzen. Diese hier sind eingebaut.</p>
+    <h2 data-i18n="nichtTitel">Was URAI nicht tut</h2>
+    <p class="sub" data-i18n="nichtSub">Ein Agent mit Tastatur und Maus braucht harte Grenzen. Diese hier sind eingebaut.</p>
 
     <div class="guards">
-      <div class="guard"><span class="mk">01</span><span><b>Kein Bild bleibt liegen.</b> Jedes Bildschirmfoto wird gelesen und sofort gelöscht — auch wenn die Erkennung scheitert. Gespeichert wird nur Text, und nur das Wichtige.</span></div>
-      <div class="guard"><span class="mk">02</span><span><b>Nichts geht nach außen.</b> Der Server hört nur auf 127.0.0.1. Schlüssel und Gedächtnis liegen in <code>data/</code> und werden nie verschickt.</span></div>
-      <div class="guard"><span class="mk">03</span><span><b>Dateien bleiben im Revier.</b> Ein Ordner, den du festlegst. Darüber hinaus kommt er nicht.</span></div>
-      <div class="guard"><span class="mk">04</span><span><b>Zerstörerisches ist gesperrt.</b> <code>rm -rf /</code>, <code>mkfs</code>, <code>dd</code> auf Platten, Fork-Bomben — fest verboten, nicht abschaltbar.</span></div>
-      <div class="guard"><span class="mk">05</span><span><b>Selbst-Umbau mit Netz.</b> Rauchtest, ESM-Prüfung und Schrumpf-Schutz. Ist danach etwas kaputt, dreht er es von allein zurück.</span></div>
-      <div class="guard"><span class="mk">06</span><span><b>Stopp heißt stopp.</b> Ein Knopf bricht alles ab, auch jeden Unter-Agenten.</span></div>
+      <div class="guard"><span class="mk">01</span><span data-i18n="guard1"><b>Kein Bild bleibt liegen.</b> Jedes Bildschirmfoto wird gelesen und sofort gelöscht — auch wenn die Erkennung scheitert. Gespeichert wird nur Text, und nur das Wichtige.</span></div>
+      <div class="guard"><span class="mk">02</span><span data-i18n="guard2"><b>Nichts geht nach außen.</b> Der Server hört nur auf 127.0.0.1. Schlüssel und Gedächtnis liegen in <code>data/</code> und werden nie verschickt.</span></div>
+      <div class="guard"><span class="mk">03</span><span data-i18n="guard3"><b>Dateien bleiben im Revier.</b> Ein Ordner, den du festlegst. Darüber hinaus kommt er nicht.</span></div>
+      <div class="guard"><span class="mk">04</span><span data-i18n="guard4"><b>Zerstörerisches ist gesperrt.</b> <code>rm -rf /</code>, <code>mkfs</code>, <code>dd</code> auf Platten, Fork-Bomben — fest verboten, nicht abschaltbar.</span></div>
+      <div class="guard"><span class="mk">05</span><span data-i18n="guard5"><b>Selbst-Umbau mit Netz.</b> Rauchtest, ESM-Prüfung und Schrumpf-Schutz. Ist danach etwas kaputt, dreht er es von allein zurück.</span></div>
+      <div class="guard"><span class="mk">06</span><span data-i18n="guard6"><b>Stopp heißt stopp.</b> Ein Knopf bricht alles ab, auch jeden Unter-Agenten.</span></div>
     </div>
 
-    <div class="warn">
+    <div class="warn" data-i18n="warnBox">
       <b>Ehrlich gesagt:</b> Im Auto-Modus fragt URAI nicht nach, bevor er klickt, tippt oder Dateien
       schreibt. Das ist der Sinn der Sache — aber du solltest wissen, worauf du dich einlässt.
       In den Einstellungen lässt sich das umstellen, dann fragt er wieder.
@@ -428,31 +487,34 @@
   </section>
 
   <section id="start">
-    <h2>In drei Schritten</h2>
-    <p class="sub">Braucht macOS, Node 22 und einen Gratis-Schlüssel. Zehn Minuten.</p>
+    <h2 data-i18n="startTitel">In drei Schritten</h2>
+    <p class="sub" data-i18n="startSub">Braucht macOS oder Windows, Node 22 und einen Gratis-Schlüssel. Zehn Minuten.</p>
 
     <div class="steps">
       <div class="step">
         <span class="num"></span>
         <div>
-          <h3>Holen und starten</h3>
-          <p><code>npm install</code>, dann <code>npm start</code>. Öffnet auf <code>localhost:3017</code>.</p>
+          <h3 data-i18n="schritt1Titel">Holen und starten</h3>
+          <p data-i18n="schritt1Text">Herunterladen, entpacken, auf <code>URAI starten.command</code> (Mac) oder
+          <code>URAI starten.bat</code> (Windows) doppelklicken — der Browser geht von selbst auf.
+          Oder per Terminal: <code>npm install</code>, dann <code>npm start</code>.</p>
         </div>
       </div>
       <div class="step">
         <span class="num"></span>
         <div>
-          <h3>Schlüssel eintragen</h3>
-          <p>Einstellungen öffnen, Gemini-Schlüssel von <code>aistudio.google.com/apikey</code> einfügen.
+          <h3 data-i18n="schritt2Titel">Schlüssel eintragen</h3>
+          <p data-i18n="schritt2Text">Einstellungen öffnen, Gemini-Schlüssel von <code>aistudio.google.com/apikey</code> einfügen.
           Gratis. Er bleibt auf deinem Rechner.</p>
         </div>
       </div>
       <div class="step">
         <span class="num"></span>
         <div>
-          <h3>macOS um Erlaubnis bitten</h3>
-          <p>Systemeinstellungen → Datenschutz &amp; Sicherheit → <b>Bildschirmaufnahme</b> und
-          <b>Bedienungshilfen</b>. Ohne die beiden sieht URAI nichts und klickt nichts.</p>
+          <h3 data-i18n="schritt3Titel">Um Erlaubnis bitten</h3>
+          <p data-i18n="schritt3Text">Nur auf dem Mac nötig: Systemeinstellungen → Datenschutz &amp; Sicherheit →
+          <b>Bildschirmaufnahme</b> und <b>Bedienungshilfen</b>. Ohne die beiden sieht URAI nichts und klickt nichts.
+          Auf Windows fragt nur Defender/SmartScreen beim ersten Start — einfach bestätigen.</p>
         </div>
       </div>
     </div>
@@ -462,20 +524,242 @@
 <footer class="wrap">
   <div class="row">
     <span class="eye" style="--s:16px"></span>
-    <span>URAI — läuft daheim, kostet nichts, gehört dir.</span>
+    <span data-i18n="footerZeile">URAI — läuft daheim, kostet nichts, gehört dir.</span>
   </div>
 </footer>
 
 <script>
   const cmd = 'git clone <dein-repo> urai && cd urai && npm install && npm start'
+  const KOPIERT = { de: 'kopiert', en: 'copied', es: 'copiado' }
+  const GING_NICHT = { de: 'ging nicht', en: "didn't work", es: 'no funcionó' }
   document.getElementById('copy').addEventListener('click', async (e) => {
     const b = e.currentTarget
+    const urspruenglich = b.textContent
     try {
       await navigator.clipboard.writeText(cmd)
-      b.textContent = 'kopiert'
+      b.textContent = KOPIERT[siteSprache] || KOPIERT.de
     } catch {
-      b.textContent = 'ging nicht'
+      b.textContent = GING_NICHT[siteSprache] || GING_NICHT.de
     }
-    setTimeout(() => { b.textContent = 'kopieren' }, 1600)
+    setTimeout(() => { b.textContent = urspruenglich }, 1600)
   })
+
+  // Welcher Download vorne steht, richtet sich danach, was der Besucher gerade nutzt —
+  // beide bleiben immer klickbar, es geht nur um die Reihenfolge und den "empfohlen"-Hinweis.
+  const plattform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent
+  const istWin = /win/i.test(plattform)
+  const istMac = /mac/i.test(plattform) && !istWin
+
+  const dlMac = document.getElementById('dl-mac')
+  const dlWin = document.getElementById('dl-win')
+
+  if (istWin) {
+    dlWin.classList.remove('alt')
+    dlMac.classList.add('alt')
+    dlWin.parentElement.insertBefore(dlWin, dlMac)
+    document.getElementById('tag-win').hidden = false
+  } else if (istMac) {
+    document.getElementById('tag-mac').hidden = false
+  }
+
+  // ── Sprache: Deutsch, Englisch, Spanisch — der Rest fällt auf Englisch zurück ──
+  const SITE_I18N = {
+    de: {
+      navKann: 'Was er kann', navGehirn: 'Gehirne', navStart: 'Loslegen',
+      dlMac: 'Für Mac', dlWin: 'Für Windows', empfohlen: 'empfohlen', kopieren: 'kopieren',
+      heroKicker: '<span class="rec"></span>guckt mit, während du arbeitest',
+      heroTitel: 'Ein Agent, der auf deinem Rechner <em>wirklich handelt</em>.',
+      heroText: 'URAI liest deinen Bildschirm, klickt, tippt, schreibt Code und stellt sich selbst Agenten-Teams zusammen. Alles läuft bei dir daheim. <strong>Kostet nichts</strong> — Gratis-Schlüssel reichen.',
+      heroNote: 'macOS oder Windows · Node 22 · ein Gratis-API-Schlüssel · Download braucht ein laufendes URAI auf diesem Rechner',
+      demoFrage: 'Finde raus, was drei Konkurrenten für Versand nehmen.',
+      demoGruppe: 'Gruppe: Preis-Check · 3 Mitglieder', demoSpaeherA: 'Späher A · web_fetch', demoSpaeherB: 'Späher B · web_fetch',
+      demoPruefer: 'Prüfer · obsidian_write', demoArbeiten: '3 Agenten arbeiten',
+      demoAntwort: 'Fertig. Alle drei liegen zwischen 4,90 € und 6,50 €. Notiz in Obsidian.',
+      demoFeed1: 'Preisliste geöffnet', demoFeed2: 'Tabelle mit Versandkosten sichtbar', demoGemerkt: 'gemerkt',
+      demoFeed3: 'Versand ab 39 € frei, sonst 4,90 €', demoFeed4: 'Notiz angelegt',
+      kannTitel: 'Vier Kräfte', kannSub: 'Keine Sandbox, kein Spielzeug. URAI arbeitet auf dem echten Rechner.',
+      kraft1Titel: 'Bildschirm lesen',
+      kraft1Text: 'Jeder sichtbare Text mit Klick-Punkt, dazu die echten Knöpfe der vordersten App — auf dem Mac über Apples eigenes Vision-Framework, offline, gratis, rund zwei Sekunden. Auf Windows beschreibt ein Bild-Modell, was zu sehen ist.',
+      kraft2Titel: 'Rechner steuern',
+      kraft2Text: 'Klickt am liebsten auf Beschriftung statt auf Koordinaten. Tippt, drückt Tasten, öffnet Apps — auf dem Mac auch Mail, Notizen und Kalender über AppleScript.',
+      kraft3Titel: 'Dateien und Code',
+      kraft3Text: 'Lesen, schreiben, ändern, durchsuchen, Terminal-Befehle laufen lassen — begrenzt auf ein Revier, das du selbst festlegst.',
+      kraft4Titel: 'Agenten-Teams',
+      kraft4Text: 'Ist ein Auftrag groß, stellt URAI selbst eine Gruppe auf. Unter-Agenten dürfen weitere Agenten erschaffen — drei Ebenen tief, zwölf pro Auftrag.',
+      kraft5Titel: 'Live mitgucken',
+      kraft5Text: 'Schaut alle paar Sekunden hin und erkennt sogar Videos. Sagt nur etwas, wenn sich wirklich etwas ändert. Fragst du später, weiß er noch, was lief.',
+      kraft6Titel: 'Baut sich selbst um',
+      kraft6Text: 'Liest seinen eigenen Code, ändert ihn, prüft sich und startet neu. Jede Änderung liegt in Git — <code>self_undo</code> dreht sie zurück.',
+      obsidianTitel: 'Alles landet in Obsidian',
+      obsidianSub: 'Gespräche, Agenten-Läufe, Gruppen, Gemerktes — automatisch als Markdown, verlinkt und durchsuchbar.',
+      obsZeile1: '— jeder Auftrag, neueste zuerst', obsZeile2: '— Verlauf plus Zusammenfassung obendrauf',
+      obsZeile3: '— jeder Lauf mit Auftrag und Ergebnis', obsZeile4: '— Teams mit Mitgliedern und Gesamtergebnis',
+      obsZeile5: '— was URAI sich gemerkt hat',
+      gehirnTitel: 'Vier Gehirne, alle gratis',
+      gehirnSub: 'Gefragt wird der Reihe nach. Fällt eins aus — Kontingent leer, Modell abgeschaltet — merkt URAI sich das und nimmt beim nächsten Zug das nächste.',
+      hirn1: 'Kann als einziges Bilder sehen — trägt Live-Modus und Bildschirm-Verstehen',
+      hirn2: 'Sehr schnell, wenn dein Konto Kontingent hat',
+      hirn3: 'Schnelle Reserve, knappes Minuten-Kontingent — kriegt darum eine schlanke Werkzeugliste',
+      hirn4: 'Sucht sich selbst das beste Gratis-Modell, das Werkzeuge kann', gratis: 'gratis',
+      nichtTitel: 'Was URAI nicht tut', nichtSub: 'Ein Agent mit Tastatur und Maus braucht harte Grenzen. Diese hier sind eingebaut.',
+      guard1: '<b>Kein Bild bleibt liegen.</b> Jedes Bildschirmfoto wird gelesen und sofort gelöscht — auch wenn die Erkennung scheitert. Gespeichert wird nur Text, und nur das Wichtige.',
+      guard2: '<b>Nichts geht nach außen.</b> Der Server hört nur auf 127.0.0.1. Schlüssel und Gedächtnis liegen in <code>data/</code> und werden nie verschickt.',
+      guard3: '<b>Dateien bleiben im Revier.</b> Ein Ordner, den du festlegst. Darüber hinaus kommt er nicht.',
+      guard4: '<b>Zerstörerisches ist gesperrt.</b> <code>rm -rf /</code>, <code>mkfs</code>, <code>dd</code> auf Platten, Fork-Bomben — fest verboten, nicht abschaltbar.',
+      guard5: '<b>Selbst-Umbau mit Netz.</b> Rauchtest, ESM-Prüfung und Schrumpf-Schutz. Ist danach etwas kaputt, dreht er es von allein zurück.',
+      guard6: '<b>Stopp heißt stopp.</b> Ein Knopf bricht alles ab, auch jeden Unter-Agenten.',
+      warnBox: '<b>Ehrlich gesagt:</b> Im Auto-Modus fragt URAI nicht nach, bevor er klickt, tippt oder Dateien schreibt. Das ist der Sinn der Sache — aber du solltest wissen, worauf du dich einlässt. In den Einstellungen lässt sich das umstellen, dann fragt er wieder.',
+      startTitel: 'In drei Schritten', startSub: 'Braucht macOS oder Windows, Node 22 und einen Gratis-Schlüssel. Zehn Minuten.',
+      schritt1Titel: 'Holen und starten',
+      schritt1Text: 'Herunterladen, entpacken, auf <code>URAI starten.command</code> (Mac) oder <code>URAI starten.bat</code> (Windows) doppelklicken — der Browser geht von selbst auf. Oder per Terminal: <code>npm install</code>, dann <code>npm start</code>.',
+      schritt2Titel: 'Schlüssel eintragen',
+      schritt2Text: 'Einstellungen öffnen, Gemini-Schlüssel von <code>aistudio.google.com/apikey</code> einfügen. Gratis. Er bleibt auf deinem Rechner.',
+      schritt3Titel: 'Um Erlaubnis bitten',
+      schritt3Text: 'Nur auf dem Mac nötig: Systemeinstellungen → Datenschutz &amp; Sicherheit → <b>Bildschirmaufnahme</b> und <b>Bedienungshilfen</b>. Ohne die beiden sieht URAI nichts und klickt nichts. Auf Windows fragt nur Defender/SmartScreen beim ersten Start — einfach bestätigen.',
+      footerZeile: 'URAI — läuft daheim, kostet nichts, gehört dir.',
+    },
+    en: {
+      navKann: 'What it can do', navGehirn: 'Brains', navStart: 'Get started',
+      dlMac: 'For Mac', dlWin: 'For Windows', empfohlen: 'recommended', kopieren: 'copy',
+      heroKicker: '<span class="rec"></span>watches along while you work',
+      heroTitel: 'An agent that <em>really acts</em> on your computer.',
+      heroText: "URAI reads your screen, clicks, types, writes code, and assembles its own agent teams. Everything runs at home. <strong>Costs nothing</strong> — free API keys are enough.",
+      heroNote: 'macOS or Windows · Node 22 · one free API key · Download needs a running URAI on this machine',
+      demoFrage: 'Find out what three competitors charge for shipping.',
+      demoGruppe: 'Team: Price check · 3 members', demoSpaeherA: 'Scout A · web_fetch', demoSpaeherB: 'Scout B · web_fetch',
+      demoPruefer: 'Reviewer · obsidian_write', demoArbeiten: '3 agents working',
+      demoAntwort: 'Done. All three land between €4.90 and €6.50. Noted in Obsidian.',
+      demoFeed1: 'Price list opened', demoFeed2: 'Shipping cost table visible', demoGemerkt: 'noted',
+      demoFeed3: 'Free shipping from €39, otherwise €4.90', demoFeed4: 'Note created',
+      kannTitel: 'Four powers', kannSub: 'No sandbox, no toy. URAI works on the real machine.',
+      kraft1Titel: 'Read the screen',
+      kraft1Text: "Every visible bit of text with its click point, plus the real buttons of the frontmost app — on the Mac via Apple's own Vision framework, offline, free, about two seconds. On Windows, a vision model describes what's on screen.",
+      kraft2Titel: 'Control your computer',
+      kraft2Text: 'Prefers clicking on labels over raw coordinates. Types, presses keys, opens apps — on the Mac it also drives Mail, Notes, and Calendar via AppleScript.',
+      kraft3Titel: 'Files and code',
+      kraft3Text: 'Read, write, edit, search, run terminal commands — limited to a workspace you define yourself.',
+      kraft4Titel: 'Agent teams',
+      kraft4Text: 'For a big task, URAI assembles its own team. Sub-agents can spawn further agents — three levels deep, twelve per task.',
+      kraft5Titel: 'Live watching',
+      kraft5Text: 'Glances every few seconds and even recognizes video. Only speaks up when something actually changes. Ask later and it still remembers what happened.',
+      kraft6Titel: 'Rebuilds itself',
+      kraft6Text: 'Reads its own code, changes it, checks itself, and restarts. Every change lands in Git — <code>self_undo</code> rolls it back.',
+      obsidianTitel: 'Everything lands in Obsidian',
+      obsidianSub: 'Conversations, agent runs, teams, things remembered — automatically as Markdown, linked and searchable.',
+      obsZeile1: '— every task, newest first', obsZeile2: '— history plus a summary on top',
+      obsZeile3: '— every run with its task and result', obsZeile4: '— teams with members and overall result',
+      obsZeile5: '— what URAI has remembered',
+      gehirnTitel: 'Four brains, all free',
+      gehirnSub: 'Asked in order. If one fails — quota empty, model down — URAI remembers and moves to the next one on the next turn.',
+      hirn1: 'The only one that can see images — carries live mode and screen understanding',
+      hirn2: 'Very fast, when your account has quota',
+      hirn3: 'Fast backup, tight per-minute quota — so it gets a slimmed-down tool list',
+      hirn4: 'Finds the best free tool-capable model on its own', gratis: 'free',
+      nichtTitel: "What URAI won't do", nichtSub: 'An agent with a keyboard and mouse needs hard limits. These are built in.',
+      guard1: '<b>No image is left behind.</b> Every screenshot is read and immediately deleted — even if recognition fails. Only text gets saved, and only what matters.',
+      guard2: '<b>Nothing leaves the machine.</b> The server only listens on 127.0.0.1. Keys and memory live in <code>data/</code> and are never sent anywhere.',
+      guard3: '<b>Files stay in the workspace.</b> A folder you define. It never goes beyond that.',
+      guard4: "<b>Destructive commands are blocked.</b> <code>rm -rf /</code>, <code>mkfs</code>, <code>dd</code> on disks, fork bombs — hard-blocked, can't be turned off.",
+      guard5: '<b>Self-rebuilding with a safety net.</b> Smoke test, ESM check, and a shrink guard. If something breaks, it rolls itself back.',
+      guard6: '<b>Stop means stop.</b> One button cancels everything, including every sub-agent.',
+      warnBox: "<b>Honestly:</b> In auto mode, URAI doesn't ask before clicking, typing, or writing files. That's the whole point — but you should know what you're signing up for. You can switch this in Settings, and it'll ask again.",
+      startTitel: 'In three steps', startSub: 'Needs macOS or Windows, Node 22, and one free API key. Ten minutes.',
+      schritt1Titel: 'Get it and start it',
+      schritt1Text: 'Download, unzip, double-click <code>URAI starten.command</code> (Mac) or <code>URAI starten.bat</code> (Windows) — the browser opens by itself. Or via terminal: <code>npm install</code>, then <code>npm start</code>.',
+      schritt2Titel: 'Add your key',
+      schritt2Text: 'Open Settings, paste a Gemini key from <code>aistudio.google.com/apikey</code>. Free. It stays on your machine.',
+      schritt3Titel: 'Grant permission',
+      schritt3Text: "Only needed on Mac: System Settings → Privacy &amp; Security → <b>Screen Recording</b> and <b>Accessibility</b>. Without both, URAI can't see or click anything. On Windows, only Defender/SmartScreen asks once at first launch — just confirm it.",
+      footerZeile: 'URAI — runs at home, costs nothing, belongs to you.',
+    },
+    es: {
+      navKann: 'Qué puede hacer', navGehirn: 'Cerebros', navStart: 'Empezar',
+      dlMac: 'Para Mac', dlWin: 'Para Windows', empfohlen: 'recomendado', kopieren: 'copiar',
+      heroKicker: '<span class="rec"></span>te acompaña mientras trabajas',
+      heroTitel: 'Un agente que <em>actúa de verdad</em> en tu ordenador.',
+      heroText: 'URAI lee tu pantalla, hace clic, escribe, programa y arma sus propios equipos de agentes. Todo funciona en tu casa. <strong>No cuesta nada</strong> — con claves gratuitas basta.',
+      heroNote: 'macOS o Windows · Node 22 · una clave de API gratuita · La descarga necesita un URAI en marcha en este equipo',
+      demoFrage: 'Averigua cuánto cobran tres competidores por el envío.',
+      demoGruppe: 'Equipo: Comparar precios · 3 miembros', demoSpaeherA: 'Explorador A · web_fetch', demoSpaeherB: 'Explorador B · web_fetch',
+      demoPruefer: 'Revisor · obsidian_write', demoArbeiten: '3 agentes trabajando',
+      demoAntwort: 'Listo. Los tres están entre 4,90 € y 6,50 €. Nota guardada en Obsidian.',
+      demoFeed1: 'Lista de precios abierta', demoFeed2: 'Tabla de gastos de envío visible', demoGemerkt: 'guardado',
+      demoFeed3: 'Envío gratis desde 39 €, si no 4,90 €', demoFeed4: 'Nota creada',
+      kannTitel: 'Cuatro poderes', kannSub: 'Nada de sandbox ni de juguete. URAI trabaja en el equipo de verdad.',
+      kraft1Titel: 'Leer la pantalla',
+      kraft1Text: 'Cada texto visible con su punto de clic, más los botones reales de la app en primer plano — en el Mac usando el propio Vision de Apple, offline, gratis, unos dos segundos. En Windows, un modelo de visión describe lo que hay en pantalla.',
+      kraft2Titel: 'Controlar el equipo',
+      kraft2Text: 'Prefiere hacer clic sobre el texto en vez de coordenadas. Escribe, pulsa teclas, abre apps — en el Mac también controla Mail, Notas y Calendario vía AppleScript.',
+      kraft3Titel: 'Archivos y código',
+      kraft3Text: 'Leer, escribir, editar, buscar, ejecutar comandos de terminal — limitado a un espacio de trabajo que tú defines.',
+      kraft4Titel: 'Equipos de agentes',
+      kraft4Text: 'Si una tarea es grande, URAI arma su propio equipo. Los subagentes pueden crear más agentes — tres niveles de profundidad, doce por tarea.',
+      kraft5Titel: 'Vista en vivo',
+      kraft5Text: 'Echa un vistazo cada pocos segundos e incluso reconoce vídeo. Solo avisa cuando algo cambia de verdad. Si preguntas más tarde, se acuerda de lo que pasó.',
+      kraft6Titel: 'Se reconstruye a sí mismo',
+      kraft6Text: 'Lee su propio código, lo cambia, se revisa y se reinicia. Cada cambio queda en Git — <code>self_undo</code> lo deshace.',
+      obsidianTitel: 'Todo termina en Obsidian',
+      obsidianSub: 'Conversaciones, ejecuciones de agentes, equipos, lo recordado — automáticamente en Markdown, enlazado y buscable.',
+      obsZeile1: '— cada tarea, la más nueva primero', obsZeile2: '— historial con un resumen encima',
+      obsZeile3: '— cada ejecución con su tarea y resultado', obsZeile4: '— equipos con miembros y resultado global',
+      obsZeile5: '— lo que URAI ha recordado',
+      gehirnTitel: 'Cuatro cerebros, todos gratis',
+      gehirnSub: 'Se consultan en orden. Si uno falla — cuota agotada, modelo caído — URAI lo recuerda y usa el siguiente en la próxima ronda.',
+      hirn1: 'El único que puede ver imágenes — sostiene el modo en vivo y la comprensión de pantalla',
+      hirn2: 'Muy rápido, cuando tu cuenta tiene cuota',
+      hirn3: 'Reserva rápida, cuota por minuto ajustada — por eso recibe una lista de herramientas reducida',
+      hirn4: 'Busca por sí mismo el mejor modelo gratuito capaz de usar herramientas', gratis: 'gratis',
+      nichtTitel: 'Lo que URAI no hace', nichtSub: 'Un agente con teclado y ratón necesita límites duros. Estos vienen incorporados.',
+      guard1: '<b>Ninguna imagen se queda guardada.</b> Cada captura se lee y se borra al instante — incluso si el reconocimiento falla. Solo se guarda texto, y solo lo importante.',
+      guard2: '<b>Nada sale hacia fuera.</b> El servidor solo escucha en 127.0.0.1. Las claves y la memoria viven en <code>data/</code> y nunca se envían.',
+      guard3: '<b>Los archivos se quedan en el espacio de trabajo.</b> Una carpeta que tú defines. No va más allá.',
+      guard4: '<b>Lo destructivo está bloqueado.</b> <code>rm -rf /</code>, <code>mkfs</code>, <code>dd</code> sobre discos, fork bombs — bloqueado de forma fija, no se puede desactivar.',
+      guard5: '<b>Se reconstruye con red de seguridad.</b> Prueba de humo, verificación ESM y protección contra encogimientos. Si algo se rompe, lo revierte solo.',
+      guard6: '<b>Parar significa parar.</b> Un botón cancela todo, incluido cada subagente.',
+      warnBox: '<b>Para ser sinceros:</b> En modo automático, URAI no pregunta antes de hacer clic, escribir o modificar archivos. Ese es el sentido de todo esto — pero deberías saber en qué te metes. Puedes cambiarlo en Ajustes, y volverá a preguntar.',
+      startTitel: 'En tres pasos', startSub: 'Necesita macOS o Windows, Node 22 y una clave de API gratuita. Diez minutos.',
+      schritt1Titel: 'Descargar y arrancar',
+      schritt1Text: 'Descarga, descomprime, haz doble clic en <code>URAI starten.command</code> (Mac) o <code>URAI starten.bat</code> (Windows) — el navegador se abre solo. O por terminal: <code>npm install</code> y luego <code>npm start</code>.',
+      schritt2Titel: 'Añadir la clave',
+      schritt2Text: 'Abre Ajustes, pega una clave de Gemini desde <code>aistudio.google.com/apikey</code>. Gratis. Se queda en tu equipo.',
+      schritt3Titel: 'Dar permiso',
+      schritt3Text: 'Solo hace falta en Mac: Ajustes del sistema → Privacidad y seguridad → <b>Grabación de pantalla</b> y <b>Accesibilidad</b>. Sin ambos, URAI no ve ni hace clic en nada. En Windows, solo Defender/SmartScreen pregunta una vez al primer inicio — basta con confirmar.',
+      footerZeile: 'URAI — funciona en casa, no cuesta nada, es tuyo.',
+    },
+  }
+
+  const TITEL = {
+    de: 'URAI — der Agent, der auf deinem Rechner wirklich handelt',
+    en: 'URAI — the agent that really acts on your computer',
+    es: 'URAI — el agente que actúa de verdad en tu ordenador',
+  }
+
+  function siteSpracheAnwenden(lang) {
+    const dict = SITE_I18N[lang] || SITE_I18N.de
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      const key = el.getAttribute('data-i18n')
+      if (dict[key] != null) el.innerHTML = dict[key]
+    })
+    document.title = TITEL[lang] || TITEL.de
+    document.documentElement.lang = lang
+    document.querySelectorAll('#sprachwahl button').forEach((b) => b.classList.toggle('on', b.dataset.lang === lang))
+    siteSprache = lang
+    try { localStorage.setItem('urai-site-sprache', lang) } catch {}
+  }
+
+  function siteSpracheErkennen() {
+    try {
+      const gespeichert = localStorage.getItem('urai-site-sprache')
+      if (gespeichert && SITE_I18N[gespeichert]) return gespeichert
+    } catch {}
+    for (const l of navigator.languages || [navigator.language || 'de']) {
+      const kurz = String(l).slice(0, 2).toLowerCase()
+      if (SITE_I18N[kurz]) return kurz
+    }
+    return 'de'
+  }
+
+  let siteSprache = siteSpracheErkennen()
+  siteSpracheAnwenden(siteSprache)
+  document.querySelectorAll('#sprachwahl button').forEach((b) => b.addEventListener('click', () => siteSpracheAnwenden(b.dataset.lang)))
 </script>
