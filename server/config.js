@@ -121,6 +121,8 @@ const DEFAULTS = {
   herkunft: '', // woher der Nutzer URAI kennt — nur fürs eigene Interesse
   agbAkzeptiert: false,
   agbVersion: 0,
+  // Kein echtes Konto, keine Bestätigung — bleibt nur lokal in dieser Datei.
+  email: '',
   // Kurzes, freiwilliges Profil aus dem Erststart — nur zur Personalisierung,
   // bleibt komplett lokal in dieser Datei, geht nirgendwo hin.
   profilName: '',

@@ -49,10 +49,11 @@ app.get('/api/status', async (_req, res) => {
 
 // Erststart: Profil, Herkunft und Nutzungsbedingungen in einem Zug speichern
 app.post('/api/onboarding', (req, res) => {
-  const { herkunft = '', agbAkzeptiert = false, profilName = '', profilAlter = null, profilZweck = '' } = req.body || {}
+  const { herkunft = '', agbAkzeptiert = false, email = '', profilName = '', profilAlter = null, profilZweck = '' } = req.body || {}
   const patch = {
     onboardingFertig: true,
     herkunft: String(herkunft).slice(0, 60),
+    email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim()) ? String(email).trim().slice(0, 120) : '',
     profilName: String(profilName).slice(0, 40),
     profilAlter: Number.isFinite(profilAlter) ? Math.max(1, Math.min(120, profilAlter)) : null,
     profilZweck: String(profilZweck).slice(0, 60),

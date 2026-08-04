@@ -13,10 +13,12 @@ import { farbeSetzen, useFarbe, farbeLesen, VORSCHLAEGE } from '../theme.js'
  */
 const HERKUNFT = ['reddit', 'x', 'youtube', 'google', 'freund', 'sonstiges']
 const ZWECKE = ['code', 'recherche', 'dateien', 'automatisierung', 'alles']
+const EMAIL_MUSTER = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function Onboarding({ onFertig }) {
   useFarbe()
   const [schritt, setSchritt] = useState(0)
+  const [email, setEmail] = useState('')
   const [profilName, setProfilName] = useState('')
   const [profilAlter, setProfilAlter] = useState('')
   const [profilZweck, setProfilZweck] = useState(null)
@@ -42,6 +44,7 @@ export default function Onboarding({ onFertig }) {
         body: JSON.stringify({
           herkunft,
           agbAkzeptiert: agb,
+          email,
           profilName,
           profilAlter: profilAlter ? Number(profilAlter) : null,
           profilZweck,
@@ -71,7 +74,10 @@ export default function Onboarding({ onFertig }) {
     <div className={`onb-buehne ${raus ? 'raus' : ''}`}>
       <div className="onb-punkte">
         {SCHRITTE.map((s, i) => (
-          <span key={s} className={`onb-punkt ${i === schritt ? 'on' : ''} ${i < schritt ? 'fertig' : ''}`} />
+          <React.Fragment key={s}>
+            {i > 0 && <span className={`onb-punkt-linie ${i <= schritt ? 'fertig' : ''}`} />}
+            <span className={`onb-punkt ${i === schritt ? 'on' : ''} ${i < schritt ? 'fertig' : ''}`} />
+          </React.Fragment>
         ))}
       </div>
 
@@ -79,11 +85,23 @@ export default function Onboarding({ onFertig }) {
         {name === 'willkommen' && (
           <>
             <div className="onb-auge">
+              <span className="onb-ring" />
               <span className="orb" style={{ '--kid': 2.2 }} />
             </div>
             <h1>{t('onbWillkommenTitel')}</h1>
             <p>{t('onbWillkommenText')}</p>
-            <button className="primary onb-weiter" onClick={weiter}>
+            <div className="onb-emailzeile">
+              <input
+                type="email"
+                className="onb-email"
+                placeholder={t('onbEmailPlatzhalter')}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && EMAIL_MUSTER.test(email.trim()) && weiter()}
+              />
+              <p className="onb-hinweis">{t('onbEmailHinweis')}</p>
+            </div>
+            <button className="primary onb-weiter" onClick={weiter} disabled={!EMAIL_MUSTER.test(email.trim())}>
               {t('onbLos')}
             </button>
           </>

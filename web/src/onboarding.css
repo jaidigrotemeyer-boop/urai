@@ -6,34 +6,58 @@
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(28px) saturate(160%);
   animation: onbAuf .5s var(--ease) both;
+  overflow: hidden;
 }
 .onb-buehne.raus { animation: onbZu .5s var(--ease) both; pointer-events: none; }
 @keyframes onbAuf { from { opacity: 0; } to { opacity: 1; } }
 @keyframes onbZu { to { opacity: 0; transform: scale(1.02); } }
 
-.onb-punkte { display: flex; gap: 7px; }
+/* Langsam atmender Glanz hinter der Karte — Bühne statt Hintergrund */
+.onb-buehne::before {
+  content: ''; position: absolute; z-index: -1;
+  width: min(700px, 90vw); height: min(700px, 90vw);
+  background: radial-gradient(ellipse, var(--accent-soft), transparent 65%);
+  filter: blur(10px);
+  animation: onbAtmen 7s ease-in-out infinite;
+}
+@keyframes onbAtmen {
+  0%, 100% { opacity: .5; transform: scale(1); }
+  50%      { opacity: .85; transform: scale(1.08); }
+}
+
+.onb-punkte { display: flex; align-items: center; gap: 0; }
 .onb-punkt {
-  width: 6px; height: 6px; border-radius: 50%;
+  width: 6px; height: 6px; border-radius: 50%; flex: none;
   background: var(--line); transition: background .3s var(--ease), transform .3s var(--spring);
 }
 .onb-punkt.fertig { background: var(--accent-line); }
-.onb-punkt.on { background: var(--accent); transform: scale(1.5); }
+.onb-punkt.on { background: var(--accent); transform: scale(1.5); box-shadow: 0 0 0 4px var(--accent-soft); }
+.onb-punkt-linie {
+  width: 20px; height: 2px; background: var(--line); border-radius: 2px; overflow: hidden;
+}
+.onb-punkt-linie::after {
+  content: ''; display: block; height: 100%; width: 100%;
+  background: var(--accent-line); transform: translateX(-100%);
+  transition: transform .5s var(--spring);
+}
+.onb-punkt-linie.fertig::after { transform: translateX(0); }
 
 .onb-karte {
   width: min(420px, calc(100vw - 40px));
-  max-height: 78vh; overflow-y: auto;
+  max-height: 78vh; overflow-y: auto; overflow-x: hidden;
   padding: 34px 30px;
   border-radius: 26px;
   border: 1px solid var(--line);
   background: var(--panel-solid);
-  box-shadow: 0 40px 100px -30px rgba(0, 0, 0, .8);
+  box-shadow: 0 40px 100px -30px rgba(0, 0, 0, .8), 0 0 0 1px var(--accent-soft) inset;
   text-align: center;
-  /* Jede Karte fährt weich rein — das Wechseln der Schritte fühlt sich wie
-     eine echte Seite an, nicht wie ein Umschalten */
-  animation: onbKarteRein .55s var(--spring) both;
+  perspective: 800px;
+  /* Jede Karte fährt weich rein, mit einem winzigen Dreh — das Wechseln der
+     Schritte fühlt sich wie eine echte Seite an, nicht wie ein Umschalten */
+  animation: onbKarteRein .6s var(--spring) both;
 }
 @keyframes onbKarteRein {
-  from { opacity: 0; transform: translateY(18px) scale(.96); filter: blur(6px); }
+  from { opacity: 0; transform: translateY(22px) scale(.94) rotateX(6deg); filter: blur(8px); }
   to   { opacity: 1; transform: none; filter: none; }
 }
 
@@ -42,11 +66,57 @@
 .onb-karte p { color: var(--dim); line-height: 1.6; margin: 0 0 6px; }
 .onb-dim { font-size: 13px; }
 
-.onb-auge { display: flex; justify-content: center; margin-bottom: 6px; }
+/* Jedes Kind einer Karte reiht sich mit kurzem Versatz ein — gilt automatisch
+   für jeden Schritt, ohne dass jedes Element einzeln markiert werden muss */
+.onb-karte > * { animation: onbItemRein .5s var(--spring) both; }
+.onb-karte > *:nth-child(1) { animation-delay: 90ms; }
+.onb-karte > *:nth-child(2) { animation-delay: 155ms; }
+.onb-karte > *:nth-child(3) { animation-delay: 220ms; }
+.onb-karte > *:nth-child(4) { animation-delay: 285ms; }
+.onb-karte > *:nth-child(5) { animation-delay: 350ms; }
+.onb-karte > *:nth-child(6) { animation-delay: 415ms; }
+.onb-karte > *:nth-child(n+7) { animation-delay: 480ms; }
+@keyframes onbItemRein {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.onb-emailzeile { margin: 18px 0 4px; }
+
+.onb-auge { position: relative; display: flex; justify-content: center; align-items: center; margin-bottom: 6px; height: 56px; }
 .onb-auge .orb { animation: blinzeln 3.4s var(--ease) infinite, onbAugePop .7s var(--spring) both; }
 @keyframes onbAugePop { from { opacity: 0; transform: scale(.4) rotate(-15deg); } to { opacity: 1; transform: none; } }
+.onb-ring {
+  position: absolute; width: 56px; height: 56px; border-radius: 50%;
+  border: 1.5px solid var(--accent-line);
+  animation: onbRingPuls 2.6s var(--ease) infinite;
+}
+@keyframes onbRingPuls {
+  0%   { transform: scale(.7); opacity: .9; }
+  75%  { transform: scale(1.7); opacity: 0; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
 
-.onb-weiter { width: 100%; margin-top: 20px; padding: 12px; border-radius: 14px; font-size: 14px; }
+.onb-weiter {
+  position: relative; overflow: hidden;
+  width: 100%; margin-top: 20px; padding: 12px; border-radius: 14px; font-size: 14px;
+  transition: transform .18s var(--spring), filter .2s var(--ease), box-shadow .3s var(--ease);
+}
+.onb-weiter.primary:not(:disabled):hover { box-shadow: 0 8px 24px -6px var(--accent-soft); }
+.onb-weiter.primary:not(:disabled):active { transform: scale(.97); }
+.onb-weiter.primary::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.35) 48%, transparent 66%);
+  transform: translateX(-120%);
+}
+.onb-weiter.primary:not(:disabled):hover::after { transform: translateX(120%); transition: transform .85s var(--ease); }
+
+.onb-email {
+  width: 100%; text-align: center; font-size: 15px; padding: 13px 14px;
+  border-radius: 13px; border: 1px solid var(--line-soft); background: var(--panel);
+  transition: border-color .2s var(--ease), box-shadow .25s var(--ease), transform .18s var(--spring);
+}
+.onb-email:focus { border-color: var(--accent-line); box-shadow: 0 0 0 4px var(--accent-soft); transform: translateY(-1px); }
 
 .onb-raster { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 18px 0 4px; }
 .onb-wahl {
@@ -106,6 +176,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .onb-karte { animation-duration: .01ms; }
-  .onb-konfetti-teil { animation: none; opacity: 0; }
+  .onb-karte, .onb-karte > * { animation-duration: .01ms; animation-delay: 0ms !important; }
+  .onb-konfetti-teil, .onb-buehne::before, .onb-ring { animation: none; }
+  .onb-buehne::before { opacity: .5; }
+  .onb-ring { opacity: 0; }
+  .onb-weiter.primary::after { display: none; }
 }

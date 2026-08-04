@@ -16,6 +16,8 @@ const T = {
 
     onbWillkommenTitel: 'Willkommen bei URAI',
     onbWillkommenText: 'Ein Agent, der auf deinem Rechner wirklich handelt. Läuft daheim, kostet nichts.',
+    onbEmailPlatzhalter: 'deine@email.de',
+    onbEmailHinweis: 'Bleibt nur auf diesem Rechner. Kein Konto, keine Bestätigung nötig.',
     onbLos: "Los geht's",
     onbProfilTitel: 'Erzähl uns kurz von dir',
     onbProfilText: 'Ganz freiwillig — hilft nur, URAI passender für dich zu machen. Bleibt auf deinem Rechner.',
@@ -138,6 +140,8 @@ const T = {
 
     onbWillkommenTitel: 'Welcome to URAI',
     onbWillkommenText: 'An agent that really acts on your computer. Runs at home, costs nothing.',
+    onbEmailPlatzhalter: 'you@email.com',
+    onbEmailHinweis: 'Stays on this machine only. No account, no confirmation needed.',
     onbLos: "Let's go",
     onbProfilTitel: 'Tell us a bit about yourself',
     onbProfilText: "Totally optional — just helps tailor URAI to you. Stays on your machine.",
@@ -260,6 +264,8 @@ const T = {
 
     onbWillkommenTitel: 'Bienvenido a URAI',
     onbWillkommenText: 'Un agente que actúa de verdad en tu ordenador. Funciona en casa, no cuesta nada.',
+    onbEmailPlatzhalter: 'tu@email.com',
+    onbEmailHinweis: 'Se queda solo en este ordenador. Sin cuenta, sin confirmación.',
     onbLos: 'Empezar',
     onbProfilTitel: 'Cuéntanos un poco sobre ti',
     onbProfilText: 'Totalmente opcional — solo ayuda a adaptar URAI a ti. Se queda en tu ordenador.',
