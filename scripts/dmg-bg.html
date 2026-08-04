@@ -1,0 +1,47 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 640px; height: 420px;
+    background: linear-gradient(160deg, #0c0e11 0%, #070809 100%);
+    font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
+    position: relative;
+    overflow: hidden;
+  }
+  .glow {
+    position: absolute; top: -120px; left: 50%; transform: translateX(-50%);
+    width: 500px; height: 300px;
+    background: radial-gradient(ellipse, rgba(110,231,168,.16), transparent 70%);
+  }
+  .arrow {
+    position: absolute; top: 190px; left: 250px; width: 140px; height: 40px;
+  }
+  .title {
+    position: absolute; top: 36px; left: 0; right: 0; text-align: center;
+    color: #e9edf2; font-size: 19px; font-weight: 650; letter-spacing: -.01em;
+  }
+  .sub {
+    position: absolute; top: 66px; left: 0; right: 0; text-align: center;
+    color: #7d8794; font-size: 12.5px;
+  }
+  .hair {
+    position: absolute; top: 118px; left: 60px; right: 60px; height: 1px;
+    background: rgba(255,255,255,.07);
+  }
+  footer {
+    position: absolute; bottom: 20px; left: 0; right: 0; text-align: center;
+    color: #4a525e; font-size: 11px;
+  }
+</style></head>
+<body>
+  <div class="glow"></div>
+  <div class="title">URAI installieren</div>
+  <div class="sub">Rüber ziehen — mehr ist nicht nötig</div>
+  <div class="hair"></div>
+  <svg class="arrow" viewBox="0 0 140 40" fill="none">
+    <path d="M4 20 H120" stroke="#6ee7a8" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="1 10"/>
+    <path d="M108 8 L124 20 L108 32" stroke="#6ee7a8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>
+  <footer>läuft daheim · kostet nichts · gehört dir</footer>
+</body></html>
