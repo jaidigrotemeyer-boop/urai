@@ -96,6 +96,11 @@ Alles läuft auf dem eigenen Rechner. Der Server hört nur auf 127.0.0.1.`,
     dateien: ['server/gutschein.js', 'web/src/components/Onboarding.jsx', 'web/src/onboarding.css'],
   },
   {
+    titel: 'Tagesbriefing',
+    text: 'Was beim Öffnen dasteht: einmal am Tag nachsehen, was in den Themen des Nutzers los ist — mit Quelle zu jedem Punkt.',
+    dateien: ['server/briefing.js', 'web/src/components/Briefing.jsx', 'web/src/briefing.css'],
+  },
+  {
     titel: 'Prüfen',
     text: 'Selbsttest: jedes Werkzeug einmal wirklich laufen lassen.',
     dateien: ['pruefe.mjs'],

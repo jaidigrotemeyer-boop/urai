@@ -11,6 +11,7 @@ import Bereiche from './components/Bereiche.jsx'
 import Verlauf from './components/Verlauf.jsx'
 import Werkstatt from './components/Werkstatt.jsx'
 import Onboarding from './components/Onboarding.jsx'
+import Briefing from './components/Briefing.jsx'
 import { farbeLesen, useFarbe } from './theme.js'
 import { t, useSprache, sprache } from './i18n.js'
 import { hoeren, sprechen, still, kannHoeren, weckwortHoeren } from './stimme.js'
@@ -54,6 +55,7 @@ export default function App() {
   const [verlaufAuf, setVerlaufAuf] = useState(false)
   const [sitzung, setSitzung] = useState(SESSION)
   const [onboardingZeigen, setOnboardingZeigen] = useState(false)
+  const [briefingZeigen, setBriefingZeigen] = useState(false)
   const mikro = useRef(null)
   const weck = useRef(null)
 
@@ -103,7 +105,18 @@ export default function App() {
       .then((s) => {
         if (!alive) return
         setStatus(s)
-        if (!s.config?.onboardingFertig) setOnboardingZeigen(true)
+        if (!s.config?.onboardingFertig) {
+          setOnboardingZeigen(true)
+          return
+        }
+        // Tagesbriefing: einmal am Tag von selbst. Der Aufruf stößt das Bauen
+        // gleich mit an, damit beim Öffnen nicht erst gesucht werden muss.
+        if (s.config?.briefingAn) {
+          fetch('/api/briefing')
+            .then((r) => r.json())
+            .then((b) => alive && !b.schonGezeigt && setBriefingZeigen(true))
+            .catch(() => {})
+        }
       })
       .catch(() => {})
 
@@ -448,9 +461,20 @@ export default function App() {
         <Onboarding
           onFertig={() => {
             setOnboardingZeigen(false)
-            fetch('/api/status').then((r) => r.json()).then(setStatus).catch(() => {})
+            fetch('/api/status')
+              .then((r) => r.json())
+              .then((s) => {
+                setStatus(s)
+                // Direkt nach dem Erststart gleich das erste Briefing — dann sieht
+                // man sofort, wofür die eben eingetragenen Themen gut sind.
+                if (s.config?.briefingAn && (s.config?.briefingThemen || []).length) setBriefingZeigen(true)
+              })
+              .catch(() => {})
           }}
         />
+      )}
+      {briefingZeigen && (
+        <Briefing onSchliessen={() => setBriefingZeigen(false)} onThemaFragen={(frage) => send(frage)} />
       )}
 
       <Notch

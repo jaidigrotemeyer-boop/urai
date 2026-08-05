@@ -1,0 +1,182 @@
+/* ── Tagesbriefing: das Blatt, das beim Öffnen dasteht ──
+   Ruhiger als der Erststart. Der Erststart darf feiern, das Briefing wird
+   jeden Tag gesehen — was täglich aufgeht, muss leise sein, sonst nervt es
+   nach einer Woche. Darum: kein Konfetti, keine Sprünge, nur ein weiches
+   Aufblenden und Zeilen, die der Reihe nach eintrudeln. */
+.brf-buehne {
+  position: fixed; inset: 0; z-index: 140;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(26px) saturate(150%);
+  animation: brfAuf .45s var(--ease) both;
+}
+.brf-buehne.raus { animation: brfZu .4s var(--ease) both; pointer-events: none; }
+@keyframes brfAuf { from { opacity: 0; } to { opacity: 1; } }
+@keyframes brfZu { to { opacity: 0; transform: scale(1.015); } }
+
+.brf-blatt {
+  width: min(560px, 100%);
+  max-height: min(78vh, 720px);
+  display: flex; flex-direction: column;
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  background: var(--panel-solid);
+  box-shadow: 0 40px 100px -32px rgba(0, 0, 0, .82);
+  overflow: hidden;
+  animation: brfBlattRein .55s var(--spring) both;
+}
+@keyframes brfBlattRein {
+  from { opacity: 0; transform: translateY(16px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.brf-kopf {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 24px 24px 18px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.brf-kopf h1 { font-size: 21px; letter-spacing: -.015em; margin: 5px 0 0; text-wrap: balance; }
+.brf-datum {
+  font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--accent); font-weight: 620;
+}
+.brf-zu {
+  margin-left: auto; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--line-soft); background: var(--panel); color: var(--dim);
+  cursor: pointer;
+  transition: color .2s var(--ease), background .2s var(--ease), transform .18s var(--spring);
+}
+.brf-zu:hover { color: var(--text); background: var(--line); transform: rotate(90deg); }
+
+.brf-inhalt { padding: 6px 24px 20px; overflow-y: auto; flex: 1; }
+
+/* Themen trudeln nacheinander ein — man liest sie ohnehin von oben nach unten */
+.brf-thema {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line-soft);
+  animation: brfZeileRein .5s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 90ms + 60ms);
+}
+.brf-thema:last-of-type { border-bottom: none; }
+@keyframes brfZeileRein {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.brf-thema h2 {
+  font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--dimmer); font-weight: 640; margin: 0 0 10px;
+}
+.brf-thema ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.brf-thema li {
+  position: relative; padding-left: 16px;
+  font-size: 14.5px; line-height: 1.55; color: var(--text);
+}
+/* Der Punkt vor jeder Zeile — nimmt die Akzentfarbe auf, ohne laut zu sein */
+.brf-thema li::before {
+  content: ''; position: absolute; left: 0; top: 9px;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--accent-line);
+}
+.brf-quelle {
+  display: inline-block; margin-left: 8px;
+  font-size: 10.5px; letter-spacing: .03em;
+  color: var(--dimmer); background: var(--panel);
+  border: 1px solid var(--line-soft); border-radius: 5px; padding: 1px 6px;
+  vertical-align: 1px;
+}
+/* Erst beim Überfahren sichtbar: sonst stehen bei zwölf Punkten zwölf Knöpfe herum */
+.brf-mehr {
+  margin-left: 8px; padding: 1px 8px; border-radius: 6px;
+  font-size: 11px; color: var(--accent);
+  background: var(--accent-soft); border: 1px solid var(--accent-line);
+  cursor: pointer; opacity: 0;
+  transition: opacity .2s var(--ease), transform .18s var(--spring);
+}
+.brf-thema li:hover .brf-mehr, .brf-mehr:focus-visible { opacity: 1; }
+.brf-mehr:hover { transform: translateY(-1px); }
+
+.brf-laedt { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 46px 0; }
+.brf-laedt p { color: var(--dim); font-size: 13.5px; margin: 0; }
+.brf-welle {
+  position: absolute; width: 46px; height: 46px; border-radius: 50%;
+  border: 1.5px solid var(--accent-line);
+  animation: brfWelle 2.2s var(--ease) infinite;
+}
+.brf-laedt { position: relative; }
+.brf-welle:nth-of-type(2) { animation-delay: .55s; }
+.brf-welle:nth-of-type(3) { animation-delay: 1.1s; }
+@keyframes brfWelle {
+  0%   { transform: scale(.55); opacity: .85; }
+  80%  { transform: scale(1.5); opacity: 0; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.brf-hinweis { padding: 34px 4px; text-align: center; }
+.brf-hinweis p { color: var(--dim); font-size: 14px; line-height: 1.6; margin: 0; }
+.brf-hinweis.fehler p { color: var(--danger); }
+
+.brf-themenbox {
+  margin-top: 16px; padding: 16px;
+  border-radius: 15px; border: 1px solid var(--line-soft); background: var(--panel);
+  animation: brfZeileRein .35s var(--ease) both;
+}
+.brf-themenbox label { display: block; font-size: 12px; color: var(--dimmer); margin-bottom: 10px; }
+.brf-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 11px; }
+.brf-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; padding: 5px 8px 5px 11px; border-radius: 99px;
+  background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-line);
+  animation: brfChipRein .3s var(--spring) both;
+}
+@keyframes brfChipRein { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+.brf-chip button {
+  background: none; border: none; color: inherit; cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 0 1px; opacity: .65;
+  transition: opacity .18s var(--ease);
+}
+.brf-chip button:hover { opacity: 1; }
+.brf-leerchip { font-size: 12.5px; color: var(--dimmer); }
+.brf-themen-neu { display: flex; gap: 7px; }
+.brf-themen-neu input { flex: 1; font-size: 13px; padding: 9px 11px; border-radius: 10px; }
+
+.brf-fuss {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 15px 24px; border-top: 1px solid var(--line-soft);
+  background: var(--panel);
+}
+.brf-schub { flex: 1; }
+.brf-still {
+  font-size: 12.5px; color: var(--dim); background: none;
+  border: 1px solid transparent; border-radius: 9px; padding: 7px 10px; cursor: pointer;
+  transition: color .2s var(--ease), background .2s var(--ease), border-color .2s var(--ease);
+}
+.brf-still:hover:not(:disabled) { color: var(--text); background: var(--line); }
+.brf-still:disabled { opacity: .45; cursor: default; }
+.brf-weiter { padding: 9px 20px; border-radius: 11px; font-size: 13.5px; }
+
+/* Kurze Fenster: Kopf und Fuß schrumpfen, damit der Inhalt Platz behält.
+   Sonst bleiben bei einem flachen Fenster zwei Zeilen Nachricht übrig und der
+   Rest ist Rahmen. */
+@media (max-height: 620px) {
+  .brf-buehne { padding: 10px; }
+  .brf-blatt { max-height: 96vh; border-radius: 18px; }
+  .brf-kopf { padding: 15px 18px 12px; }
+  .brf-kopf h1 { font-size: 17px; }
+  .brf-inhalt { padding: 2px 18px 12px; }
+  .brf-thema { padding: 12px 0; }
+  .brf-fuss { padding: 10px 18px; }
+}
+@media (max-width: 480px) {
+  .brf-fuss { gap: 4px; }
+  .brf-still { padding: 7px 7px; font-size: 12px; }
+  .brf-weiter { padding: 9px 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brf-blatt, .brf-thema, .brf-themenbox, .brf-chip { animation-duration: .01ms; animation-delay: 0ms !important; }
+  .brf-welle { animation: none; opacity: .5; }
+  .brf-zu:hover { transform: none; }
+  .brf-mehr { opacity: 1; }
+}

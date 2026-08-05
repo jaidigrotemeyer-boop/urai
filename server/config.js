@@ -129,6 +129,12 @@ const DEFAULTS = {
   profilAlter: null,
   profilZweck: '',
 
+  // Tagesbriefing: einmal am Tag beim Öffnen zeigen, was in diesen Themen los ist.
+  // Ohne Themen bleibt es leer — geraten wird hier nichts.
+  briefingAn: true,
+  briefingThemen: [], // z.B. ['Bitcoin', 'KI-Modelle', 'Bundesliga']
+  briefingZuletztGezeigt: '', // YYYY-MM-DD, damit es genau einmal pro Tag aufgeht
+
   // Unterstützen: kein Bezahlsystem — der Nutzer trägt seinen EIGENEN
   // Spenden-Link ein (Ko-fi, PayPal.me, GitHub Sponsors, was auch immer).
   // URAI erfindet hier keine Adresse.

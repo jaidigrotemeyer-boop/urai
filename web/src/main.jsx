@@ -5,6 +5,7 @@ import Hud from './Hud.jsx'
 import './styles.css'
 import './werkstatt.css'
 import './onboarding.css'
+import './briefing.css'
 
 // ?hud=1 zeigt nur die Notch — für ein kleines Fenster, das oben klebt
 const nurNotch = new URLSearchParams(location.search).has('hud')

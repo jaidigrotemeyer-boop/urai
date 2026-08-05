@@ -22,13 +22,15 @@ export default function Onboarding({ onFertig }) {
   const [profilName, setProfilName] = useState('')
   const [profilAlter, setProfilAlter] = useState('')
   const [profilZweck, setProfilZweck] = useState(null)
+  const [themen, setThemen] = useState([])
+  const [neuesThema, setNeuesThema] = useState('')
   const [herkunft, setHerkunft] = useState(null)
   const [agb, setAgb] = useState(false)
   const [code, setCode] = useState('')
   const [gutschein, setGutschein] = useState(null)
   const [raus, setRaus] = useState(false)
 
-  const SCHRITTE = ['willkommen', 'profil', 'herkunft', 'agb', 'unterstuetzen', 'danke']
+  const SCHRITTE = ['willkommen', 'profil', 'themen', 'herkunft', 'agb', 'unterstuetzen', 'danke']
 
   function weiter() {
     if (schritt < SCHRITTE.length - 1) setSchritt((s) => s + 1)
@@ -48,6 +50,7 @@ export default function Onboarding({ onFertig }) {
           profilName,
           profilAlter: profilAlter ? Number(profilAlter) : null,
           profilZweck,
+          briefingThemen: themen,
         }),
       })
     } catch {}
@@ -156,6 +159,58 @@ export default function Onboarding({ onFertig }) {
               ))}
             </div>
 
+            <button className="primary onb-weiter" onClick={weiter}>
+              {t('onbWeiter')}
+            </button>
+          </>
+        )}
+
+        {name === 'themen' && (
+          <>
+            <h2>{t('onbThemenTitel')}</h2>
+            <p className="onb-dim">{t('onbThemenText')}</p>
+
+            <div className="onb-themen-chips">
+              {themen.map((th) => (
+                <span className="brf-chip" key={th}>
+                  {th}
+                  <button onClick={() => setThemen(themen.filter((x) => x !== th))} aria-label="×">
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+
+            {themen.length < 6 && (
+              <div className="onb-gutschein">
+                <input
+                  placeholder={t('onbThemaPlatzhalter')}
+                  value={neuesThema}
+                  onChange={(e) => setNeuesThema(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter') return
+                    const w = neuesThema.trim()
+                    if (!w || themen.some((x) => x.toLowerCase() === w.toLowerCase())) return
+                    setThemen([...themen, w])
+                    setNeuesThema('')
+                  }}
+                  maxLength={40}
+                />
+                <button
+                  onClick={() => {
+                    const w = neuesThema.trim()
+                    if (!w || themen.some((x) => x.toLowerCase() === w.toLowerCase())) return
+                    setThemen([...themen, w])
+                    setNeuesThema('')
+                  }}
+                  disabled={!neuesThema.trim()}
+                >
+                  {t('briefThemaDazu')}
+                </button>
+              </div>
+            )}
+
+            <p className="onb-hinweis">{t('onbThemenSpaeter')}</p>
             <button className="primary onb-weiter" onClick={weiter}>
               {t('onbWeiter')}
             </button>

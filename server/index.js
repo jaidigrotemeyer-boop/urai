@@ -19,6 +19,7 @@ import { elevenBereit, sprechen as elevenSprechen, stimmenListe } from './eleven
 import { graphLesen } from './graph.js'
 import { Waechter, lesen as ausloeserLesen, schreiben as ausloeserSchreiben } from './ausloeser.js'
 import { einloesen as gutscheinEinloesen, stand as gutscheinStand } from './gutschein.js'
+import { holen as briefingHolen, bereit as briefingBereit, heute as briefingHeute } from './briefing.js'
 import {
   ablaufListe,
   ablaufLesen,
@@ -49,7 +50,7 @@ app.get('/api/status', async (_req, res) => {
 
 // Erststart: Profil, Herkunft und Nutzungsbedingungen in einem Zug speichern
 app.post('/api/onboarding', (req, res) => {
-  const { herkunft = '', agbAkzeptiert = false, email = '', profilName = '', profilAlter = null, profilZweck = '' } = req.body || {}
+  const { herkunft = '', agbAkzeptiert = false, email = '', profilName = '', profilAlter = null, profilZweck = '', briefingThemen = [] } = req.body || {}
   const patch = {
     onboardingFertig: true,
     herkunft: String(herkunft).slice(0, 60),
@@ -57,6 +58,10 @@ app.post('/api/onboarding', (req, res) => {
     profilName: String(profilName).slice(0, 40),
     profilAlter: Number.isFinite(profilAlter) ? Math.max(1, Math.min(120, profilAlter)) : null,
     profilZweck: String(profilZweck).slice(0, 60),
+    briefingThemen: (Array.isArray(briefingThemen) ? briefingThemen : [])
+      .map((th) => String(th).trim().slice(0, 40))
+      .filter(Boolean)
+      .slice(0, 6),
   }
   if (agbAkzeptiert) {
     patch.agbAkzeptiert = true
@@ -76,6 +81,43 @@ app.post('/api/gutschein', (req, res) => {
 app.get('/api/bildschirme', async (_req, res) => {
   if (!IST_MAC) return res.json([])
   res.json(await bildschirmListe().catch(() => []))
+})
+
+// Tagesbriefing. Der GET-Weg antwortet SOFORT — entweder mit dem fertigen
+// Briefing oder mit "wird gebaut". Nie warten lassen: die Oberfläche soll das
+// Fenster gleich zeigen und den Inhalt nachtragen, wenn er da ist.
+app.get('/api/briefing', async (req, res) => {
+  const cfg = loadConfig()
+  const heute = briefingHeute()
+  const schonGezeigt = cfg.briefingZuletztGezeigt === heute
+
+  if (req.query.warten === '1') {
+    try {
+      return res.json({ briefing: await briefingHolen(), schonGezeigt })
+    } catch (err) {
+      return res.status(502).json({ fehler: err.message })
+    }
+  }
+
+  if (briefingBereit()) {
+    return res.json({ briefing: await briefingHolen(), schonGezeigt })
+  }
+  // Bauen anstoßen, aber nicht darauf warten
+  briefingHolen().catch(() => {})
+  res.json({ briefing: null, baut: true, schonGezeigt })
+})
+
+app.post('/api/briefing', async (req, res) => {
+  try {
+    res.json({ briefing: await briefingHolen({ neu: !!req.body?.neu }) })
+  } catch (err) {
+    res.status(502).json({ fehler: err.message })
+  }
+})
+
+// Der Nutzer hat es gesehen — heute nicht nochmal von selbst aufgehen
+app.post('/api/briefing/gesehen', (_req, res) => {
+  res.json(saveConfig({ briefingZuletztGezeigt: briefingHeute() }))
 })
 
 app.get('/api/tools', (_req, res) => {
@@ -104,6 +146,7 @@ app.post('/api/config', (req, res) => {
     'graphMaxKnoten', 'geminiFastModel', 'customProviders',
     'beweisPflicht', 'beweisWartenMs', 'ausloeserAn', 'ausloeserKarenzS',
     'anstrengung', 'spendenLink', 'onboardingFertig',
+    'briefingAn', 'briefingThemen',
   ]
   const patch = {}
   for (const k of allowed) if (k in req.body) patch[k] = req.body[k]
