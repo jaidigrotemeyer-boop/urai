@@ -55,30 +55,57 @@
 
 /* Themen trudeln nacheinander ein — man liest sie ohnehin von oben nach unten */
 .brf-thema {
-  padding: 18px 0;
+  position: relative;
+  padding: 18px 0 18px 14px;
   border-bottom: 1px solid var(--line-soft);
   animation: brfZeileRein .5s var(--ease) both;
-  animation-delay: calc(var(--i, 0) * 90ms + 60ms);
+  animation-delay: calc(var(--i, 0) * 110ms + 60ms);
 }
 .brf-thema:last-of-type { border-bottom: none; }
 @keyframes brfZeileRein {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: none; }
 }
+/* Eine Schiene, die sich von oben nach unten zieht — sie bündelt die Zeilen
+   eines Themas optisch zu einem Block, ohne einen Rahmen zu brauchen */
+.brf-thema::before {
+  content: ''; position: absolute; left: 0; top: 18px; bottom: 18px;
+  width: 2px; border-radius: 2px;
+  background: linear-gradient(var(--accent-line), transparent);
+  transform-origin: top;
+  animation: brfSchieneRein .6s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 110ms + 180ms);
+}
+@keyframes brfSchieneRein { from { transform: scaleY(0); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+
 .brf-thema h2 {
   font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
   color: var(--dimmer); font-weight: 640; margin: 0 0 10px;
 }
 .brf-thema ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .brf-thema li {
-  position: relative; padding-left: 16px;
+  position: relative; padding: 2px 6px 2px 16px; margin-left: -6px;
+  border-radius: 9px;
   font-size: 14.5px; line-height: 1.55; color: var(--text);
+  transition: background .22s var(--ease);
+  /* Jede Zeile kommt einzeln — über alle Themen durchgezählt, damit es eine
+     einzige Bewegung ist statt mehrerer parallel laufender */
+  animation: brfPunktRein .45s var(--ease) both;
+  animation-delay: calc(var(--d, 0) * 70ms + 260ms);
+}
+.brf-thema li:hover { background: var(--panel); }
+@keyframes brfPunktRein {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: none; }
 }
 /* Der Punkt vor jeder Zeile — nimmt die Akzentfarbe auf, ohne laut zu sein */
 .brf-thema li::before {
-  content: ''; position: absolute; left: 0; top: 9px;
-  width: 5px; height: 5px; border-radius: 50%; background: var(--accent-line);
+  content: ''; position: absolute; left: 4px; top: 11px;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 0 var(--accent-soft);
+  transition: box-shadow .25s var(--ease);
 }
+.brf-thema li:hover::before { box-shadow: 0 0 0 4px var(--accent-soft); }
 .brf-quelle {
   display: inline-block; margin-left: 8px;
   font-size: 10.5px; letter-spacing: .03em;
@@ -97,21 +124,43 @@
 .brf-thema li:hover .brf-mehr, .brf-mehr:focus-visible { opacity: 1; }
 .brf-mehr:hover { transform: translateY(-1px); }
 
-.brf-laedt { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 46px 0; }
-.brf-laedt p { color: var(--dim); font-size: 13.5px; margin: 0; }
-.brf-welle {
-  position: absolute; width: 46px; height: 46px; border-radius: 50%;
-  border: 1.5px solid var(--accent-line);
-  animation: brfWelle 2.2s var(--ease) infinite;
+/* ── Gerüst beim Laden ──
+   Zeigt die Form des Ergebnisses, bevor es da ist: zwei Themen, ein paar
+   Zeilen. Ein Schimmer läuft darüber. Kein Prozentbalken — der wäre gelogen,
+   weil niemand weiß, wie lange eine Suche dauert. */
+.brf-geruest { padding: 8px 0 4px; }
+.brf-g-thema {
+  position: relative; padding: 16px 0 16px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  animation: brfZeileRein .4s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 110ms);
 }
-.brf-laedt { position: relative; }
-.brf-welle:nth-of-type(2) { animation-delay: .55s; }
-.brf-welle:nth-of-type(3) { animation-delay: 1.1s; }
-@keyframes brfWelle {
-  0%   { transform: scale(.55); opacity: .85; }
-  80%  { transform: scale(1.5); opacity: 0; }
-  100% { transform: scale(1.5); opacity: 0; }
+.brf-g-thema:last-of-type { border-bottom: none; }
+.brf-g-thema::before {
+  content: ''; position: absolute; left: 0; top: 16px; bottom: 16px;
+  width: 2px; border-radius: 2px; background: var(--line);
 }
+.brf-g-titel { display: block; height: 9px; width: 96px; border-radius: 4px; margin-bottom: 14px; }
+.brf-g-zeile { display: block; height: 11px; border-radius: 5px; margin-bottom: 9px; }
+.brf-g-zeile.z0 { width: 100%; }
+.brf-g-zeile.z1 { width: 88%; }
+.brf-g-zeile.z2 { width: 62%; }
+
+.brf-schimmer {
+  background: linear-gradient(90deg, var(--line) 0%, var(--line-soft) 38%, var(--accent-soft) 50%, var(--line-soft) 62%, var(--line) 100%);
+  background-size: 260% 100%;
+  animation: brfSchimmer 1.9s linear infinite;
+  animation-delay: calc(var(--d, 0) * -140ms);
+}
+@keyframes brfSchimmer {
+  from { background-position: 130% 0; }
+  to   { background-position: -130% 0; }
+}
+.brf-g-text {
+  text-align: center; color: var(--dim); font-size: 13px; margin: 18px 0 4px;
+  animation: brfAtmenText 2.4s var(--ease) infinite;
+}
+@keyframes brfAtmenText { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
 
 .brf-hinweis { padding: 34px 4px; text-align: center; }
 .brf-hinweis p { color: var(--dim); font-size: 14px; line-height: 1.6; margin: 0; }

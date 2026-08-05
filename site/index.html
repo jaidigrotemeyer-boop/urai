@@ -361,13 +361,13 @@
     </p>
 
     <div class="run" style="flex-wrap: wrap;">
-      <a class="dl" id="dl-mac" href="https://github.com/jaidigrotemeyer-boop/urai/releases/download/v0.1.0/URAI.dmg" download="URAI.dmg">
+      <button class="dl" id="dl-mac" type="button">
         <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
           <path d="M16.365 1.43c0 1.14-.462 2.096-1.203 2.799-.804.766-2.033 1.362-3.09 1.293-.14-1.104.41-2.264 1.15-2.99C13.99.775 15.24.17 16.365 1.43zm4.14 15.354c-.4.926-.9 1.83-1.612 2.62-1.014 1.13-1.75 1.914-3.08 1.914-1.24 0-1.63-.804-3.11-.804-1.51 0-1.94.78-3.11.83-1.29.05-2.09-1.06-3.13-2.2-2.1-2.34-3.7-6.63-1.55-9.53 1.06-1.44 2.87-2.34 4.65-2.37 1.24-.025 2.32.834 3.05.834.71 0 2.06-1.03 3.47-.88.59.025 2.25.24 3.32 1.8-.086.054-1.98 1.155-1.96 3.45.024 2.75 2.41 3.66 2.44 3.67-.02.075-.38 1.31-1.25 2.6z"/>
         </svg>
         <span data-i18n="dlMac">Für Mac</span>
         <span class="tag" id="tag-mac" hidden data-i18n="empfohlen">empfohlen</span>
-      </a>
+      </button>
       <a class="dl alt" id="dl-win" href="https://github.com/jaidigrotemeyer-boop/urai/archive/refs/heads/main.zip" download="urai.zip">
         <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
           <rect x="2.5" y="3.6" width="8.3" height="8.3"/>
@@ -380,12 +380,12 @@
       </a>
       <span class="cmd">
         <span class="prompt">$</span>
-        <span id="cmd">git clone … &amp;&amp; npm start</span>
+        <span id="cmd">curl -fsSL …/install.sh | bash</span>
         <button class="copy" id="copy" type="button" data-i18n="kopieren">kopieren</button>
       </span>
     </div>
     <p class="note" style="margin-top:10px" data-i18n="heroNote">
-      macOS oder Windows · Node 22 · ein Gratis-API-Schlüssel
+      Mac: ein Befehl, dann liegt die App im Programme-Ordner — ohne Sicherheitswarnung · Windows: Sourcecode · Node 22
     </p>
     <div class="ghzeile">
       <a class="ghlink" href="https://github.com/jaidigrotemeyer-boop/urai" target="_blank" rel="noreferrer">
@@ -553,7 +553,7 @@
 </footer>
 
 <script>
-  const cmd = 'git clone https://github.com/jaidigrotemeyer-boop/urai.git && cd urai && npm install && npm start'
+  const cmd = 'curl -fsSL https://raw.githubusercontent.com/jaidigrotemeyer-boop/urai/main/scripts/install.sh | bash'
   const KOPIERT = { de: 'kopiert', en: 'copied', es: 'copiado' }
   const GING_NICHT = { de: 'ging nicht', en: "didn't work", es: 'no funcionó' }
   document.getElementById('copy').addEventListener('click', async (e) => {
@@ -575,6 +575,29 @@
   const istMac = /mac/i.test(plattform) && !istWin
 
   const dlMac = document.getElementById('dl-mac')
+
+  // Der Mac-Weg ist ein Befehl, keine Datei: so entsteht die Gatekeeper-Warnung
+  // gar nicht erst, weil kein Browser die App markiert.
+  dlMac.addEventListener('click', async () => {
+    const beschriftung = dlMac.querySelector('[data-i18n="dlMac"]')
+    const vorher = beschriftung.textContent
+    try {
+      await navigator.clipboard.writeText(cmd)
+      beschriftung.textContent = (SITE_I18N[siteSprache] || SITE_I18N.en).dlKopiert
+    } catch {
+      beschriftung.textContent = (SITE_I18N[siteSprache] || SITE_I18N.en).dlKopiertNicht
+      // Geht die Zwischenablage nicht, darf der Befehl nicht verloren sein:
+      // ausschreiben und markieren, damit man ihn von Hand kopieren kann.
+      const box = document.getElementById('cmd')
+      box.textContent = cmd
+      const bereich = document.createRange()
+      bereich.selectNodeContents(box)
+      const auswahl = window.getSelection()
+      auswahl.removeAllRanges()
+      auswahl.addRange(bereich)
+    }
+    setTimeout(() => { beschriftung.textContent = vorher }, 2200)
+  })
   const dlWin = document.getElementById('dl-win')
 
   if (istWin) {
@@ -590,11 +613,12 @@
   const SITE_I18N = {
     de: {
       navKann: 'Was er kann', navGehirn: 'Gehirne', navStart: 'Loslegen',
-      dlMac: 'Für Mac', dlWin: 'Für Windows', empfohlen: 'empfohlen', kopieren: 'kopieren',
+      dlMac: 'Für Mac',
+      dlKopiert: 'Befehl kopiert!', dlKopiertNicht: 'Kopieren ging nicht', dlWin: 'Für Windows', empfohlen: 'empfohlen', kopieren: 'kopieren',
       heroKicker: '<span class="rec"></span>guckt mit, während du arbeitest',
       heroTitel: 'Ein Agent, der auf deinem Rechner <em>wirklich handelt</em>.',
       heroText: 'URAI liest deinen Bildschirm, klickt, tippt, schreibt Code und stellt sich selbst Agenten-Teams zusammen. Alles läuft bei dir daheim. <strong>Kostet nichts</strong> — Gratis-Schlüssel reichen.',
-      heroNote: 'Mac: fertige App zum Ziehen · Windows: Sourcecode · Node 22 · ein Gratis-API-Schlüssel',
+      heroNote: 'Mac: ein Befehl, dann liegt die App im Programme-Ordner — ohne Sicherheitswarnung · Windows: Sourcecode · Node 22',
       ghAnsehen: 'Auf GitHub ansehen', ghReleases: 'Releases', ghIssues: 'Fehler melden',
       demoFrage: 'Finde raus, was drei Konkurrenten für Versand nehmen.',
       demoGruppe: 'Gruppe: Preis-Check · 3 Mitglieder', demoSpaeherA: 'Späher A · web_fetch', demoSpaeherB: 'Späher B · web_fetch',
@@ -645,11 +669,12 @@
     },
     en: {
       navKann: 'What it can do', navGehirn: 'Brains', navStart: 'Get started',
-      dlMac: 'For Mac', dlWin: 'For Windows', empfohlen: 'recommended', kopieren: 'copy',
+      dlMac: 'For Mac',
+      dlKopiert: 'Command copied!', dlKopiertNicht: 'Copy failed', dlWin: 'For Windows', empfohlen: 'recommended', kopieren: 'copy',
       heroKicker: '<span class="rec"></span>watches along while you work',
       heroTitel: 'An agent that <em>really acts</em> on your computer.',
       heroText: "URAI reads your screen, clicks, types, writes code, and assembles its own agent teams. Everything runs at home. <strong>Costs nothing</strong> — free API keys are enough.",
-      heroNote: 'Mac: ready-made app to drag in · Windows: source code · Node 22 · one free API key',
+      heroNote: 'Mac: one command, then the app sits in Applications — no security warning · Windows: source code · Node 22',
       ghAnsehen: 'View on GitHub', ghReleases: 'Releases', ghIssues: 'Report an issue',
       demoFrage: 'Find out what three competitors charge for shipping.',
       demoGruppe: 'Team: Price check · 3 members', demoSpaeherA: 'Scout A · web_fetch', demoSpaeherB: 'Scout B · web_fetch',
@@ -700,11 +725,12 @@
     },
     es: {
       navKann: 'Qué puede hacer', navGehirn: 'Cerebros', navStart: 'Empezar',
-      dlMac: 'Para Mac', dlWin: 'Para Windows', empfohlen: 'recomendado', kopieren: 'copiar',
+      dlMac: 'Para Mac',
+      dlKopiert: '¡Comando copiado!', dlKopiertNicht: 'No se pudo copiar', dlWin: 'Para Windows', empfohlen: 'recomendado', kopieren: 'copiar',
       heroKicker: '<span class="rec"></span>te acompaña mientras trabajas',
       heroTitel: 'Un agente que <em>actúa de verdad</em> en tu ordenador.',
       heroText: 'URAI lee tu pantalla, hace clic, escribe, programa y arma sus propios equipos de agentes. Todo funciona en tu casa. <strong>No cuesta nada</strong> — con claves gratuitas basta.',
-      heroNote: 'Mac: app lista para arrastrar · Windows: código fuente · Node 22 · una clave de API gratuita',
+      heroNote: 'Mac: un comando y la app queda en Aplicaciones — sin aviso de seguridad · Windows: código fuente · Node 22',
       ghAnsehen: 'Ver en GitHub', ghReleases: 'Versiones', ghIssues: 'Reportar un error',
       demoFrage: 'Averigua cuánto cobran tres competidores por el envío.',
       demoGruppe: 'Equipo: Comparar precios · 3 miembros', demoSpaeherA: 'Explorador A · web_fetch', demoSpaeherB: 'Explorador B · web_fetch',

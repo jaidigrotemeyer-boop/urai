@@ -30,6 +30,67 @@ function EigenerAnbieterFormular({ onHinzu }) {
   )
 }
 
+/** Ein Thema fürs Tagesbriefing dazu. */
+function ThemaFormular({ onHinzu, anzahl }) {
+  const [wort, setWort] = useState('')
+  if (anzahl >= 6) return null
+
+  function dazu() {
+    const w = wort.trim()
+    if (!w) return
+    onHinzu(w)
+    setWort('')
+  }
+
+  return (
+    <div className="brf-themen-neu">
+      <input
+        placeholder={t('briefThemaPlatzhalter')}
+        value={wort}
+        onChange={(e) => setWort(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && dazu()}
+        maxLength={40}
+      />
+      <button onClick={dazu} disabled={!wort.trim()}>
+        {t('briefThemaDazu')}
+      </button>
+    </div>
+  )
+}
+
+/** Noch ein Schlüssel fürs selbe Gehirn — stapelt das Gratis-Kontingent. */
+function ZusatzSchluesselFormular({ onHinzu }) {
+  const [anbieter, setAnbieter] = useState('gemini')
+  const [key, setKey] = useState('')
+
+  function hinzu() {
+    if (!key.trim()) return
+    onHinzu({ id: `k${Date.now().toString(36)}`, anbieter, key: key.trim() })
+    setKey('')
+  }
+
+  return (
+    <div className="eigen-formular">
+      <select value={anbieter} onChange={(e) => setAnbieter(e.target.value)}>
+        <option value="gemini">Gemini</option>
+        <option value="cerebras">Cerebras</option>
+        <option value="groq">Groq</option>
+        <option value="openrouter">OpenRouter</option>
+      </select>
+      <input
+        placeholder="noch ein Schlüssel"
+        type="password"
+        value={key}
+        onChange={(e) => setKey(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && hinzu()}
+      />
+      <button onClick={hinzu} disabled={!key.trim()}>
+        Hinzufügen
+      </button>
+    </div>
+  )
+}
+
 export default function Settings({ onClose, onSaved }) {
   useSprache()
   const [cfg, setCfg] = useState(null)
@@ -103,6 +164,9 @@ export default function Settings({ onClose, onSaved }) {
       maxAgentsPerRun: Number(cfg.maxAgentsPerRun) || 12,
       spendenLink: cfg.spendenLink || '',
       customProviders: cfg.customProviders || [],
+      schluessel: cfg.schluessel || [],
+      briefingAn: !!cfg.briefingAn,
+      briefingThemen: cfg.briefingThemen || [],
     }
     if (onboardingErneut) patch.onboardingFertig = false
 
@@ -263,6 +327,30 @@ export default function Settings({ onClose, onSaved }) {
             onHinzu={(neu) =>
               setCfg({ ...cfg, customProviders: [...(cfg.customProviders || []), neu] })
             }
+          />
+        </div>
+
+        <div className="field">
+          <label>Mehr Schlüssel fürs selbe Gehirn</label>
+          <div className="note" style={{ marginBottom: 8 }}>
+            Gratis-Kontingente sind pro Schlüssel gedeckelt. Drei Gemini-Schlüssel sind drei
+            Tageskontingente — ist einer leer, springt der nächste ein, ohne dass du etwas merkst.
+            Beliebig viele.
+          </div>
+          {(cfg.schluessel || []).map((s) => (
+            <div key={s.id} className="eigen-zeile">
+              <span className="chip-mini">{s.anbieter}</span>
+              <span className="fuss-dim">{s.key}</span>
+              <button
+                className="danger"
+                onClick={() => setCfg({ ...cfg, schluessel: cfg.schluessel.filter((x) => x.id !== s.id) })}
+              >
+                Entfernen
+              </button>
+            </div>
+          ))}
+          <ZusatzSchluesselFormular
+            onHinzu={(neu) => setCfg({ ...cfg, schluessel: [...(cfg.schluessel || []), neu] })}
           />
         </div>
 
@@ -676,6 +764,54 @@ export default function Settings({ onClose, onSaved }) {
               <div className="note">
                 Nach dem Speichern startet der Erststart beim nächsten Öffnen neu.
               </div>
+            )}
+          </div>
+        </details>
+
+        <details className="abschnitt">
+          <summary>{t('einstBriefing')}</summary>
+
+          <div className="field">
+            <label>{t('einstBriefingAn')}</label>
+            <div className="chips">
+              <button
+                className={`chip ${cfg.briefingAn ? 'on' : ''}`}
+                onClick={() => setCfg({ ...cfg, briefingAn: !cfg.briefingAn })}
+              >
+                {cfg.briefingAn ? t('einstBriefingAnJa') : t('einstBriefingAnNein')}
+              </button>
+            </div>
+          </div>
+
+          <div className="field">
+            <label>{t('briefThemenLabel')}</label>
+            <div className="brf-chips">
+              {(cfg.briefingThemen || []).map((th) => (
+                <span className="brf-chip" key={th}>
+                  {th}
+                  <button
+                    onClick={() => setCfg({ ...cfg, briefingThemen: cfg.briefingThemen.filter((x) => x !== th) })}
+                    aria-label="×"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              {!(cfg.briefingThemen || []).length && <span className="brf-leerchip">{t('briefNochKeine')}</span>}
+            </div>
+            <ThemaFormular
+              anzahl={(cfg.briefingThemen || []).length}
+              onHinzu={(th) => setCfg({ ...cfg, briefingThemen: [...(cfg.briefingThemen || []), th] })}
+            />
+          </div>
+
+          <div className="field">
+            {/* Einmal geschlossen wäre es sonst bis Mitternacht weg */}
+            <button onClick={() => setCfg({ ...cfg, briefingZuletztGezeigt: '' })}>
+              {t('einstBriefingErneut')}
+            </button>
+            {cfg.briefingZuletztGezeigt === '' && (
+              <div className="note">{t('einstBriefingErneutHinweis')}</div>
             )}
           </div>
         </details>

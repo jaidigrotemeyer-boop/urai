@@ -24,7 +24,9 @@ const KERN_WERKZEUGE = new Set([
 ])
 
 function werkzeugeFuer(provider, tools) {
-  if (!ENGE_GEHIRNE.has(provider)) return tools
+  // Auf das Grund-Gehirn schauen: ein Zusatz-Schlüssel für Groq ist genauso eng
+  // wie Groq selbst — sonst reißt er beim ersten Zug das Token-Kontingent.
+  if (!ENGE_GEHIRNE.has(grundGehirn(provider))) return tools
   const schmal = tools.filter((t) => KERN_WERKZEUGE.has(t.name))
   return schmal.length ? schmal : tools
 }
@@ -101,11 +103,15 @@ export function providerChain() {
   const c = loadConfig()
   const chain = []
   // Reihenfolge kommt aus den Einstellungen; nur was einen Schlüssel hat, kommt rein
+  const zusatz = (c.schluessel || []).filter((s) => s?.id && s?.key && s?.anbieter)
   for (const p of c.brainOrder || ['gemini', 'cerebras', 'groq', 'openrouter']) {
     if (p === 'gemini' && c.geminiKey) chain.push('gemini')
     if (p === 'cerebras' && c.cerebrasKey) chain.push('cerebras')
     if (p === 'groq' && c.groqKey) chain.push('groq')
     if (p === 'openrouter' && c.openrouterKey) chain.push('openrouter')
+    // Zusatz-Schlüssel desselben Gehirns kommen gleich dahinter: ist der
+    // Haupt-Schlüssel für heute leer, greift ohne Umweg der nächste.
+    for (const s of zusatz) if (s.anbieter === p) chain.push(`key:${s.id}`)
   }
   // Eigene Anbieter — jeder mit Schlüssel und Adresse kommt hinten dran
   for (const eigener of c.customProviders || []) {
@@ -119,6 +125,24 @@ function eigenerAnbieter(provider) {
   if (!provider.startsWith('eigen:')) return null
   const id = provider.slice('eigen:'.length)
   return (loadConfig().customProviders || []).find((p) => p.id === id) || null
+}
+
+/**
+ * Ein Zusatz-Schlüssel — dasselbe Gehirn, nur mit einem anderen Schlüssel.
+ * Damit lassen sich Gratis-Kontingente stapeln: drei Gemini-Schlüssel sind
+ * drei Tageskontingente, und die Kette geht von selbst zum nächsten über.
+ */
+function zusatzSchluessel(provider) {
+  if (!provider.startsWith('key:')) return null
+  const id = provider.slice('key:'.length)
+  return (loadConfig().schluessel || []).find((s) => s.id === id) || null
+}
+
+/** Auf welches eingebaute Gehirn zeigt ein Ketten-Eintrag? 'gemini', 'groq', … */
+function grundGehirn(provider) {
+  const zusatz = zusatzSchluessel(provider)
+  if (zusatz) return zusatz.anbieter
+  return provider
 }
 
 export async function brainStatus() {
@@ -170,9 +194,17 @@ export async function chat({ messages, tools = [], onDelta = () => {}, signal, o
 
     for (const provider of wach) {
       try {
+        const zusatz = zusatzSchluessel(provider)
         const out =
-          provider === 'gemini'
-            ? await geminiChat({ messages, tools, onDelta, signal, model: flink ? loadConfig().geminiFastModel : undefined })
+          grundGehirn(provider) === 'gemini'
+            ? await geminiChat({
+                messages,
+                tools,
+                onDelta,
+                signal,
+                model: zusatz?.model || (flink ? loadConfig().geminiFastModel : undefined),
+                schluessel: zusatz?.key,
+              })
             : await openaiChat({ provider, messages, tools, onDelta, signal })
         kaputt.delete(provider)
         zaehle(provider, true, out.text?.length || 0)
@@ -230,8 +262,11 @@ function toGeminiContents(messages) {
   return { contents, system }
 }
 
-async function geminiChat({ messages, tools, onDelta, signal, model }) {
+async function geminiChat({ messages, tools, onDelta, signal, model, schluessel }) {
   const c = loadConfig()
+  // Ohne eigenen Schlüssel der aus den Einstellungen — so bleibt jeder
+  // bestehende Aufruf unverändert gültig.
+  const key = schluessel || c.geminiKey
   const useModel = model || c.geminiModel
   const { contents, system } = toGeminiContents(messages)
   const body = { contents }
@@ -250,7 +285,7 @@ async function geminiChat({ messages, tools, onDelta, signal, model }) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${useModel}:streamGenerateContent?alt=sse`
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-goog-api-key': c.geminiKey },
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
     body: JSON.stringify(body),
     signal,
   })
@@ -260,7 +295,7 @@ async function geminiChat({ messages, tools, onDelta, signal, model }) {
     const veraltet = res.status === 404 && /no longer available|not found/i.test(text)
     if (veraltet && useModel !== FALLBACK_GEMINI) {
       saveConfig({ geminiModel: FALLBACK_GEMINI })
-      return geminiChat({ messages, tools, onDelta, signal, model: FALLBACK_GEMINI })
+      return geminiChat({ messages, tools, onDelta, signal, model: FALLBACK_GEMINI, schluessel })
     }
     throw new Error(`HTTP ${res.status} ${text.slice(0, 300)}`)
   }
@@ -330,12 +365,15 @@ async function gratisRouterModell(c) {
 async function openaiChat({ provider, messages, tools, onDelta, signal }) {
   const c = loadConfig()
   const eigener = eigenerAnbieter(provider)
-  // Eigener Anbieter trägt Adresse, Schlüssel und Modell selbst mit sich —
-  // die eingebauten lesen sie stattdessen aus der Konfiguration.
+  const zusatz = zusatzSchluessel(provider)
+  // Eigener Anbieter trägt Adresse, Schlüssel und Modell selbst mit sich.
+  // Ein Zusatz-Schlüssel benutzt die Adresse seines Grund-Gehirns, aber den
+  // eigenen Schlüssel. Die eingebauten lesen beides aus der Konfiguration.
   const cfg = eigener
     ? { url: eigener.url, key: '__eigen__', modelKey: '__eigen__', model: eigener.model }
-    : OPENAI_STYLE[provider]
-  const schluessel = eigener ? eigener.key : c[cfg.key]
+    : OPENAI_STYLE[grundGehirn(provider)]
+  if (!cfg) throw new Error(`Unbekanntes Gehirn: ${provider}`)
+  const schluessel = eigener ? eigener.key : zusatz ? zusatz.key : c[cfg.key]
   const msgs = messages.map((m) => {
     if (m.role === 'tool') return { role: 'tool', tool_call_id: m.toolCallId, content: String(m.content ?? '') }
     if (m.role === 'assistant' && m.toolCalls?.length) {

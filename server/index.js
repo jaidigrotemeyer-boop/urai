@@ -146,7 +146,7 @@ app.post('/api/config', (req, res) => {
     'graphMaxKnoten', 'geminiFastModel', 'customProviders',
     'beweisPflicht', 'beweisWartenMs', 'ausloeserAn', 'ausloeserKarenzS',
     'anstrengung', 'spendenLink', 'onboardingFertig',
-    'briefingAn', 'briefingThemen',
+    'briefingAn', 'briefingThemen', 'briefingZuletztGezeigt', 'schluessel',
   ]
   const patch = {}
   for (const k of allowed) if (k in req.body) patch[k] = req.body[k]
@@ -154,6 +154,22 @@ app.post('/api/config', (req, res) => {
   if (patch.anstrengung && ANSTRENGUNGSSTUFEN[patch.anstrengung]) {
     Object.assign(patch, ANSTRENGUNGSSTUFEN[patch.anstrengung])
   }
+
+  // Die Oberfläche bekommt Schlüssel nur maskiert (••••1234) und schickt sie so
+  // auch zurück. Würde das durchgehen, wäre nach dem ersten Speichern jeder
+  // echte Schlüssel durch vier Punkte ersetzt. Also: maskierte Einträge lassen
+  // den bisherigen Schlüssel stehen.
+  const istMaskiert = (k) => typeof k === 'string' && k.startsWith('••••')
+  const alt = loadConfig()
+  for (const feld of ['customProviders', 'schluessel']) {
+    if (!Array.isArray(patch[feld])) continue
+    patch[feld] = patch[feld].map((eintrag) => {
+      if (!istMaskiert(eintrag?.key)) return eintrag
+      const frueher = (alt[feld] || []).find((x) => x.id === eintrag.id)
+      return { ...eintrag, key: frueher?.key || '' }
+    })
+  }
+
   saveConfig(patch)
   res.json(publicConfig())
 })

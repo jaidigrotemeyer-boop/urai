@@ -135,6 +135,13 @@ const DEFAULTS = {
   briefingThemen: [], // z.B. ['Bitcoin', 'KI-Modelle', 'Bundesliga']
   briefingZuletztGezeigt: '', // YYYY-MM-DD, damit es genau einmal pro Tag aufgeht
 
+  // Zusätzliche Schlüssel — beliebig viele, auch mehrere fürs selbe Gehirn.
+  // Der Sinn: Gratis-Kontingente sind pro Schlüssel gedeckelt. Wer drei
+  // Gemini-Schlüssel einträgt, hat das dreifache Tageskontingent — ist einer
+  // leer, springt der nächste ein, ohne dass jemand etwas merkt.
+  // je {id, anbieter: 'gemini'|'cerebras'|'groq'|'openrouter', key, model?}
+  schluessel: [],
+
   // Unterstützen: kein Bezahlsystem — der Nutzer trägt seinen EIGENEN
   // Spenden-Link ein (Ko-fi, PayPal.me, GitHub Sponsors, was auch immer).
   // URAI erfindet hier keine Adresse.
@@ -209,6 +216,11 @@ export function publicConfig() {
     groqKey: mask(c.groqKey),
     openrouterKey: mask(c.openrouterKey),
     elevenKey: mask(c.elevenKey),
+    // Die Listen tragen ihre Schlüssel im Klartext — die dürfen genauso wenig
+    // an die Seite wie die eingebauten. Der Server behält sie, die Oberfläche
+    // sieht nur die letzten vier Zeichen und kann trotzdem alles verwalten.
+    customProviders: (c.customProviders || []).map((p) => ({ ...p, key: mask(p.key) })),
+    schluessel: (c.schluessel || []).map((s) => ({ ...s, key: mask(s.key) })),
     hasEleven: !!c.elevenKey,
     hasGemini: !!c.geminiKey,
     hasCerebras: !!c.cerebrasKey,

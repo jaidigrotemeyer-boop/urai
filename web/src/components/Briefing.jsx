@@ -94,12 +94,24 @@ export default function Briefing({ onSchliessen, onThemaFragen }) {
         </header>
 
         <div className="brf-inhalt">
+          {/* Ein Gerüst statt eines Kringels: man sieht schon, WAS gleich kommt —
+              zwei Themen mit je ein paar Zeilen. Das macht die halbe Minute
+              Wartezeit kürzer, als jede Fortschrittsanzeige es könnte. */}
           {baut && (
-            <div className="brf-laedt">
-              <span className="brf-welle" />
-              <span className="brf-welle" />
-              <span className="brf-welle" />
-              <p>{t('briefLaedt')}</p>
+            <div className="brf-geruest" aria-label={t('briefLaedt')}>
+              {[0, 1].map((s) => (
+                <div className="brf-g-thema" key={s} style={{ '--i': s }}>
+                  <span className="brf-g-titel brf-schimmer" />
+                  {[0, 1, 2].map((z) => (
+                    <span
+                      className={`brf-g-zeile brf-schimmer z${z}`}
+                      key={z}
+                      style={{ '--d': s * 3 + z }}
+                    />
+                  ))}
+                </div>
+              ))}
+              <p className="brf-g-text">{t('briefLaedt')}</p>
             </div>
           )}
 
@@ -137,7 +149,9 @@ export default function Briefing({ onSchliessen, onThemaFragen }) {
                   <h2>{th.thema}</h2>
                   <ul>
                     {th.punkte.map((p, j) => (
-                      <li key={j}>
+                      // --d zählt über alle Themen durch, damit die Zeilen als eine
+                      // Bewegung von oben nach unten laufen statt pro Block neu
+                      <li key={j} style={{ '--d': i * 2 + j }}>
                         <span className="brf-text">{p.text}</span>
                         {p.quelle && <span className="brf-quelle">{p.quelle}</span>}
                         <button
