@@ -22,6 +22,7 @@ export default function Onboarding({ onFertig }) {
   const [profilName, setProfilName] = useState('')
   const [profilAlter, setProfilAlter] = useState('')
   const [profilZweck, setProfilZweck] = useState(null)
+  const [geminiKey, setGeminiKey] = useState('')
   const [themen, setThemen] = useState([])
   const [neuesThema, setNeuesThema] = useState('')
   const [herkunft, setHerkunft] = useState(null)
@@ -30,7 +31,7 @@ export default function Onboarding({ onFertig }) {
   const [gutschein, setGutschein] = useState(null)
   const [raus, setRaus] = useState(false)
 
-  const SCHRITTE = ['willkommen', 'profil', 'themen', 'herkunft', 'agb', 'unterstuetzen', 'danke']
+  const SCHRITTE = ['willkommen', 'profil', 'gehirn', 'themen', 'herkunft', 'agb', 'unterstuetzen', 'danke']
 
   function weiter() {
     if (schritt < SCHRITTE.length - 1) setSchritt((s) => s + 1)
@@ -51,6 +52,7 @@ export default function Onboarding({ onFertig }) {
           profilAlter: profilAlter ? Number(profilAlter) : null,
           profilZweck,
           briefingThemen: themen,
+          geminiKey: geminiKey.trim(),
         }),
       })
     } catch {}
@@ -161,6 +163,33 @@ export default function Onboarding({ onFertig }) {
 
             <button className="primary onb-weiter" onClick={weiter}>
               {t('onbWeiter')}
+            </button>
+          </>
+        )}
+
+        {name === 'gehirn' && (
+          <>
+            <h2>{t('onbGehirnTitel')}</h2>
+            <p className="onb-dim">{t('onbGehirnText')}</p>
+
+            <div className="onb-emailzeile">
+              <input
+                type="password"
+                className="onb-email"
+                placeholder="AIza…"
+                value={geminiKey}
+                onChange={(e) => setGeminiKey(e.target.value)}
+              />
+              <p className="onb-hinweis">
+                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
+                  aistudio.google.com/apikey
+                </a>{' '}
+                {t('onbGehirnGratis')}
+              </p>
+            </div>
+
+            <button className="primary onb-weiter" onClick={weiter}>
+              {geminiKey.trim() ? t('onbWeiter') : t('onbGehirnSpaeter')}
             </button>
           </>
         )}

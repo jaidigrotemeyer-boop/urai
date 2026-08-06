@@ -55,7 +55,7 @@ app.get('/api/status', async (_req, res) => {
 
 // Erststart: Profil, Herkunft und Nutzungsbedingungen in einem Zug speichern
 app.post('/api/onboarding', (req, res) => {
-  const { herkunft = '', agbAkzeptiert = false, email = '', profilName = '', profilAlter = null, profilZweck = '', briefingThemen = [] } = req.body || {}
+  const { herkunft = '', agbAkzeptiert = false, email = '', profilName = '', profilAlter = null, profilZweck = '', briefingThemen = [], geminiKey = '' } = req.body || {}
   const patch = {
     onboardingFertig: true,
     herkunft: String(herkunft).slice(0, 60),
@@ -72,6 +72,10 @@ app.post('/api/onboarding', (req, res) => {
     patch.agbAkzeptiert = true
     patch.agbVersion = 1
   }
+  // Nur setzen, wenn wirklich einer eingetippt wurde — ein leeres Feld darf
+  // einen schon vorhandenen Schlüssel nicht auslöschen.
+  const key = String(geminiKey).trim()
+  if (key && !key.startsWith('••••')) patch.geminiKey = key
   res.json(saveConfig(patch))
 })
 

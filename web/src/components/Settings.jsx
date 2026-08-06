@@ -165,9 +165,13 @@ export default function Settings({ onClose, onSaved }) {
       spendenLink: cfg.spendenLink || '',
       customProviders: cfg.customProviders || [],
       schluessel: cfg.schluessel || [],
+      telegramAn: !!cfg.telegramAn,
+      telegramErlaubteIds: cfg.telegramErlaubteIds || [],
+      telegramSprachantwort: !!cfg.telegramSprachantwort,
       briefingAn: !!cfg.briefingAn,
       briefingThemen: cfg.briefingThemen || [],
     }
+    if (cfg.telegramToken && !String(cfg.telegramToken).startsWith('••••')) patch.telegramToken = cfg.telegramToken
     if (onboardingErneut) patch.onboardingFertig = false
 
     // Feineinstellung: alles, was vorher fest im Code stand.
@@ -198,6 +202,8 @@ export default function Settings({ onClose, onSaved }) {
       body: JSON.stringify(patch),
     })
     const next = await res.json()
+    // Telegram neu verbinden, sonst gilt der neue Token erst nach Neustart
+    await fetch('/api/telegram/neu', { method: 'POST' }).catch(() => {})
     setSaving(false)
     onSaved?.(next)
     onClose()
@@ -765,6 +771,68 @@ export default function Settings({ onClose, onSaved }) {
                 Nach dem Speichern startet der Erststart beim nächsten Öffnen neu.
               </div>
             )}
+          </div>
+        </details>
+
+        <details className="abschnitt">
+          <summary>Telegram</summary>
+
+          <div className="note" style={{ marginBottom: 10 }}>
+            Schreib URAI von unterwegs, oder sprich ihm eine Nachricht — er erledigt es auf
+            diesem Mac und antwortet gesprochen zurück. Läuft ohne Portfreigabe.
+          </div>
+
+          <div className="field">
+            <label>Bot-Token von @BotFather</label>
+            <input
+              type="password"
+              placeholder={cfg.hasTelegram ? 'gesetzt — neuen eintippen zum Ersetzen' : '123456:ABC-...'}
+              onChange={(e) => setCfg({ ...cfg, telegramToken: e.target.value })}
+            />
+            <div className="note">In Telegram @BotFather anschreiben, /newbot, Namen wählen.</div>
+          </div>
+
+          <div className="field">
+            <label>Wer darf? Deine Telegram-Kennung</label>
+            <input
+              placeholder="z.B. 123456789"
+              value={(cfg.telegramErlaubteIds || []).join(', ')}
+              onChange={(e) =>
+                setCfg({
+                  ...cfg,
+                  telegramErlaubteIds: e.target.value.split(',').map((x) => x.trim()).filter(Boolean),
+                })
+              }
+            />
+            <div className="note">
+              Deine Kennung nennt dir @userinfobot. Ohne Eintrag läuft der Bot NICHT —
+              wer hier schreiben darf, steuert diesen Mac. Mehrere mit Komma trennen.
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Auf Sprachnachricht gesprochen antworten</label>
+            <div className="chips">
+              <button
+                className={`chip ${cfg.telegramSprachantwort ? 'on' : ''}`}
+                onClick={() => setCfg({ ...cfg, telegramSprachantwort: !cfg.telegramSprachantwort })}
+              >
+                {cfg.telegramSprachantwort ? 'an — wie telefonieren' : 'aus — nur Text'}
+              </button>
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Bot</label>
+            <div className="chips">
+              <button
+                className={`chip ${cfg.telegramAn ? 'on' : ''}`}
+                onClick={() => setCfg({ ...cfg, telegramAn: !cfg.telegramAn })}
+              >
+                {cfg.telegramAn ? 'an' : 'aus'}
+              </button>
+            </div>
+            <div className="note">Nach dem Speichern verbindet sich URAI mit Telegram.</div>
           </div>
         </details>
 
