@@ -135,6 +135,14 @@ const DEFAULTS = {
   briefingThemen: [], // z.B. ['Bitcoin', 'KI-Modelle', 'Bundesliga']
   briefingZuletztGezeigt: '', // YYYY-MM-DD, damit es genau einmal pro Tag aufgeht
 
+  // Telegram als zweiter Eingang: schreiben oder reinsprechen, unterwegs.
+  // Wer hier schreibt, steuert diesen Mac — darum läuft es nur mit einer
+  // ausdrücklichen Erlaubnisliste. Leer heißt aus, nicht "jeder darf".
+  telegramAn: false,
+  telegramToken: '',
+  telegramErlaubteIds: [], // deine Telegram-Kennung, z.B. ['123456789']
+  telegramSprachantwort: true, // auf Sprachnachricht wird gesprochen geantwortet
+
   // Den Zeiger sichtbar zum Ziel führen, statt ihn hinzubeamen. Kostet pro
   // Klick ein paar Zehntelsekunden — dafür sieht man, was URAI gleich anfasst,
   // und kann eingreifen, bevor er klickt.
@@ -222,11 +230,13 @@ export function publicConfig() {
     groqKey: mask(c.groqKey),
     openrouterKey: mask(c.openrouterKey),
     elevenKey: mask(c.elevenKey),
+    telegramToken: mask(c.telegramToken),
     // Die Listen tragen ihre Schlüssel im Klartext — die dürfen genauso wenig
     // an die Seite wie die eingebauten. Der Server behält sie, die Oberfläche
     // sieht nur die letzten vier Zeichen und kann trotzdem alles verwalten.
     customProviders: (c.customProviders || []).map((p) => ({ ...p, key: mask(p.key) })),
     schluessel: (c.schluessel || []).map((s) => ({ ...s, key: mask(s.key) })),
+    hasTelegram: !!c.telegramToken,
     hasEleven: !!c.elevenKey,
     hasGemini: !!c.geminiKey,
     hasCerebras: !!c.cerebrasKey,

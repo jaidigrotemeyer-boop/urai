@@ -20,6 +20,7 @@ import { graphLesen } from './graph.js'
 import { Waechter, lesen as ausloeserLesen, schreiben as ausloeserSchreiben } from './ausloeser.js'
 import { einloesen as gutscheinEinloesen, stand as gutscheinStand } from './gutschein.js'
 import { holen as briefingHolen, bereit as briefingBereit, heute as briefingHeute } from './briefing.js'
+import { TelegramTuer } from './telegram.js'
 import {
   ablaufListe,
   ablaufLesen,
@@ -30,6 +31,10 @@ import {
 
 // Ein Wächter pro offener Seite — beim Ändern der Liste müssen alle neu aufsetzen
 const waechterListe = new Set()
+
+// Genau eine Telegram-Tür für den ganzen Server. Pro Seite eine zu öffnen
+// hieße, dieselbe Nachricht mehrfach zu beantworten.
+const telegram = new TelegramTuer({ emit: (m) => waechterListe.forEach((w) => w.emit?.(m)) })
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PORT = Number(process.env.PORT || 3017)
@@ -120,6 +125,17 @@ app.post('/api/briefing/gesehen', (_req, res) => {
   res.json(saveConfig({ briefingZuletztGezeigt: briefingHeute() }))
 })
 
+app.get('/api/telegram', (_req, res) => {
+  const c = loadConfig()
+  res.json({ ...TelegramTuer.pruefen(), laeuft: telegram.laeuft, name: telegram.name || '', erlaubte: (c.telegramErlaubteIds || []).length })
+})
+
+// Nach dem Speichern neuer Zugangsdaten neu aufsetzen
+app.post('/api/telegram/neu', async (_req, res) => {
+  telegram.stop()
+  res.json(await telegram.start())
+})
+
 app.get('/api/tools', (_req, res) => {
   res.json({
     groups: TOOL_GROUPS,
@@ -147,6 +163,8 @@ app.post('/api/config', (req, res) => {
     'beweisPflicht', 'beweisWartenMs', 'ausloeserAn', 'ausloeserKarenzS',
     'anstrengung', 'spendenLink', 'onboardingFertig',
     'briefingAn', 'briefingThemen', 'briefingZuletztGezeigt', 'schluessel',
+    'telegramAn', 'telegramToken', 'telegramErlaubteIds', 'telegramSprachantwort',
+    'mausGleiten', 'mausGleitenStaerke',
   ]
   const patch = {}
   for (const k of allowed) if (k in req.body) patch[k] = req.body[k]
@@ -161,6 +179,7 @@ app.post('/api/config', (req, res) => {
   // den bisherigen Schlüssel stehen.
   const istMaskiert = (k) => typeof k === 'string' && k.startsWith('••••')
   const alt = loadConfig()
+  if (istMaskiert(patch.telegramToken)) delete patch.telegramToken
   for (const feld of ['customProviders', 'schluessel']) {
     if (!Array.isArray(patch[feld])) continue
     patch[feld] = patch[feld].map((eintrag) => {
@@ -394,6 +413,10 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`  Revier:      ${c.workspace}`)
   console.log(`  Obsidian:    ${vaultPath() || 'kein Vault gefunden'}`)
   raeumeAuf().then((n) => n && console.log(`  Aufgeräumt:  ${n} altes Bildschirmfoto gelöscht`))
+  // Telegram nur, wenn Token UND Erlaubnisliste stehen — pruefen() entscheidet
+  telegram.start().then((st) => {
+    if (!st.an && st.grund && st.grund !== 'aus') console.log(`  Telegram:    aus (${st.grund})`)
+  })
   if (!fs.existsSync(dist)) console.log(`  Web-App:     noch nicht gebaut — im Dev auf http://localhost:5173\n`)
   else console.log('')
 })
