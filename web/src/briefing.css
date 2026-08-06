@@ -166,6 +166,39 @@
 .brf-hinweis p { color: var(--dim); font-size: 14px; line-height: 1.6; margin: 0; }
 .brf-hinweis.fehler p { color: var(--danger); }
 
+/* ── „Soll ich …?" ──
+   Der Teil, der aus einem Bericht einen Assistenten macht. Optisch abgesetzt:
+   die Punkte oben sind Vergangenheit, hier geht es nach vorn. */
+.brf-fragen {
+  margin-top: 18px; padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+}
+.brf-fragen h2 {
+  font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--accent); font-weight: 640; margin: 0 0 10px;
+}
+.brf-frage {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  text-align: left; margin-bottom: 7px;
+  padding: 11px 13px; border-radius: 12px;
+  border: 1px solid var(--line-soft); background: var(--panel);
+  color: var(--text); font-size: 13.5px; line-height: 1.45; cursor: pointer;
+  transition: border-color .2s var(--ease), background .2s var(--ease), transform .18s var(--spring);
+  animation: brfFrageRein .45s var(--spring) both;
+  animation-delay: calc(var(--d, 0) * 80ms + 340ms);
+}
+.brf-frage span { flex: 1; }
+.brf-frage svg { flex: none; color: var(--accent); opacity: .5; transition: opacity .2s var(--ease), transform .22s var(--spring); }
+.brf-frage:hover {
+  border-color: var(--accent-line); background: var(--accent-soft); transform: translateX(2px);
+}
+.brf-frage:hover svg { opacity: 1; transform: translateX(3px); }
+.brf-frage:active { transform: scale(.985); }
+@keyframes brfFrageRein {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: none; }
+}
+
 .brf-themenbox {
   margin-top: 16px; padding: 16px;
   border-radius: 15px; border: 1px solid var(--line-soft); background: var(--panel);

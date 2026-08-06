@@ -196,8 +196,14 @@ export async function bauen({ signal } = {}) {
             'Deine ganze Antwort ist ein einziges JSON-Objekt. Kein Fließtext, keine Erklärung,',
             'keine Code-Zäune davor oder danach. Beginne mit { und höre mit } auf.',
             '',
+            'Dazu bis zu drei Vorschläge, was du dem Nutzer jetzt abnehmen könntest —',
+            'abgeleitet aus dem, was du gerade gelesen hast. Jeder Vorschlag ist eine',
+            'höfliche Frage ("frage") und der Auftrag, den du dann ausführen würdest',
+            '("auftrag"). Der Auftrag steht für sich allein: der ausführende Agent kennt',
+            'dieses Briefing nicht. Fällt dir nichts Sinnvolles ein, gib eine leere Liste.',
+            '',
             'Genau diese Form:',
-            '{"gruss":"ein Satz Begrüßung","themen":[{"thema":"Name","punkte":[{"text":"ein Satz","quelle":"domain.de"}]}]}',
+            '{"gruss":"ein Satz Begrüßung","themen":[{"thema":"Name","punkte":[{"text":"ein Satz","quelle":"domain.de"}]}],"vorschlaege":[{"frage":"Soll ich …?","auftrag":"Such … und fass zusammen."}]}',
           ].join('\n'),
         },
         { role: 'user', content: nutzerText },
@@ -302,6 +308,15 @@ export async function bauen({ signal } = {}) {
       }))
       .filter((t) => t.thema)
       .slice(0, 6),
+    // Was URAI dem Nutzer anbietet. Jeder Vorschlag braucht beides: die Frage
+    // fürs Fenster und den Auftrag, der beim Antippen wirklich losläuft.
+    vorschlaege: (Array.isArray(roh.vorschlaege) ? roh.vorschlaege : [])
+      .slice(0, 3)
+      .map((v) => ({
+        frage: String(v?.frage || '').slice(0, 160),
+        auftrag: String(v?.auftrag || '').slice(0, 400),
+      }))
+      .filter((v) => v.frage && v.auftrag),
   }
   // Kam beim großen Versuch nichts Verwertbares heraus, aber es LAGEN Treffer vor,
   // dann lag es am Gehirn, nicht an der Nachrichtenlage — also einzeln nachfassen.

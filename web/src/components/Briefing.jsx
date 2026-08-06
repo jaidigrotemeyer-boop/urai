@@ -169,6 +169,31 @@ export default function Briefing({ onSchliessen, onThemaFragen }) {
                 </section>
               ))}
 
+          {/* Der eigentliche Unterschied zwischen Bericht und Assistent: er
+              schlägt vor und fragt, statt nur abzuliefern. Ein Tippen genügt —
+              der Auftrag geht direkt raus, ohne dass man ihn tippen muss. */}
+          {!baut && !fehler && !!briefing?.vorschlaege?.length && (
+            <section className="brf-fragen">
+              <h2>{t('briefSollIch')}</h2>
+              {briefing.vorschlaege.map((v, i) => (
+                <button
+                  key={i}
+                  className="brf-frage"
+                  style={{ '--d': i }}
+                  onClick={() => {
+                    schliessen()
+                    onThemaFragen?.(v.auftrag)
+                  }}
+                >
+                  <span>{v.frage}</span>
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12h13m0 0l-5-5m5 5l-5 5" />
+                  </svg>
+                </button>
+              ))}
+            </section>
+          )}
+
           {themenAuf && (
             <section className="brf-themenbox">
               <label>{t('briefThemenLabel')}</label>

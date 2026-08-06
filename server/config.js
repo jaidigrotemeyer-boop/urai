@@ -135,6 +135,12 @@ const DEFAULTS = {
   briefingThemen: [], // z.B. ['Bitcoin', 'KI-Modelle', 'Bundesliga']
   briefingZuletztGezeigt: '', // YYYY-MM-DD, damit es genau einmal pro Tag aufgeht
 
+  // Den Zeiger sichtbar zum Ziel führen, statt ihn hinzubeamen. Kostet pro
+  // Klick ein paar Zehntelsekunden — dafür sieht man, was URAI gleich anfasst,
+  // und kann eingreifen, bevor er klickt.
+  mausGleiten: true,
+  mausGleitenStaerke: 60, // cliclick -e: 30 ≈ 190 ms, 60 ≈ 230 ms, 100 ≈ 330 ms
+
   // Zusätzliche Schlüssel — beliebig viele, auch mehrere fürs selbe Gehirn.
   // Der Sinn: Gratis-Kontingente sind pro Schlüssel gedeckelt. Wer drei
   // Gemini-Schlüssel einträgt, hat das dreifache Tageskontingent — ist einer

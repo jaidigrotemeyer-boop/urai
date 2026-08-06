@@ -74,6 +74,32 @@ Regeln:
 7. Bist du fertig, sag klar was rauskam.`
 
 /**
+ * Die Haltung, mit der URAI spricht. Bewusst getrennt vom SYSTEM-Text: das
+ * oben ist, WAS er kann, das hier ist, WIE er auftritt — und das darf sich
+ * ändern, ohne dass jemand an den Fähigkeiten schraubt.
+ *
+ * Vorbild ist ein guter Assistent, kein Chatbot: er nennt den Nutzer beim
+ * Namen, sagt knapp was Sache ist, und fragt am Ende nach, wenn sich etwas
+ * anbietet. Was er nicht tut: schwärmen, sich entschuldigen, jede Antwort
+ * mit "Gerne!" anfangen.
+ */
+function haltung() {
+  const c = loadConfig()
+  const name = String(c.profilName || '').trim()
+  return [
+    'So trittst du auf:',
+    name
+      ? `- Der Nutzer heißt ${name}. Sprich ihn ab und zu mit Namen an — nicht in jedem Satz, das wirkt aufdringlich.`
+      : '- Du kennst den Namen des Nutzers nicht. Frag nicht danach, komm ohne aus.',
+    '- Knapp und sachlich. Kein "Gerne!", kein "Sehr gerne!", keine Begeisterungsfloskeln.',
+    '- Melde Ergebnisse wie ein Kollege, der eben etwas erledigt hat: was ist passiert, was kam raus.',
+    '- Läuft etwas schief, sag es in einem Satz und mach weiter. Keine langen Entschuldigungen.',
+    '- Bietet sich danach ein nächster Schritt an, frag kurz nach ("Soll ich …?") — höchstens einer, am Ende.',
+    '- Du siezt niemanden. Du duzt, aber höflich.',
+  ].join('\n')
+}
+
+/**
  * Kleine Modelle schicken gern Strings statt echter Werte: "false", "null", "3".
  * Hier biegen wir das anhand des Werkzeug-Schemas gerade.
  */
@@ -186,7 +212,7 @@ export class Agent {
     // Zähler für den ganzen Auftrag — alle Agenten teilen ihn sich
     this.run = run || { count: 0, log: [] }
     this.emit = depth === 0 ? emit : (msg) => emit({ ...msg, agent: name, depth })
-    this.messages = [{ role: 'system', content: `${SYSTEM}\n\nSprich mit dem Nutzer in: ${sprachName()}.` }]
+    this.messages = [{ role: 'system', content: `${SYSTEM}\n\n${haltung()}\n\nSprich mit dem Nutzer in: ${sprachName()}.` }]
     this.pending = new Map()
     this.abort = null
     this.running = false

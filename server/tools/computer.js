@@ -100,6 +100,29 @@ async function lookAtScreen({ withVision, question, emit } = {}) {
   return { size, lines, front, ui, text: report({ size, front, lines, ui, note }) }
 }
 
+/**
+ * Den Zeiger sichtbar zum Ziel führen, statt ihn hinzubeamen.
+ *
+ * cliclick setzt die Maus sonst in einem Sprung — man sieht nur, dass sich
+ * plötzlich etwas geändert hat, aber nicht WAS URAI tut. Eine geführte Bahn
+ * macht sein Handeln nachvollziehbar: man erkennt das Ziel, bevor er klickt,
+ * und kann rechtzeitig eingreifen.
+ *
+ * Gemessen: cliclicks eingebautes -e ist der einzig brauchbare Weg. Die Bahn
+ * selbst aus vielen m:/w:-Schritten zu bauen dauerte 5,3 Sekunden statt 0,4 —
+ * -w hat 20 ms Mindestwartezeit und jedes Event kostet extra. Mit -e sind es
+ * ~230 ms bei Faktor 60. Unter 30 verfehlt die Bewegung ihr Ziel, darum die
+ * Untergrenze; hinterher wird zur Sicherheit exakt gesetzt.
+ */
+async function mausGleiten(zielX, zielY) {
+  const cfg = loadConfig()
+  if (!cfg.mausGleiten || !CLICLICK) return
+  const faktor = Math.max(30, Math.min(200, Number(cfg.mausGleitenStaerke) || 60))
+  try {
+    await pexec(CLICLICK, ['-e', String(faktor), `m:${zielX},${zielY}`])
+  } catch {} // Eine misslungene Bewegung darf den Klick nicht verhindern
+}
+
 async function clickAt(x, y, button = 'left') {
   const X = Math.round(x)
   const Y = Math.round(y)
@@ -108,6 +131,7 @@ async function clickAt(x, y, button = 'left') {
     return { x: X, y: Y }
   }
   if (CLICLICK) {
+    await mausGleiten(X, Y) // erst sichtbar hinfahren, dann klicken
     const cmd = button === 'right' ? `rc:${X},${Y}` : button === 'double' ? `dc:${X},${Y}` : `c:${X},${Y}`
     await pexec(CLICLICK, [cmd])
   } else {
@@ -256,6 +280,7 @@ export const computerTools = [
     async run({ x, y }) {
       if (!IST_MAC) return moveWin(x, y)
       if (!CLICLICK) throw new Error('Braucht cliclick: brew install cliclick')
+      await mausGleiten(Math.round(x), Math.round(y))
       await pexec(CLICLICK, [`m:${Math.round(x)},${Math.round(y)}`])
       return `Maus bei ${Math.round(x)},${Math.round(y)}`
     },
