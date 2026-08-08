@@ -21,6 +21,8 @@ import { Waechter, lesen as ausloeserLesen, schreiben as ausloeserSchreiben } fr
 import { einloesen as gutscheinEinloesen, stand as gutscheinStand } from './gutschein.js'
 import { holen as briefingHolen, bereit as briefingBereit, heute as briefingHeute } from './briefing.js'
 import { TelegramTuer } from './telegram.js'
+import { stand as lokalStand, ollamaModelle, modellCacheLeeren } from './lokal.js'
+import { waitboardRouten } from './waitboard.js'
 import {
   ablaufListe,
   ablaufLesen,
@@ -140,6 +142,11 @@ app.post('/api/telegram/neu', async (_req, res) => {
   res.json(await telegram.start())
 })
 
+// Lokales Gehirn: Stand, RAM-Druck, Schlange — die Oberfläche fragt im Takt nach
+app.get('/api/lokal', async (_req, res) => {
+  res.json({ ...(await lokalStand()), modelle: await ollamaModelle() })
+})
+
 app.get('/api/tools', (_req, res) => {
   res.json({
     groups: TOOL_GROUPS,
@@ -168,7 +175,7 @@ app.post('/api/config', (req, res) => {
     'anstrengung', 'spendenLink', 'onboardingFertig',
     'briefingAn', 'briefingThemen', 'briefingZuletztGezeigt', 'schluessel',
     'telegramAn', 'telegramToken', 'telegramErlaubteIds', 'telegramSprachantwort',
-    'mausGleiten', 'mausGleitenStaerke',
+    'mausGleiten', 'mausGleitenStaerke', 'lokalBudgetGb', 'lokalModell',
   ]
   const patch = {}
   for (const k of allowed) if (k in req.body) patch[k] = req.body[k]
@@ -193,6 +200,7 @@ app.post('/api/config', (req, res) => {
     })
   }
 
+  if ('lokalModell' in patch) modellCacheLeeren()
   saveConfig(patch)
   res.json(publicConfig())
 })
@@ -210,6 +218,9 @@ app.post('/api/speak', async (req, res) => {
 })
 
 app.get('/api/voices', async (_req, res) => res.json(await stimmenListe()))
+
+// Waitboard: Bild rein, Text raus — geschrieben wird im Browser.
+waitboardRouten(app)
 
 // ── Abläufe: die Werkstatt spricht über REST, gestartet wird über den WebSocket ──
 app.get('/api/ablaeufe', async (_req, res) => {

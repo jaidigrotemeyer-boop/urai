@@ -3,6 +3,7 @@ import { fileTools } from './files.js'
 import { shellTools } from './shell.js'
 import { webTools } from './web.js'
 import { computerTools } from './computer.js'
+import { dokumentTools } from './dokument.js'
 import { memoryTools } from '../memory.js'
 import { obsidianTools } from '../obsidian.js'
 import { crewTools } from '../crew.js'
@@ -16,6 +17,7 @@ export const ALL_TOOLS = [
   ...shellTools,
   ...webTools,
   ...computerTools,
+  ...dokumentTools,
   ...memoryTools,
   ...obsidianTools,
   ...crewTools,
@@ -41,6 +43,7 @@ export const TOOL_GROUPS = {
   terminal: shellTools.map((t) => t.name),
   web: webTools.map((t) => t.name),
   computer: computerTools.map((t) => t.name),
+  dokumente: dokumentTools.map((t) => t.name),
   gedaechtnis: memoryTools.map((t) => t.name),
   obsidian: obsidianTools.map((t) => t.name),
   agenten: crewTools.map((t) => t.name),

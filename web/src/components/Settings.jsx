@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { t, SPRACHEN, sprache, setzeSprache, useSprache } from '../i18n.js'
+import LokalRegler from './LokalRegler.jsx'
 
 /** Kleines Formular, um einen eigenen OpenAI-kompatiblen Anbieter einzutragen. */
 function EigenerAnbieterFormular({ onHinzu }) {
@@ -165,6 +166,8 @@ export default function Settings({ onClose, onSaved }) {
       spendenLink: cfg.spendenLink || '',
       customProviders: cfg.customProviders || [],
       schluessel: cfg.schluessel || [],
+      lokalBudgetGb: Number(cfg.lokalBudgetGb) || 0,
+      lokalModell: cfg.lokalModell || 'llama3.2:3b',
       telegramAn: !!cfg.telegramAn,
       telegramErlaubteIds: cfg.telegramErlaubteIds || [],
       telegramSprachantwort: !!cfg.telegramSprachantwort,
@@ -772,6 +775,22 @@ export default function Settings({ onClose, onSaved }) {
               </div>
             )}
           </div>
+        </details>
+
+        <details className="abschnitt">
+          <summary>Lokales Gehirn</summary>
+          <div className="note" style={{ marginBottom: 12 }}>
+            Kleinarbeit — Live-Notizen, Zusammenfassungen — auf dem eigenen Rechner statt
+            in der Cloud. Das spart Gratis-Kontingent für das, was wirklich Denken braucht.
+            Der Regler sagt, wie viel Speicher sich URAI dafür nehmen darf; wird es eng,
+            drosselt er von selbst.
+          </div>
+          <LokalRegler
+            budgetGb={cfg.lokalBudgetGb || 0}
+            modell={cfg.lokalModell}
+            onBudget={(gb) => setCfg({ ...cfg, lokalBudgetGb: gb })}
+            onModell={(m) => setCfg({ ...cfg, lokalModell: m })}
+          />
         </details>
 
         <details className="abschnitt">

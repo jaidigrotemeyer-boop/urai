@@ -1,0 +1,135 @@
+.waitboard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: 10px;
+}
+
+.waitboard-leiste {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.waitboard-leiste button {
+  padding: 6px 13px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s;
+}
+
+.waitboard-leiste button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.09); }
+.waitboard-leiste button.on { background: rgba(120, 160, 255, 0.22); border-color: rgba(120, 160, 255, 0.5); }
+.waitboard-leiste button:disabled { opacity: 0.5; cursor: default; }
+
+.waitboard-fragen { border-color: rgba(120, 160, 255, 0.5) !important; }
+
+.waitboard-luecke { flex: 1; }
+
+.waitboard-farben { display: inline-flex; gap: 6px; margin-left: 4px; }
+
+.waitboard-farbe {
+  width: 22px;
+  height: 22px;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  background: var(--f) !important;
+  border: 2px solid transparent !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+.waitboard-farbe.on { border-color: #fff !important; }
+
+.waitboard-flaeche {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fdfdfb;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.3);
+}
+
+.waitboard-flaeche canvas {
+  display: block;
+  /* Ohne das scrollt der Browser die Seite, statt den Strich zu zeichnen. */
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.waitboard-fehler {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  max-width: 60%;
+  padding: 9px 13px;
+  border-radius: 10px;
+  background: rgba(224, 52, 75, 0.94);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.orb-canvas { display: block; }
+
+/* ─────────────────────────── Lernseite ─────────────────────────── */
+
+.lernen {
+  display: flex;
+  gap: 18px;
+  height: 100vh;
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+.lernen-board { flex: 1; min-width: 0; }
+
+.lernen-seite {
+  width: 190px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding-top: 30px;
+}
+
+.lernen-mikro,
+.lernen-still {
+  width: 100%;
+  padding: 10px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.lernen-mikro.on { background: rgba(224, 52, 75, 0.28); border-color: rgba(224, 52, 75, 0.6); }
+.lernen-mikro:disabled { opacity: 0.4; cursor: default; }
+.lernen-still { opacity: 0.6; }
+
+.lernen-gesagt {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  opacity: 0.75;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .lernen { flex-direction: column-reverse; }
+  .lernen-seite { width: 100%; flex-direction: row; padding-top: 0; }
+}

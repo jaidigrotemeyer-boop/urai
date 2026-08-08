@@ -1216,3 +1216,61 @@ body.hat-zeiger * { cursor: none !important; }
 .eigen-formular { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
 .eigen-formular input { font-size: 12.5px; }
 .eigen-formular button { grid-column: 1 / -1; }
+
+/* ── Lokales Gehirn: Speicher-Budget ── */
+.lokal { display: flex; flex-direction: column; gap: 10px; }
+.lokal-kopf { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.lokal-stufe-name { font-size: 17px; font-weight: 640; display: flex; align-items: center; gap: 8px; }
+.lokal-gedrosselt {
+  font-size: 10px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--danger); background: rgba(255,122,122,.12);
+  border: 1px solid rgba(255,122,122,.3); border-radius: 5px; padding: 2px 6px;
+  animation: lokalPochen 1.8s ease-in-out infinite;
+}
+@keyframes lokalPochen { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+.lokal-hinweis { font-size: 12.5px; color: var(--dim); line-height: 1.5; margin-top: 3px; }
+/* Der Ring zeigt freien Speicher — Farbe wechselt, wenn es eng wird */
+.lokal-ram { flex: none; text-align: center; }
+.lokal-ram-ring {
+  width: 46px; height: 46px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 640; font-variant-numeric: tabular-nums;
+  background: conic-gradient(
+    color-mix(in srgb, var(--accent) calc(var(--frei) * 140%), var(--danger)) calc(var(--frei) * 360deg),
+    var(--line) 0
+  );
+  transition: background .6s var(--ease);
+}
+.lokal-ram-ring span {
+  width: 36px; height: 36px; border-radius: 50%; background: var(--panel-solid);
+  display: flex; align-items: center; justify-content: center;
+}
+.lokal-ram-text { font-size: 10px; color: var(--dimmer); margin-top: 3px; }
+.lokal-schieber { width: 100%; accent-color: var(--accent); cursor: pointer; }
+.lokal-skala { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--dimmer); }
+.lokal-zahlen { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--dim); }
+.lokal-zahlen b { color: var(--text); font-variant-numeric: tabular-nums; }
+.lokal-zahlen em { font-style: normal; color: var(--danger); }
+.lokal-warnung {
+  font-size: 12px; color: var(--dim); line-height: 1.5;
+  background: var(--panel); border: 1px solid var(--line-soft);
+  border-left: 2px solid var(--danger); border-radius: 9px; padding: 9px 12px;
+}
+.lokal-modelle { display: flex; flex-direction: column; gap: 6px; }
+.lokal-modelle label { font-size: 12px; color: var(--dimmer); }
+.lokal-modell {
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  padding: 9px 12px; border-radius: 10px;
+  border: 1px solid var(--line-soft); background: var(--panel); cursor: pointer;
+  transition: border-color .2s var(--ease), background .2s var(--ease), transform .16s var(--spring);
+}
+.lokal-modell:hover { transform: translateX(2px); }
+.lokal-modell.on { border-color: var(--accent-line); background: var(--accent-soft); }
+.lokal-modell-name { flex: 1; font-size: 13px; font-family: var(--mono, ui-monospace), monospace; }
+.lokal-modell-gb { font-size: 11.5px; color: var(--dimmer); font-variant-numeric: tabular-nums; }
+.lokal-modell-gb.gross { color: var(--danger); }
+.lokal-modell-warn { font-size: 10.5px; color: var(--danger); }
+@media (prefers-reduced-motion: reduce) {
+  .lokal-gedrosselt { animation: none; }
+  .lokal-modell:hover { transform: none; }
+}
