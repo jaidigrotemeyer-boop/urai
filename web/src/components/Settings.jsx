@@ -105,6 +105,7 @@ export default function Settings({ onClose, onSaved }) {
   const [gutscheinAntwort, setGutscheinAntwort] = useState(null)
   const [onboardingErneut, setOnboardingErneut] = useState(false)
   const [bildschirme, setBildschirme] = useState([])
+  const [zeigerAn, setZeigerAn] = useState(() => localStorage.getItem('urai-zeiger') !== 'aus')
 
   useEffect(() => {
     fetch('/api/status').then((r) => r.json()).then((s) => {
@@ -238,6 +239,27 @@ export default function Settings({ onClose, onSaved }) {
             ))}
           </div>
           <div className="note">Gilt für die Oberfläche und für URAIs Antworten.</div>
+        </div>
+
+        <div className="field">
+          <label>Eigener Zeiger</label>
+          <div className="chips">
+            <button
+              className={`chip ${zeigerAn ? 'on' : ''}`}
+              onClick={async () => {
+                const neu = !zeigerAn
+                setZeigerAn(neu)
+                localStorage.setItem('urai-zeiger', neu ? 'an' : 'aus')
+                // Der Dialog steht offen, vielleicht mit ungespeicherten Eingaben —
+                // erst sichern, dann neu laden, sonst reißt der Reload sie mit sich.
+                await save()
+                location.reload()
+              }}
+            >
+              {zeigerAn ? 'an' : 'aus'}
+            </button>
+          </div>
+          <div className="note">Auge mit weichem Nachlauf statt dem normalen Mauszeiger.</div>
         </div>
 
         </details>
