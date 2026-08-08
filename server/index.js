@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { Agent } from './agent.js'
 import { loadConfig, saveConfig, publicConfig, ANSTRENGUNGSSTUFEN } from './config.js'
 import { brainStatus } from './brain.js'
-import { TOOL_GROUPS, ALL_TOOLS } from './tools/index.js'
+import { TOOL_GROUPS, ALL_TOOLS, alleWerkzeuge, mcpQuelleSetzen } from './tools/index.js'
 import { history, sessions } from './memory.js'
 import { vaultPath, obsidianReady } from './obsidian.js'
 import { ROLLEN } from './crew.js'
@@ -22,6 +22,10 @@ import { einloesen as gutscheinEinloesen, stand as gutscheinStand } from './guts
 import { holen as briefingHolen, bereit as briefingBereit, heute as briefingHeute } from './briefing.js'
 import { TelegramTuer } from './telegram.js'
 import { stand as lokalStand, ollamaModelle, modellCacheLeeren } from './lokal.js'
+import { alleVerbinden as mcpVerbinden, mcpWerkzeuge, mcpStand } from './mcp.js'
+
+// Die Werkzeugliste muss wissen, wo sie die MCP-Werkzeuge herbekommt
+mcpQuelleSetzen(mcpWerkzeuge)
 import { waitboardRouten } from './waitboard.js'
 import {
   ablaufListe,
@@ -149,9 +153,18 @@ app.get('/api/lokal', async (_req, res) => {
 
 app.get('/api/tools', (_req, res) => {
   res.json({
-    groups: TOOL_GROUPS,
-    tools: ALL_TOOLS.map((t) => ({ name: t.name, description: t.description, danger: !!t.danger })),
+    groups: { ...TOOL_GROUPS, mcp: mcpWerkzeuge().map((t) => t.name) },
+    tools: alleWerkzeuge().map((t) => ({ name: t.name, description: t.description, danger: !!t.danger })),
   })
+})
+
+// MCP: welche Server sind angebunden, was können sie
+app.get('/api/mcp', (_req, res) => res.json(mcpStand()))
+
+// Nach dem Speichern neu anbinden — sonst gälte ein neuer Server erst nach Neustart
+app.post('/api/mcp/neu', async (_req, res) => {
+  const ergebnis = await mcpVerbinden()
+  res.json({ ergebnis, stand: mcpStand() })
 })
 
 app.post('/api/config', (req, res) => {
@@ -175,7 +188,7 @@ app.post('/api/config', (req, res) => {
     'anstrengung', 'spendenLink', 'onboardingFertig',
     'briefingAn', 'briefingThemen', 'briefingZuletztGezeigt', 'schluessel',
     'telegramAn', 'telegramToken', 'telegramErlaubteIds', 'telegramSprachantwort',
-    'mausGleiten', 'mausGleitenStaerke', 'lokalBudgetGb', 'lokalModell',
+    'mausGleiten', 'mausGleitenStaerke', 'lokalBudgetGb', 'lokalModell', 'mcpServer',
   ]
   const patch = {}
   for (const k of allowed) if (k in req.body) patch[k] = req.body[k]
@@ -197,6 +210,14 @@ app.post('/api/config', (req, res) => {
       if (!istMaskiert(eintrag?.key)) return eintrag
       const frueher = (alt[feld] || []).find((x) => x.id === eintrag.id)
       return { ...eintrag, key: frueher?.key || '' }
+    })
+  }
+  // MCP-Server tragen ihr Geheimnis unter "token" statt "key"
+  if (Array.isArray(patch.mcpServer)) {
+    patch.mcpServer = patch.mcpServer.map((eintrag) => {
+      if (!istMaskiert(eintrag?.token)) return eintrag
+      const frueher = (alt.mcpServer || []).find((x) => x.id === eintrag.id)
+      return { ...eintrag, token: frueher?.token || '' }
     })
   }
 
@@ -429,6 +450,15 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`  Obsidian:    ${vaultPath() || 'kein Vault gefunden'}`)
   raeumeAuf().then((n) => n && console.log(`  Aufgeräumt:  ${n} altes Bildschirmfoto gelöscht`))
   // Telegram nur, wenn Token UND Erlaubnisliste stehen — pruefen() entscheidet
+  // MCP-Server anbinden. Fehlschläge sind kein Grund zum Abbruch — dann fehlen
+  // eben die Werkzeuge dieses Dienstes, alles andere läuft weiter.
+  mcpVerbinden().then((liste) => {
+    const gut = liste.filter((l) => l.ok)
+    if (gut.length) console.log(`  MCP:         ${gut.map((g) => `${g.name} (${g.anzahl})`).join(', ')}`)
+    for (const schlecht of liste.filter((l) => !l.ok)) {
+      console.log(`  MCP:         ${schlecht.name} nicht erreichbar — ${schlecht.fehler}`)
+    }
+  })
   telegram.start().then((st) => {
     if (!st.an && st.grund && st.grund !== 'aus') console.log(`  Telegram:    aus (${st.grund})`)
   })

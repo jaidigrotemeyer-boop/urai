@@ -143,6 +143,13 @@ const DEFAULTS = {
   telegramErlaubteIds: [], // deine Telegram-Kennung, z.B. ['123456789']
   telegramSprachantwort: true, // auf Sprachnachricht wird gesprochen geantwortet
 
+  // MCP-Server: fremde Werkzeug-Dienste anbinden (Composio, Notion, Linear, …).
+  // Ein Eintrag genügt, und die Werkzeuge dieses Dienstes stehen URAI zur
+  // Verfügung. Sie gelten als gefährlich und fragen vorher — es sind fremde
+  // Dienste, die in deinem Namen handeln.
+  // je { id, name, url, token?, an }
+  mcpServer: [],
+
   // Lokales Gehirn: wie viel Arbeitsspeicher URAI sich fürs eigene Denken
   // nehmen darf, in GB. 0 = aus, sonst 2 bis 100. Daraus ergibt sich, wie viel
   // gleichzeitig läuft und welche Arten Arbeit lokal bleiben. Wird der Speicher
@@ -243,6 +250,7 @@ export function publicConfig() {
     // sieht nur die letzten vier Zeichen und kann trotzdem alles verwalten.
     customProviders: (c.customProviders || []).map((p) => ({ ...p, key: mask(p.key) })),
     schluessel: (c.schluessel || []).map((s) => ({ ...s, key: mask(s.key) })),
+    mcpServer: (c.mcpServer || []).map((s) => ({ ...s, token: mask(s.token) })),
     hasTelegram: !!c.telegramToken,
     hasEleven: !!c.elevenKey,
     hasGemini: !!c.geminiKey,

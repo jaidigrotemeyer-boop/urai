@@ -27,11 +27,32 @@ export const ALL_TOOLS = [
   ...ausloeserTools,
 ]
 
-export const TOOL_MAP = new Map(ALL_TOOLS.map((t) => [t.name, t]))
+// MCP-Werkzeuge kommen erst zur Laufzeit dazu (der Server sagt beim Verbinden,
+// was er kann). Darum wird die Liste bei jedem Zugriff frisch zusammengesetzt
+// statt einmal eingefroren — sonst kennt das Gehirn neu verbundene Dienste erst
+// nach einem Neustart.
+let mcpHolen = () => []
+export function mcpQuelleSetzen(fn) {
+  mcpHolen = typeof fn === 'function' ? fn : () => []
+}
+
+/** Eingebaute plus alles, was gerade über MCP angebunden ist. */
+export function alleWerkzeuge() {
+  return [...ALL_TOOLS, ...mcpHolen()]
+}
+
+/**
+ * Nachschlagen nach Namen. Bewusst eine Funktion und keine feste Map: eine
+ * eingefrorene Map kennt später verbundene MCP-Werkzeuge nicht.
+ */
+export const TOOL_MAP = {
+  get: (name) => alleWerkzeuge().find((t) => t.name === name),
+  has: (name) => alleWerkzeuge().some((t) => t.name === name),
+}
 
 // Was das Gehirn sehen darf (ohne run/danger)
 export function toolSchemas(enabled) {
-  return ALL_TOOLS.filter((t) => !enabled || enabled.includes(t.name)).map((t) => ({
+  return alleWerkzeuge().filter((t) => !enabled || enabled.includes(t.name)).map((t) => ({
     name: t.name,
     description: t.description,
     parameters: t.parameters,
