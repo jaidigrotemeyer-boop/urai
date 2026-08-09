@@ -7,6 +7,7 @@ import './styles.css'
 import './werkstatt.css'
 import './onboarding.css'
 import './briefing.css'
+import './jarvis.css'
 import './waitboard/waitboard.css'
 
 const frage = new URLSearchParams(location.search)

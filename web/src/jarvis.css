@@ -1,0 +1,175 @@
+/* ── JARVIS-Haut ──────────────────────────────────────────────────────
+   Eine zweite Oberfläche, kein Umbau: URAI arbeitet überall mit Farb-
+   Variablen, darum reicht es, die neu zu belegen und die HUD-Elemente
+   darüberzulegen. Wer sie nicht mag, schaltet sie aus und bekommt die
+   ruhige Fassung zurück — beide bleiben gepflegt.
+
+   Der Stil kommt aus der Vorlage: Cyan auf fast-schwarzem Blau, feines
+   Raster, Scanlines, Ecken-Winkel, harte Kanten statt runder, und
+   Monospace für alles Technische. Was dabei NICHT passiert: mehr
+   Bewegung. Ein Bildschirm, den man täglich ansieht, darf nicht zappeln. */
+
+:root[data-haut='jarvis'] {
+  --bg: oklch(0.11 0.012 240);
+  --panel: oklch(0.17 0.022 230 / 0.6);
+  --panel-solid: oklch(0.16 0.02 230);
+  --line: oklch(0.32 0.045 222);
+  --line-soft: oklch(0.26 0.035 226);
+  --text: oklch(0.93 0.02 210);
+  --dim: oklch(0.66 0.035 220);
+  --dimmer: oklch(0.5 0.05 224);
+  --danger: oklch(0.68 0.14 25);
+  /* Kein eigener Akzent hier: das Farbrad setzt --accent direkt am :root
+     und gewinnt gegen jede Regel in dieser Datei. Beim Einschalten dreht
+     hautSetzen() das Rad auf Cyan — wer eine andere Farbe will, dreht
+     danach einfach weiter und behält das HUD. */
+  --mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
+}
+
+/* Der Hintergrund: Verlauf aus der Mitte, feines Raster, Scanlines.
+   Alles in EINEM Pseudo-Element-Paar, damit nichts zusätzlich im DOM steht. */
+:root[data-haut='jarvis'] body {
+  background:
+    radial-gradient(ellipse at 50% 38%, oklch(0.19 0.035 235) 0%, oklch(0.11 0.012 240) 68%);
+}
+:root[data-haut='jarvis'] body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(oklch(0.65 0.13 205 / 0.10) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.65 0.13 205 / 0.10) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+:root[data-haut='jarvis'] body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: repeating-linear-gradient(to bottom, transparent 0 2px, oklch(0.6 0.1 205 / 0.05) 3px);
+}
+:root[data-haut='jarvis'] .app { position: relative; z-index: 1; }
+
+/* Ecken-Winkel: das Erkennungszeichen eines HUD. Nur vier dünne Striche,
+   aber sie machen aus einem Fenster ein Instrument. */
+:root[data-haut='jarvis'] .app::before,
+:root[data-haut='jarvis'] .app::after {
+  content: '';
+  position: fixed; width: 30px; height: 30px;
+  pointer-events: none; z-index: 60;
+  border-color: var(--accent);
+  opacity: 0.7;
+}
+:root[data-haut='jarvis'] .app::before {
+  top: 16px; left: 16px;
+  border-top: 1px solid; border-left: 1px solid;
+}
+:root[data-haut='jarvis'] .app::after {
+  bottom: 16px; right: 16px;
+  border-bottom: 1px solid; border-right: 1px solid;
+}
+
+/* Harte Kanten statt runder — ein Instrument ist eckig */
+:root[data-haut='jarvis'] .sheet,
+:root[data-haut='jarvis'] .onb-karte,
+:root[data-haut='jarvis'] .brf-blatt,
+:root[data-haut='jarvis'] .abschnitt,
+:root[data-haut='jarvis'] .karte { border-radius: 5px; }
+:root[data-haut='jarvis'] button,
+:root[data-haut='jarvis'] input,
+:root[data-haut='jarvis'] select,
+:root[data-haut='jarvis'] textarea { border-radius: 4px; }
+:root[data-haut='jarvis'] .chip,
+:root[data-haut='jarvis'] .brf-chip { border-radius: 20px; }
+
+/* Der Glüh-Strich oben an jeder Karte — direkt aus der Vorlage */
+:root[data-haut='jarvis'] .sheet,
+:root[data-haut='jarvis'] .brf-blatt,
+:root[data-haut='jarvis'] .onb-karte { position: relative; }
+:root[data-haut='jarvis'] .sheet::before,
+:root[data-haut='jarvis'] .brf-blatt::before,
+:root[data-haut='jarvis'] .onb-karte::before {
+  content: '';
+  position: absolute; top: -1px; left: 16px;
+  width: 26px; height: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+/* Alles Technische in Monospace mit Sperrung: Beschriftungen, Zustände,
+   Zahlen. Fließtext bleibt normal lesbar — Monospace über Absätze wäre
+   Stil auf Kosten der Lesbarkeit. */
+:root[data-haut='jarvis'] .brf-thema h2,
+:root[data-haut='jarvis'] .brf-datum,
+:root[data-haut='jarvis'] .brf-fragen h2,
+:root[data-haut='jarvis'] .abschnitt > summary,
+:root[data-haut='jarvis'] .fuss button,
+:root[data-haut='jarvis'] .lokal-skala,
+:root[data-haut='jarvis'] .lokal-zahlen {
+  font-family: var(--mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 10.5px;
+}
+
+/* Eingabefelder wirken wie Terminal-Zeilen */
+:root[data-haut='jarvis'] input[type='text'],
+:root[data-haut='jarvis'] input[type='email'],
+:root[data-haut='jarvis'] input[type='password'],
+:root[data-haut='jarvis'] textarea {
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+}
+:root[data-haut='jarvis'] input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-line), 0 0 18px var(--accent-soft);
+}
+
+/* Der Haupt-Knopf leuchtet, statt nur farbig zu sein */
+:root[data-haut='jarvis'] button.primary {
+  box-shadow: 0 0 20px var(--accent-soft);
+  font-family: var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Das Auge bekommt kreisende Ringe — das Motiv der Vorlage.
+   Nur zwei, langsam: drei rotierende Ringe sind ein Ladebildschirm,
+   zwei sind ein Zustand. */
+:root[data-haut='jarvis'] .onb-auge,
+:root[data-haut='jarvis'] .orb-wrap { position: relative; }
+:root[data-haut='jarvis'] .onb-auge::before,
+:root[data-haut='jarvis'] .onb-auge::after {
+  content: '';
+  position: absolute; top: 50%; left: 50%;
+  border-radius: 50%;
+  border: 1px solid var(--accent-line);
+  pointer-events: none;
+}
+:root[data-haut='jarvis'] .onb-auge::before {
+  width: 74px; height: 74px; margin: -37px 0 0 -37px;
+  border-top-color: var(--accent);
+  animation: jvSpin 9s linear infinite;
+}
+:root[data-haut='jarvis'] .onb-auge::after {
+  width: 54px; height: 54px; margin: -27px 0 0 -27px;
+  border-style: dashed;
+  animation: jvSpinRueck 16s linear infinite;
+}
+@keyframes jvSpin { to { transform: rotate(360deg); } }
+@keyframes jvSpinRueck { to { transform: rotate(-360deg); } }
+
+/* Ein einzelner Suchstrahl, der langsam durchläuft. Sieben Sekunden ist
+   Absicht: schnell genug, dass man ihn bemerkt, langsam genug, dass er
+   beim Arbeiten nicht stört. */
+:root[data-haut='jarvis'] .app > .jv-strahl {
+  position: fixed; left: 0; right: 0; height: 70px;
+  pointer-events: none; z-index: 2;
+  background: linear-gradient(to bottom, transparent, oklch(0.75 0.14 210 / 0.045), transparent);
+  animation: jvStrahl 7s linear infinite;
+}
+@keyframes jvStrahl { from { transform: translateY(-100%); } to { transform: translateY(100vh); } }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-haut='jarvis'] .onb-auge::before,
+  :root[data-haut='jarvis'] .onb-auge::after,
+  :root[data-haut='jarvis'] .app > .jv-strahl { animation: none; }
+  :root[data-haut='jarvis'] .app > .jv-strahl { display: none; }
+}

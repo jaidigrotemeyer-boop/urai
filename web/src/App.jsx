@@ -455,6 +455,8 @@ export default function App() {
 
   return (
     <div className={`app ${wach ? 'wach' : ''}`}>
+      {/* Der Suchstrahl gehört zur JARVIS-Haut — ohne sie ist er unsichtbar */}
+      <div className="jv-strahl" aria-hidden="true" />
       {!wach && <Boot onDone={() => setWach(true)} />}
       <Cursor busy={busy} />
       {onboardingZeigen && (

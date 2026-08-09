@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { t, SPRACHEN, sprache, setzeSprache, useSprache } from '../i18n.js'
 import LokalRegler from './LokalRegler.jsx'
+import { hautLesen, hautSetzen } from '../theme.js'
 
 /** Kleines Formular, um einen eigenen OpenAI-kompatiblen Anbieter einzutragen. */
 function EigenerAnbieterFormular({ onHinzu }) {
@@ -105,6 +106,7 @@ export default function Settings({ onClose, onSaved }) {
   const [gutscheinAntwort, setGutscheinAntwort] = useState(null)
   const [onboardingErneut, setOnboardingErneut] = useState(false)
   const [bildschirme, setBildschirme] = useState([])
+  const [haut, setHaut] = useState(hautLesen)
   const [zeigerAn, setZeigerAn] = useState(() => localStorage.getItem('urai-zeiger') !== 'aus')
 
   useEffect(() => {
@@ -798,6 +800,25 @@ export default function Settings({ onClose, onSaved }) {
             )}
           </div>
         </details>
+
+        <div className="field" style={{ marginBottom: 14 }}>
+          <label>Aussehen</label>
+          <div className="chips">
+            {[['normal', 'Ruhig'], ['jarvis', 'JARVIS']].map(([id, wort]) => (
+              <button
+                key={id}
+                className={`chip ${haut === id ? 'on' : ''}`}
+                onClick={() => { setHaut(id); hautSetzen(id) }}
+              >
+                {wort}
+              </button>
+            ))}
+          </div>
+          <div className="note">
+            JARVIS legt ein Raster, Scanlines und Ecken-Winkel darüber und macht die Kanten
+            hart. Wirkt sofort — die Akzentfarbe bleibt deine.
+          </div>
+        </div>
 
         <details className="abschnitt">
           <summary>Lokales Gehirn</summary>

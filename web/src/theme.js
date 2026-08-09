@@ -71,3 +71,37 @@ export const VORSCHLAEGE = [
 ]
 
 anwenden()
+
+
+// ── Haut: die normale, ruhige Fassung oder das JARVIS-HUD ──────────────
+// Bewusst über ein Attribut am <html> statt über React-State: so greift
+// die Wahl schon beim ersten Bild, ohne dass die Seite kurz falsch aussieht.
+const HAUT_SCHLUESSEL = 'urai-haut'
+
+export function hautLesen() {
+  try {
+    return localStorage.getItem(HAUT_SCHLUESSEL) === 'jarvis' ? 'jarvis' : 'normal'
+  } catch {
+    return 'normal'
+  }
+}
+
+export function hautSetzen(haut) {
+  const wert = haut === 'jarvis' ? 'jarvis' : 'normal'
+  try {
+    localStorage.setItem(HAUT_SCHLUESSEL, wert)
+  } catch {}
+  // JARVIS ist Cyan — sonst sieht das HUD aus wie ein Fremdkörper in einer
+  // anderen Farbe. Das Farbrad bleibt danach frei: wer weiterdreht, behält
+  // das HUD und bekommt seine Farbe.
+  if (wert === 'jarvis') farbeSetzen({ h: 196, s: 78, l: 62 })
+  hautAnwenden()
+}
+
+export function hautAnwenden() {
+  const el = document.documentElement
+  if (hautLesen() === 'jarvis') el.setAttribute('data-haut', 'jarvis')
+  else el.removeAttribute('data-haut')
+}
+
+hautAnwenden()
