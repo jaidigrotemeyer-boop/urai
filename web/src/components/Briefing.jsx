@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { t } from '../i18n.js'
+import { t, sprache } from '../i18n.js'
 
 /**
  * Das Tagesbriefing: was beim Öffnen dasteht, bevor man irgendetwas tippt.
@@ -70,7 +70,9 @@ export default function Briefing({ onSchliessen, onThemaFragen }) {
     setNeuesThema('')
   }
 
-  const datum = new Date().toLocaleDateString(undefined, {
+  // Die in URAI gewählte Sprache, nicht die des Browsers — sonst stand über
+  // der französischen Ansicht "FREITAG, 7. AUGUST".
+  const datum = new Date().toLocaleDateString(sprache(), {
     weekday: 'long',
     day: 'numeric',
     month: 'long',

@@ -13,6 +13,8 @@ export const SPRACHEN = {
 
 const T = {
   de: {
+    zeigerAn: 'Zeiger an',
+    zeigerAus: 'Zeiger aus',
 
     onbWillkommenTitel: 'Willkommen bei URAI',
     onbWillkommenText: 'Ein Agent, der auf deinem Rechner wirklich handelt. Läuft daheim, kostet nichts.',
@@ -169,6 +171,8 @@ const T = {
     off: 'aus',
   },
   en: {
+    zeigerAn: 'Pointer on',
+    zeigerAus: 'Pointer off',
 
     onbWillkommenTitel: 'Welcome to URAI',
     onbWillkommenText: 'An agent that really acts on your computer. Runs at home, costs nothing.',
@@ -325,6 +329,8 @@ const T = {
     off: 'off',
   },
   es: {
+    zeigerAn: 'Puntero on',
+    zeigerAus: 'Puntero off',
 
     onbWillkommenTitel: 'Bienvenido a URAI',
     onbWillkommenText: 'Un agente que actúa de verdad en tu ordenador. Funciona en casa, no cuesta nada.',
@@ -481,6 +487,8 @@ const T = {
     off: 'no',
   },
   fr: {
+    zeigerAn: 'Pointeur on',
+    zeigerAus: 'Pointeur off',
 
     onbWillkommenTitel: 'Bienvenue dans URAI',
     onbWillkommenText: 'Un agent qui agit vraiment sur ton ordinateur. Tourne à la maison, ne coûte rien.',
@@ -637,6 +645,8 @@ const T = {
     off: 'non',
   },
   it: {
+    zeigerAn: 'Puntatore on',
+    zeigerAus: 'Puntatore off',
 
     onbWillkommenTitel: 'Benvenuto in URAI',
     onbWillkommenText: 'Un agente che agisce davvero sul tuo computer. Funziona a casa, non costa nulla.',
@@ -793,6 +803,8 @@ const T = {
     off: 'no',
   },
   pt: {
+    zeigerAn: 'Ponteiro on',
+    zeigerAus: 'Ponteiro off',
 
     onbWillkommenTitel: 'Bem-vindo ao URAI',
     onbWillkommenText: 'Um agente que realmente age no seu computador. Roda em casa, não custa nada.',
@@ -949,6 +961,8 @@ const T = {
     off: 'não',
   },
   tr: {
+    zeigerAn: 'İmleç açık',
+    zeigerAus: 'İmleç kapalı',
 
     onbWillkommenTitel: "URAI'ye hoş geldin",
     onbWillkommenText: 'Bilgisayarında gerçekten iş yapan bir ajan. Evde çalışır, hiçbir şeye mal olmaz.',

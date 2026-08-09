@@ -727,7 +727,7 @@ function Fussleiste({ ansicht, setAnsicht, status, brain, onFarbe, onModell, onV
 
         <div className="fuss-rechts">
           <button className="fuss-verlauf" onClick={onVerlauf} title={t('navVerlauf')}>
-            Verlauf
+            {t('navVerlauf')}
           </button>
           <button
             className="farbknopf"
