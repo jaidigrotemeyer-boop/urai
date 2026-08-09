@@ -1197,46 +1197,53 @@ export default function Werkstatt({ onSenden, busy, ereignisse = [], onStopp }) 
         </button>
 
         <div className="ablauf-fuss">
-          <input
-            className="ablauf-name"
-            value={ablauf.name}
-            placeholder="Name"
-            onChange={(e) =>
-              setzen((a) => ({
-                ...a,
-                name: e.target.value,
-                // WARUM: solange der Ablauf noch nie gespeichert wurde, folgt
-                // die Kennung dem Namen. Danach nicht mehr — sonst wandert
-                // die Datei unter data/ablaeufe/ bei jedem Tippen weiter.
-                id: liste.some((x) => x.id === a.id) ? a.id : slug(e.target.value),
-              }))
-            }
-          />
-          <span className="ablauf-kennung">{slug(ablauf.id)}</span>
+          {/* Handeln (Name, Start/Stopp/Speichern) und Status (Takt, Meldung,
+              Warnung) sind zwei verschiedene Anliegen — getrennte Zeilen statt
+              einer Reihe aus bis zu neun Elementen wirken deutlich ruhiger. */}
+          <div className="ablauf-fuss-haupt">
+            <input
+              className="ablauf-name"
+              value={ablauf.name}
+              placeholder="Name"
+              onChange={(e) =>
+                setzen((a) => ({
+                  ...a,
+                  name: e.target.value,
+                  // WARUM: solange der Ablauf noch nie gespeichert wurde, folgt
+                  // die Kennung dem Namen. Danach nicht mehr — sonst wandert
+                  // die Datei unter data/ablaeufe/ bei jedem Tippen weiter.
+                  id: liste.some((x) => x.id === a.id) ? a.id : slug(e.target.value),
+                }))
+              }
+            />
+            <span className="ablauf-kennung">{slug(ablauf.id)}</span>
 
-          <button className="primary" disabled={busy || !ablauf.bausteine.length} onClick={starten}>
-            {laeuft ? t('running') : t('go')}
-          </button>
-          {onStopp && (
-            <button className="danger" disabled={!busy && !laeuft} onClick={onStopp}>
-              {t('stop')}
+            <button className="primary" disabled={busy || !ablauf.bausteine.length} onClick={starten}>
+              {laeuft ? t('running') : t('go')}
             </button>
-          )}
-          <button disabled={!schmutzig} onClick={speichern}>
-            {t('save')}
-          </button>
+            {onStopp && (
+              <button className="danger" disabled={!busy && !laeuft} onClick={onStopp}>
+                {t('stop')}
+              </button>
+            )}
+            <button disabled={!schmutzig} onClick={speichern}>
+              {t('save')}
+            </button>
+          </div>
 
-          <span className="ablauf-tempo">
-            {lauf.ms ? <Zahl wert={lauf.ms} einheit="ms" /> : <span className="takt-still">{ablauf.bausteine.length} Bausteine</span>}
-          </span>
-
-          {meldung ? <span className="ablauf-meldung">{meldung}</span> : null}
-          {warnungen.length ? (
-            <span className="ablauf-warnung" title={warnungen.join('\n')}>
-              {warnungen.length} Warnung(en)
+          <div className="ablauf-fuss-status">
+            <span className="ablauf-tempo">
+              {lauf.ms ? <Zahl wert={lauf.ms} einheit="ms" /> : <span className="takt-still">{ablauf.bausteine.length} Bausteine</span>}
             </span>
-          ) : null}
-          {bindetVon ? <span className="ablauf-meldung">Ziel anklicken — von {bindetVon}</span> : null}
+
+            {meldung ? <span className="ablauf-meldung">{meldung}</span> : null}
+            {warnungen.length ? (
+              <span className="ablauf-warnung" title={warnungen.join('\n')}>
+                {warnungen.length} Warnung(en)
+              </span>
+            ) : null}
+            {bindetVon ? <span className="ablauf-meldung">Ziel anklicken — von {bindetVon}</span> : null}
+          </div>
         </div>
 
         {fertig && (
