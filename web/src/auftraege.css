@@ -1,0 +1,106 @@
+/* ── Hintergrundaufträge ───────────────────────────────────────────────
+   Unten rechts, klein, und nur da, wenn etwas läuft. */
+
+.auf {
+  position: fixed;
+  right: 18px;
+  bottom: 74px;
+  z-index: 53;
+  width: min(320px, calc(100vw - 36px));
+  padding: 9px 10px 8px;
+  border-radius: var(--r-sm, 10px);
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.7);
+  font-size: 12px;
+}
+
+.auf-kopf {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+  margin-bottom: 6px;
+  font-family: var(--mono, ui-monospace, monospace);
+}
+
+.auf-zeile {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 5px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.auf-zeile:first-of-type { border-top: 0; }
+
+.auf-punkt {
+  width: 6px;
+  height: 6px;
+  margin-top: 5px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--dimmer);
+}
+.auf-laeuft .auf-punkt { background: var(--accent); animation: aufPuls 1.6s ease-in-out infinite; }
+.auf-fertig .auf-punkt { background: oklch(0.72 0.16 150); }
+.auf-fehler .auf-punkt { background: var(--danger); }
+
+@keyframes aufPuls {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.auf-mitte { flex: 1; min-width: 0; }
+
+/* Der Auftragstext wird abgeschnitten, nicht umgebrochen: die Liste soll auch
+   bei einem langen Auftrag eine Zeile pro Auftrag bleiben. Der volle Text
+   steht im title. */
+.auf-text {
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.auf-stand {
+  font-size: 10.5px;
+  color: var(--dim);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.auf-fehler .auf-stand { color: var(--danger); }
+
+.auf-knopf {
+  flex: 0 0 auto;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 10.5px;
+  color: var(--dim);
+  cursor: pointer;
+}
+.auf-knopf:hover { color: var(--text); border-color: var(--accent-line); }
+.auf-weg { padding: 2px 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .auf-laeuft .auf-punkt { animation: none; }
+}
+
+/* Der Knopf neben "Los". Bewusst unauffälliger als der Hauptknopf: nebenher
+   ist der Sonderfall, nicht der Normalfall. */
+.hintergrund-knopf {
+  flex: 0 0 auto;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm, 9px);
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--dim);
+  cursor: pointer;
+  align-self: stretch;
+}
+.hintergrund-knopf:hover:not(:disabled) { color: var(--text); border-color: var(--accent-line); }
+.hintergrund-knopf:disabled { opacity: 0.4; cursor: default; }

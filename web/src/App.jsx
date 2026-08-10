@@ -20,6 +20,7 @@ import JarvisKern from './components/JarvisKern.jsx'
 import Kacheln from './components/Kacheln.jsx'
 import JarvisStrom from './components/JarvisStrom.jsx'
 import Meldungen from './components/Meldungen.jsx'
+import Auftraege from './components/Auftraege.jsx'
 
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 const SESSION = `s-${new Date().toISOString().slice(0, 10)}`
@@ -68,6 +69,7 @@ export default function App() {
   const hautAn = useJarvisHaut()
   const [redet, setRedet] = useState(false)
   const [meldungen, setMeldungen] = useState([])
+  const [auftraege, setAuftraege] = useState([])
   const [dauerAn, setDauerAn] = useState(() => localStorage.getItem('urai-dauerlauschen') === 'an')
   const [dauerPrueft, setDauerPrueft] = useState(false)
   const dauer = useRef(null)
@@ -130,6 +132,14 @@ export default function App() {
       sock.onmessage = (e) => handle(JSON.parse(e.data))
     }
     connect()
+
+    // Beim Öffnen nachsehen, was noch läuft: Aufträge überleben das Neuladen
+    // der Seite, weil sie im Server hängen und nicht in dieser Ansicht. Ohne
+    // das wären sie nach einem Neuladen unsichtbar und liefen trotzdem weiter.
+    fetch('/api/auftraege')
+      .then((r) => r.json())
+      .then((liste) => alive && Array.isArray(liste) && setAuftraege(liste))
+      .catch(() => {})
 
     fetch('/api/status')
       .then((r) => r.json())
@@ -377,6 +387,20 @@ export default function App() {
       // URAI sagt von sich aus etwas. Ob überhaupt gemeldet wird, hat der
       // Server schon entschieden (Ruhezeit, Obergrenze, kein Nachplappern) —
       // hier geht es nur noch um Zeigen und Vorlesen.
+      // Hintergrundauftrag hat sich gerührt. Der Server schickt den ganzen
+      // Auftrag mit, nicht nur die id — dann muss die Oberfläche nicht
+      // nachfragen und kann auch nicht aus dem Tritt geraten.
+      case 'auftrag_stand':
+        setAuftraege((xs) => {
+          const rest = xs.filter((a) => a.id !== msg.auftrag.id)
+          return [...rest, msg.auftrag].sort((a, b) => a.gestartet - b.gestartet)
+        })
+        break
+
+      case 'auftrag_weg':
+        setAuftraege((xs) => xs.filter((a) => a.id !== msg.id))
+        break
+
       case 'meldung': {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
         setMeldungen((xs) => [...xs.slice(-3), { id, text: msg.text, art: msg.art, dringend: msg.dringend }])
@@ -587,6 +611,16 @@ export default function App() {
       {/* Solange dauerhaft zugehört wird, steht das dauerhaft da. Absichtlich
           nicht ausblendbar: ein offenes Mikrofon ohne sichtbares Zeichen ist
           genau das, was man an solchen Geräten zu Recht kritisiert. */}
+      <Auftraege
+        auftraege={auftraege}
+        onAbbrechen={(id) => fetch(`/api/auftraege/${id}`, { method: 'DELETE' }).catch(() => {})}
+        onOeffnen={(a) => {
+          // Das Ergebnis landet als Notiz im Verlauf, nicht als Antwort: es
+          // gehört nicht zu dem, was gerade im Chat besprochen wurde.
+          push({ kind: 'note', text: `Hintergrund „${a.text}":\n\n${a.ergebnis || '(kein Ergebnis)'}` })
+          fetch(`/api/auftraege/${a.id}`, { method: 'DELETE' }).catch(() => {})
+        }}
+      />
       {dauerAn && (
         <div className={`ohr ${dauerPrueft ? 'ohr-prueft' : ''}`} title="URAI hört durchgehend mit">
           <span className="ohr-punkt" aria-hidden="true" />
@@ -711,6 +745,33 @@ export default function App() {
                   }
                 }}
               />
+              {/* Nur sichtbar, wenn etwas im Feld steht: ein zweiter Knopf
+                  neben "Los" ist sonst dauerhaft eine Frage, die man nicht
+                  gestellt hat. */}
+              {!!draft.trim() && (
+                <button
+                  className="hintergrund-knopf"
+                  title="Läuft weiter, während du hier schon das Nächste machst. Meldet sich, wenn er fertig ist."
+                  disabled={!connected}
+                  onClick={async () => {
+                    const text = draft.trim()
+                    setDraft('')
+                    try {
+                      const r = await fetch('/api/auftraege', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ text }),
+                      })
+                      const j = await r.json()
+                      if (j.fehler) push({ kind: 'msg', role: 'error', text: j.fehler })
+                    } catch {
+                      push({ kind: 'msg', role: 'error', text: 'Der Auftrag ließ sich nicht starten.' })
+                    }
+                  }}
+                >
+                  Nebenher
+                </button>
+              )}
               <button className="primary" onClick={() => send()} disabled={!connected || !draft.trim()}>
                 {busy ? `${t('go')} +` : t('go')}
               </button>

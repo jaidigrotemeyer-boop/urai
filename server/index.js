@@ -26,6 +26,7 @@ import { alleVerbinden as mcpVerbinden, mcpWerkzeuge, mcpStand } from './mcp.js'
 import { hoererDazu, melden, beschaeftigtSetzen } from './melder.js'
 import { istGemeint } from './zuhoeren.js'
 import { PERSOENLICHKEITEN } from './persoenlichkeit.js'
+import { auftragListe, auftragStarten, auftragAbbrechen, auftragHoererDazu, altesWeg } from './auftraege.js'
 import { skillListe, skillLesen, skillSchreiben, skillLoeschen } from './skills.js'
 
 // Die Werkzeugliste muss wissen, wo sie die MCP-Werkzeuge herbekommt
@@ -152,6 +153,22 @@ app.post('/api/gemeint', async (req, res) => {
   }
 })
 
+// Hintergrundaufträge: laufen weiter, während im Chat schon das Nächste läuft.
+app.get('/api/auftraege', (_req, res) => {
+  altesWeg()
+  res.json(auftragListe())
+})
+
+app.post('/api/auftraege', (req, res) => {
+  const ergebnis = auftragStarten(req.body?.text)
+  if (ergebnis.fehler) return res.status(400).json(ergebnis)
+  res.json({ ...ergebnis, auftraege: auftragListe() })
+})
+
+app.delete('/api/auftraege/:id', (req, res) => {
+  res.json(auftragAbbrechen(req.params.id))
+})
+
 // Die fertigen Persönlichkeiten. Kommen vom Server, damit die Oberfläche sie
 // nicht ein zweites Mal führen muss — sonst driften Liste und Wirkung auseinander.
 app.get('/api/persoenlichkeiten', (_req, res) => {
@@ -240,7 +257,7 @@ app.post('/api/config', (req, res) => {
     'anstrengung', 'spendenLink', 'onboardingFertig',
     'briefingAn', 'briefingThemen', 'briefingZuletztGezeigt', 'schluessel',
     'meldungenAn', 'meldungenProStunde', 'meldungenRuheVon', 'meldungenRuheBis',
-    'persoenlichkeit', 'persoenlichkeitEigen',
+    'persoenlichkeit', 'persoenlichkeitEigen', 'maxHintergrund',
     'telegramAn', 'telegramToken', 'telegramErlaubteIds', 'telegramSprachantwort',
     'mausGleiten', 'mausGleitenStaerke', 'lokalBudgetGb', 'lokalModell', 'lokalSehModell', 'mcpServer',
   ]
@@ -430,6 +447,8 @@ wss.on('connection', (ws) => {
   // (Ruhezeit, Obergrenze, kein Nachplappern) liegen im Modul und gelten für
   // alle Seiten gemeinsam — sonst meldete URAI bei zwei Tabs doppelt.
   const melderWeg = hoererDazu(send)
+  // Hintergrundaufträge melden ihren Stand an jede offene Seite
+  const auftragWeg = auftragHoererDazu(send)
 
   // Was der Meldung wert ist, entscheidet sich hier und nicht im Melder:
   // der kennt nur die Regeln, nicht die Bedeutung.
@@ -497,8 +516,9 @@ wss.on('connection', (ws) => {
     watchers.delete(watcher)
     waechter.stop()
     waechterListe.delete(waechter)
-    // Ohne das sammelt der Melder tote Verbindungen und redet ins Leere
+    // Ohne das sammeln Melder und Auftragsliste tote Verbindungen
     melderWeg()
+    auftragWeg()
   })
 })
 

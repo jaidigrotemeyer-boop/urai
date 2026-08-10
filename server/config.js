@@ -174,6 +174,11 @@ const DEFAULTS = {
   persoenlichkeit: 'assistent',
   persoenlichkeitEigen: '',
 
+  // Wie viele Aufträge gleichzeitig im Hintergrund laufen dürfen. Jeder ist ein
+  // eigener Agent mit eigenem Kontingentverbrauch — auf 8 GB ist zwei die
+  // Grenze zwischen "läuft nebenher" und "alles steht".
+  maxHintergrund: 2,
+
   // Den Zeiger sichtbar zum Ziel führen, statt ihn hinzubeamen. Kostet pro
   // Klick ein paar Zehntelsekunden — dafür sieht man, was URAI gleich anfasst,
   // und kann eingreifen, bevor er klickt.
