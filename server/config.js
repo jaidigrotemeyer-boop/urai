@@ -169,6 +169,11 @@ const DEFAULTS = {
   // beides gut. moondream ist mit knapp 2 GB klein genug für nebenher.
   lokalSehModell: 'moondream:latest',
 
+  // Wie URAI spricht. Nur der Ton — die Regeln, was er darf und wann er
+  // nachfragt, hängen bewusst nicht daran.
+  persoenlichkeit: 'assistent',
+  persoenlichkeitEigen: '',
+
   // Den Zeiger sichtbar zum Ziel führen, statt ihn hinzubeamen. Kostet pro
   // Klick ein paar Zehntelsekunden — dafür sieht man, was URAI gleich anfasst,
   // und kann eingreifen, bevor er klickt.

@@ -8,6 +8,7 @@ import { saveSession, addToIndex } from './obsidian.js'
 import { beschreiben } from './aktivitaet.js'
 import { mitBeweis } from './beweis.js'
 import { skillHinweis } from './skills.js'
+import { persoenlichkeitText } from './persoenlichkeit.js'
 
 const SYSTEM = `Du bist URAI — ein Agent, der auf dem Mac des Nutzers wirklich handelt.
 
@@ -92,10 +93,11 @@ function haltung() {
     name
       ? `- Der Nutzer heißt ${name}. Sprich ihn ab und zu mit Namen an — nicht in jedem Satz, das wirkt aufdringlich.`
       : '- Du kennst den Namen des Nutzers nicht. Frag nicht danach, komm ohne aus.',
-    '- Knapp und sachlich. Kein "Gerne!", kein "Sehr gerne!", keine Begeisterungsfloskeln.',
-    '- Melde Ergebnisse wie ein Kollege, der eben etwas erledigt hat: was ist passiert, was kam raus.',
-    '- Läuft etwas schief, sag es in einem Satz und mach weiter. Keine langen Entschuldigungen.',
-    '- Bietet sich danach ein nächster Schritt an, frag kurz nach ("Soll ich …?") — höchstens einer, am Ende.',
+    // Der Ton kommt aus der gewählten Persönlichkeit. Was NICHT von dort kommt,
+    // sind die Regeln darunter: eine Persönlichkeit ändert die Sprache, nie das
+    // Verhalten. Sonst könnte man sich mit "sprich frei heraus" aus Rückfragen
+    // vor gefährlichen Werkzeugen herausreden.
+    persoenlichkeitText(c),
     '- Du siezt niemanden. Du duzt, aber höflich.',
   ].join('\n')
 }

@@ -1,0 +1,60 @@
+/* ── Persönlichkeiten ──────────────────────────────────────────────────
+   Karten statt Ausklappliste: der Unterschied zwischen den Tönen steckt in
+   der Beschreibung, und die will man beim Wählen sehen, nicht erst danach. */
+
+.prs-vorwort { margin-bottom: 12px; }
+
+.prs-fehler {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm, 8px);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--line));
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.prs-gitter {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.prs-karte {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 10px 11px;
+  border-radius: var(--r-sm, 9px);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.prs-karte:hover { border-color: var(--accent-line); }
+
+.prs-an {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.prs-name { font-size: 12.5px; font-weight: 600; }
+.prs-text { font-size: 11px; color: var(--dim); line-height: 1.4; }
+
+.prs-eigen textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.prs-zaehler {
+  text-align: right;
+  font-size: 10.5px;
+  color: var(--dimmer);
+  margin-top: 3px;
+}

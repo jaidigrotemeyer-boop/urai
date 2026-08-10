@@ -3,6 +3,7 @@ import { t, SPRACHEN, sprache, setzeSprache, useSprache } from '../i18n.js'
 import LokalRegler from './LokalRegler.jsx'
 import McpEinstellungen from './McpEinstellungen.jsx'
 import SkillEinstellungen from './SkillEinstellungen.jsx'
+import Persoenlichkeiten from './Persoenlichkeiten.jsx'
 import { hautLesen, hautSetzen } from '../theme.js'
 
 /** Kleines Formular, um einen eigenen OpenAI-kompatiblen Anbieter einzutragen. */
@@ -183,6 +184,8 @@ export default function Settings({ onClose, onSaved }) {
       meldungenProStunde: Number(cfg.meldungenProStunde) || 6,
       meldungenRuheVon: Number(cfg.meldungenRuheVon) || 0,
       meldungenRuheBis: Number(cfg.meldungenRuheBis) || 0,
+      persoenlichkeit: cfg.persoenlichkeit || 'assistent',
+      persoenlichkeitEigen: cfg.persoenlichkeitEigen || '',
     }
     if (cfg.telegramToken && !String(cfg.telegramToken).startsWith('••••')) patch.telegramToken = cfg.telegramToken
     if (onboardingErneut) patch.onboardingFertig = false
@@ -404,6 +407,13 @@ export default function Settings({ onClose, onSaved }) {
             bei den Abläufen. Ein Ablauf führt aus, ein Skill weiß nur etwas,
             und ein MCP-Server gehört jemand anderem — drei verschiedene Dinge,
             die man auch getrennt an- und abschalten können muss. */}
+        {/* Ganz nach oben, direkt hinter die Sprache: der Ton ist das Erste,
+            was auffällt, wenn man mit etwas täglich redet. */}
+        <details className="abschnitt">
+          <summary>Persönlichkeit</summary>
+          <Persoenlichkeiten cfg={cfg} setCfg={setCfg} />
+        </details>
+
         <details className="abschnitt">
           <summary>Apps verbinden (MCP)</summary>
           <McpEinstellungen cfg={cfg} setCfg={setCfg} />

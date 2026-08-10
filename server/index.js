@@ -25,6 +25,7 @@ import { stand as lokalStand, ollamaModelle, modellCacheLeeren } from './lokal.j
 import { alleVerbinden as mcpVerbinden, mcpWerkzeuge, mcpStand } from './mcp.js'
 import { hoererDazu, melden, beschaeftigtSetzen } from './melder.js'
 import { istGemeint } from './zuhoeren.js'
+import { PERSOENLICHKEITEN } from './persoenlichkeit.js'
 import { skillListe, skillLesen, skillSchreiben, skillLoeschen } from './skills.js'
 
 // Die Werkzeugliste muss wissen, wo sie die MCP-Werkzeuge herbekommt
@@ -151,6 +152,12 @@ app.post('/api/gemeint', async (req, res) => {
   }
 })
 
+// Die fertigen Persönlichkeiten. Kommen vom Server, damit die Oberfläche sie
+// nicht ein zweites Mal führen muss — sonst driften Liste und Wirkung auseinander.
+app.get('/api/persoenlichkeiten', (_req, res) => {
+  res.json(PERSOENLICHKEITEN.map(({ id, name, beschreibung }) => ({ id, name, beschreibung })))
+})
+
 app.get('/api/telegram', (_req, res) => {
   const c = loadConfig()
   res.json({ ...TelegramTuer.pruefen(), laeuft: telegram.laeuft, name: telegram.name || '', erlaubte: (c.telegramErlaubteIds || []).length })
@@ -233,6 +240,7 @@ app.post('/api/config', (req, res) => {
     'anstrengung', 'spendenLink', 'onboardingFertig',
     'briefingAn', 'briefingThemen', 'briefingZuletztGezeigt', 'schluessel',
     'meldungenAn', 'meldungenProStunde', 'meldungenRuheVon', 'meldungenRuheBis',
+    'persoenlichkeit', 'persoenlichkeitEigen',
     'telegramAn', 'telegramToken', 'telegramErlaubteIds', 'telegramSprachantwort',
     'mausGleiten', 'mausGleitenStaerke', 'lokalBudgetGb', 'lokalModell', 'lokalSehModell', 'mcpServer',
   ]
