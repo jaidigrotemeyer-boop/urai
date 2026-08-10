@@ -17,6 +17,7 @@ import { t, useSprache, sprache } from './i18n.js'
 import { hoeren, sprechen, sprechenUnterbrechbar, still, kannHoeren, weckwortHoeren } from './stimme.js'
 import JarvisLeiste, { JarvisEcken, useJarvisHaut } from './components/JarvisLeiste.jsx'
 import JarvisKern from './components/JarvisKern.jsx'
+import Kacheln from './components/Kacheln.jsx'
 
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 const SESSION = `s-${new Date().toISOString().slice(0, 10)}`
@@ -553,6 +554,10 @@ export default function App() {
                 {status?.config?.profilName ? `${t('gruss')}, ${status.config.profilName}.` : t('emptyTitle')}
                 <br />
                 {t('emptySub')}
+                {/* Das Armaturenbrett steht beim leeren Chat und verschwindet,
+                    sobald geredet wird — dann zählt der Verlauf, nicht der
+                    Zustand. Es zeigt sich von selbst nur mit JARVIS-Haut. */}
+                <Kacheln onFrage={(frage) => send(frage)} />
               </div>
             )}
             {items.map((it) => (

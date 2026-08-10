@@ -151,6 +151,18 @@
   margin: 0 auto 22px;
 }
 
+/* Bei niedrigem Fenster frisst der Kern die ganze leere Fläche und drückt das
+   Armaturenbrett unter die Kante — erreichbar bleibt es (.messages scrollt),
+   aber man sieht es nicht mehr. Dann lieber ein kleinerer Kern: er zeigt den
+   Zustand auch in halber Größe, die Kacheln zeigen ihn gar nicht mehr. */
+@media (max-height: 620px) {
+  :root[data-haut='jarvis'] .empty-kern {
+    width: 84px;
+    height: 84px;
+    margin-bottom: 12px;
+  }
+}
+
 /* Ein einzelner Suchstrahl, der langsam durchläuft. Sieben Sekunden ist
    Absicht: schnell genug, dass man ihn bemerkt, langsam genug, dass er
    beim Arbeiten nicht stört. */
