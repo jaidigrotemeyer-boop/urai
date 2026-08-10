@@ -296,6 +296,191 @@ function pptxTeile(titel, folien) {
   return teile
 }
 
+// ── Excel ───────────────────────────────────────────────────────────────
+
+const XL_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+
+// Bijektive 26er-Zählung: nach Z kommt AA und nicht BA. Der klassische Patzer
+// ist ein Modulo ohne das -1 — dann fehlt die Spalte Z und alles verrutscht.
+function spalte(n) {
+  let s = ''
+  while (n > 0) {
+    s = String.fromCharCode(65 + ((n - 1) % 26)) + s
+    n = Math.floor((n - 1) / 26)
+  }
+  return s
+}
+
+// Der Typ entscheidet, ob Excel rechnen darf: eine Zahl muss sich summieren
+// lassen, ein Text darf nicht heimlich umgedeutet werden.
+function zellwert(roh) {
+  if (roh === null || roh === undefined) return null
+  if (typeof roh === 'boolean') return { typ: 'b', wert: roh ? 1 : 0 }
+  if (typeof roh === 'number')
+    return Number.isFinite(roh) ? { typ: 'n', wert: String(roh) } : { typ: 's', wert: String(roh) }
+  const s = String(roh)
+  if (s === '') return null
+  // Zahlen kommen vom Modell fast immer als Text an. Führende Nullen und sehr
+  // lange Ziffernfolgen bleiben Text — Postleitzahl und Telefonnummer sind
+  // keine Zahlen, und ab 16 Stellen rundet Excel stillschweigend.
+  if (/^-?(0|[1-9]\d*)(\.\d+)?$/.test(s) && s.replace(/\D/g, '').length <= 15) return { typ: 'n', wert: s }
+  return { typ: 's', wert: s }
+}
+
+// Excel verbietet diese Zeichen im Reiternamen und kappt bei 31 Zeichen;
+// doppelte Namen lehnt es beim Öffnen komplett ab.
+function blattname(roh, i, belegt) {
+  let name = String(roh ?? '')
+    .replace(/[:\\\/?*\[\]]/g, ' ')
+    .trim()
+    .slice(0, 31)
+  if (!name) name = `Tabelle${i + 1}`
+  let kandidat = name
+  let z = 2
+  while (belegt.has(kandidat.toLowerCase())) kandidat = `${name.slice(0, 28)} ${z++}`
+  belegt.add(kandidat.toLowerCase())
+  return kandidat
+}
+
+function blattXml(zeilen, kopfzeile) {
+  let maxSp = 0
+  const breiten = []
+  const reihen = zeilen
+    .map((zeile, r) => {
+      const nr = r + 1
+      // s="1" zieht die zweite Schrift aus styles.xml — nur für die Kopfzeile.
+      const stil = kopfzeile && r === 0 ? ' s="1"' : ''
+      if (zeile.length > maxSp) maxSp = zeile.length
+      const zellen = zeile
+        .map((roh, c) => {
+          const w = zellwert(roh)
+          // Leere Zellen weglassen: eine fehlende Zelle ist gültig, eine leere
+          // <c/> ohne Wert macht manche Betrachter nervös.
+          if (!w) return ''
+          const ref = `${spalte(c + 1)}${nr}`
+          const laenge = String(w.wert).split('\n')[0].length
+          if (laenge > (breiten[c] || 0)) breiten[c] = laenge
+          if (w.typ === 's')
+            return `<c r="${ref}"${stil} t="inlineStr"><is><t xml:space="preserve">${esc(w.wert)}</t></is></c>`
+          if (w.typ === 'b') return `<c r="${ref}"${stil} t="b"><v>${w.wert}</v></c>`
+          return `<c r="${ref}"${stil}><v>${w.wert}</v></c>`
+        })
+        .join('')
+      return zellen ? `<row r="${nr}">${zellen}</row>` : ''
+    })
+    .join('')
+
+  const ecke = maxSp ? `${spalte(maxSp)}${zeilen.length}` : 'A1'
+  const spalten = maxSp
+    ? `<cols>${Array.from({ length: maxSp }, (_, i) => {
+        // Ohne customWidth stehen alle Spalten auf 8,43 und jeder längere Text
+        // ist abgeschnitten. Grob nach Inhalt schätzen ist besser als nichts.
+        const b = Math.min(60, Math.max(9, (breiten[i] || 0) + 2))
+        return `<col min="${i + 1}" max="${i + 1}" width="${b}" customWidth="1"/>`
+      }).join('')}</cols>`
+    : ''
+  // Kopfzeile festfrieren, damit sie beim Scrollen stehen bleibt.
+  const sicht =
+    kopfzeile && zeilen.length > 1
+      ? '<sheetViews><sheetView workbookViewId="0">' +
+        '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' +
+        '<selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews>'
+      : '<sheetViews><sheetView workbookViewId="0"/></sheetViews>'
+
+  // Die Reihenfolge der Kinder ist im Schema festgelegt: dimension, sheetViews,
+  // sheetFormatPr, cols, sheetData. Vertauscht lehnt Excel die Datei ab.
+  return (
+    `${KOPF}<worksheet xmlns="${XL_NS}">` +
+    `<dimension ref="A1:${ecke}"/>${sicht}` +
+    '<sheetFormatPr defaultRowHeight="15"/>' +
+    `${spalten}<sheetData>${reihen}</sheetData></worksheet>`
+  )
+}
+
+// Zwei Schriften, zwei Formate: 0 ist normal, 1 ist fett. Mehr braucht das
+// Blatt nicht, aber die leeren Pflichtlisten müssen trotzdem alle da sein.
+const XL_STIL =
+  `${KOPF}<styleSheet xmlns="${XL_NS}">` +
+  '<fonts count="2">' +
+  '<font><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/><family val="2"/></font>' +
+  '<font><b/><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/><family val="2"/></font>' +
+  '</fonts>' +
+  '<fills count="2"><fill><patternFill patternType="none"/></fill>' +
+  '<fill><patternFill patternType="gray125"/></fill></fills>' +
+  '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+  '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+  '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+  '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>' +
+  '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+  '</styleSheet>'
+
+// app.xml ist bei .xlsx anders als bei .docx nicht bloß Zierde: Excel liest
+// hier die Blattnamen für die Übersicht.
+function anwendungsdaten(namen) {
+  return (
+    `${KOPF}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"` +
+    ` xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">` +
+    '<Application>URAI</Application><DocSecurity>0</DocSecurity><ScaleCrop>false</ScaleCrop>' +
+    '<HeadingPairs><vt:vector size="2" baseType="variant">' +
+    '<vt:variant><vt:lpstr>Arbeitsblätter</vt:lpstr></vt:variant>' +
+    `<vt:variant><vt:i4>${namen.length}</vt:i4></vt:variant></vt:vector></HeadingPairs>` +
+    `<TitlesOfParts><vt:vector size="${namen.length}" baseType="lpstr">` +
+    namen.map((n) => `<vt:lpstr>${esc(n)}</vt:lpstr>`).join('') +
+    '</vt:vector></TitlesOfParts>' +
+    '<LinksUpToDate>false</LinksUpToDate><SharedDoc>false</SharedDoc>' +
+    '<HyperlinksChanged>false</HyperlinksChanged><AppVersion>16.0300</AppVersion></Properties>'
+  )
+}
+
+function xlsxTeile(titel, blaetter, kopfzeile) {
+  const nr = blaetter.map((_, i) => i + 1)
+  const teile = {
+    '[Content_Types].xml':
+      `${KOPF}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      nr
+        .map(
+          (n) =>
+            `<Override PartName="/xl/worksheets/sheet${n}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+        )
+        .join('') +
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>' +
+      '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' +
+      '</Types>',
+    '_rels/.rels': beziehungen([
+      { id: 'rId1', typ: `${NS_REL}/officeDocument`, ziel: 'xl/workbook.xml' },
+      {
+        id: 'rId2',
+        typ: 'http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties',
+        ziel: 'docProps/core.xml',
+      },
+      { id: 'rId3', typ: `${NS_REL}/extended-properties`, ziel: 'docProps/app.xml' },
+    ]),
+    'docProps/core.xml': kerndaten(titel),
+    'docProps/app.xml': anwendungsdaten(blaetter.map((b) => b.name)),
+    'xl/workbook.xml':
+      `${KOPF}<workbook xmlns="${XL_NS}" xmlns:r="${NS_REL}">` +
+      '<workbookPr/><bookViews><workbookView xWindow="0" yWindow="0" windowWidth="20000" windowHeight="14000"/></bookViews>' +
+      `<sheets>${blaetter
+        .map((b, i) => `<sheet name="${esc(b.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`)
+        .join('')}</sheets></workbook>`,
+    'xl/_rels/workbook.xml.rels': beziehungen([
+      ...nr.map((n) => ({
+        id: `rId${n}`,
+        typ: `${NS_REL}/worksheet`,
+        ziel: `worksheets/sheet${n}.xml`,
+      })),
+      { id: `rId${nr.length + 1}`, typ: `${NS_REL}/styles`, ziel: 'styles.xml' },
+    ]),
+    'xl/styles.xml': XL_STIL,
+  }
+  for (const n of nr) teile[`xl/worksheets/sheet${n}.xml`] = blattXml(blaetter[n - 1].zeilen, kopfzeile)
+  return teile
+}
+
 // ── Werkzeuge ───────────────────────────────────────────────────────────
 
 export const dokumentTools = [
@@ -354,6 +539,58 @@ export const dokumentTools = [
       const abs = resolve(endung(pfad, '.pptx'))
       const bytes = await packe(pptxTeile(titel, sauber), abs)
       return `PowerPoint-Datei geschrieben: ${abs} (${sauber.length} Folien, ${bytes} Bytes)`
+    },
+  },
+  {
+    name: 'dokument_excel',
+    description:
+      'Excel-Datei (.xlsx) schreiben: Tabelle aus Zeilen, auf Wunsch mehrere Blätter. Zahlen bleiben rechenbar. Öffnet sich in Excel, Numbers und LibreOffice.',
+    parameters: {
+      type: 'object',
+      properties: {
+        titel: { type: 'string', description: 'Name der Mappe, zugleich Name des einzelnen Blattes' },
+        zeilen: {
+          type: 'array',
+          description:
+            'Der einfache Fall: eine Tabelle. Jede Zeile ist eine Liste von Zellen. Zahlen dürfen als Text kommen, sie landen trotzdem als Zahl.',
+          items: { type: 'array', items: { type: 'string' } },
+        },
+        blaetter: {
+          type: 'array',
+          description: 'Nur für mehrere Blätter. Dann zeilen weglassen.',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Beschriftung des Reiters unten' },
+              zeilen: { type: 'array', items: { type: 'array', items: { type: 'string' } } },
+            },
+            required: ['zeilen'],
+          },
+        },
+        kopfzeile: { type: 'boolean', description: 'Erste Zeile fett und festgefroren. Vorgabe: ja' },
+        pfad: { type: 'string', description: 'Wohin, z.B. ~/Schreibtisch/umsatz.xlsx' },
+      },
+      required: ['titel', 'pfad'],
+    },
+    danger: true,
+    async run({ titel, zeilen, blaetter, kopfzeile = true, pfad }) {
+      const roh = Array.isArray(blaetter) && blaetter.length ? blaetter : [{ name: titel, zeilen }]
+      if (!Array.isArray(blaetter) && !Array.isArray(zeilen))
+        throw new Error('Gib zeilen an (eine Liste von Zeilen) oder blaetter für mehrere Blätter.')
+      const belegt = new Set()
+      const sauber = roh.map((b, i) => {
+        if (!Array.isArray(b?.zeilen)) throw new Error(`Blatt ${i + 1}: zeilen muss eine Liste von Zeilen sein.`)
+        return {
+          name: blattname(b?.name, i, belegt),
+          // Eine einzelne Zelle statt einer Zeile ist ein häufiger Verhauer —
+          // freundlich einpacken statt die ganze Datei verweigern.
+          zeilen: b.zeilen.map((z) => (Array.isArray(z) ? z : [z])),
+        }
+      })
+      const abs = resolve(endung(pfad, '.xlsx'))
+      const bytes = await packe(xlsxTeile(titel, sauber, kopfzeile !== false), abs)
+      const anzahl = sauber.reduce((s, b) => s + b.zeilen.length, 0)
+      return `Excel-Datei geschrieben: ${abs} (${sauber.length} Blatt/Blätter, ${anzahl} Zeilen, ${bytes} Bytes)`
     },
   },
 ]

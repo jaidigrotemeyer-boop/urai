@@ -1,0 +1,121 @@
+/* ── HUD-Leiste und Ecken ─────────────────────────────────────────────
+   Gehört zu components/JarvisLeiste.jsx und wird von dort importiert.
+
+   Kein einziger fester Farbwert: das Farbrad des Nutzers gewinnt gegen
+   jede Regel hier, und ein cyanfarbener Rahmen um eine bernsteinfarbene
+   Oberfläche sähe aus wie versehentlich liegengeblieben.
+
+   Die Leiste nimmt keine Klicks entgegen — sie liegt über der ganzen
+   Breite, und alles daran wäre sonst eine unsichtbare Wand vor der Notch.
+   Ob sie überhaupt erscheint, entscheidet die Komponente; hier steht kein
+   [data-haut]-Vorbehalt, sonst prüften wir dieselbe Sache zweimal. */
+
+.jl-leiste {
+  position: fixed;
+  top: 22px;
+  /* 58px: rechts an den Ecken-Winkeln vorbei (16px Rand + 30px Schenkel),
+     mit etwas Luft — sonst klebt die Schrift am Strich. */
+  left: 58px;
+  right: 58px;
+  z-index: 39; /* unter der Notch (40), damit die Kapsel bedienbar bleibt */
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+
+  pointer-events: none;
+  user-select: none;
+
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--dimmer);
+}
+
+.jl-marke {
+  /* Die weite Sperrung ist der halbe Wiedererkennungswert des Zeichens */
+  letter-spacing: 5px;
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+.jl-werte {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  letter-spacing: 1.5px;
+  /* Zahlen springen sonst bei jeder Messung in der Breite */
+  font-variant-numeric: tabular-nums;
+}
+
+.jl-feld {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.jl-link { color: var(--dim); }
+
+.jl-punkt {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: jlBlinken 2s ease-in-out infinite;
+}
+
+/* Verbindung weg: der einzige Zustand, der lauter sein darf als der Rest.
+   Rot allein reicht nicht — am Rand des Blickfelds erkennt man Tempo
+   schneller als Farbe, darum blinkt der Punkt zusätzlich schneller. */
+.jl-ist-weg .jl-link { color: var(--danger); }
+.jl-ist-weg .jl-punkt {
+  background: var(--danger);
+  animation-duration: 0.7s;
+}
+
+@keyframes jlBlinken {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+/* Ab hier wird es eng: erst fallen die Nebenwerte weg, dann das Zeichen,
+   zuletzt die ganze Leiste. Ein HUD, das über den Bedienelementen liegt,
+   ist schlechter als gar keins. */
+@media (max-width: 860px) {
+  .jl-leiste { gap: 12px; }
+  .jl-werte { gap: 14px; }
+  .jl-marke { display: none; }
+}
+@media (max-width: 620px) {
+  .jl-leiste { display: none; }
+}
+
+/* ── Die vier Winkel ──────────────────────────────────────────────── */
+
+.jl-ecken {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+}
+
+.jl-ecke {
+  position: fixed;
+  width: 30px;
+  height: 30px;
+  border-color: var(--accent);
+  opacity: 0.7;
+}
+
+.jl-ecke-ol { top: 16px; left: 16px; border-top: 1px solid; border-left: 1px solid; }
+.jl-ecke-or { top: 16px; right: 16px; border-top: 1px solid; border-right: 1px solid; }
+.jl-ecke-ul { bottom: 16px; left: 16px; border-bottom: 1px solid; border-left: 1px solid; }
+.jl-ecke-ur { bottom: 16px; right: 16px; border-bottom: 1px solid; border-right: 1px solid; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Der Punkt bleibt stehen — die Farbe trägt den Zustand auch allein */
+  .jl-punkt { animation: none; }
+}

@@ -52,15 +52,25 @@ async function dateiHolen(token, fileId) {
 }
 
 /**
- * Sprachnachricht zu Text. Gemini kann Audio direkt lesen — das spart ein
- * lokales Spracherkennungs-Modell und ist mit dem Gratis-Schlüssel kostenlos.
+ * Ton zu Text. Gemini kann Audio direkt lesen — das spart ein lokales
+ * Spracherkennungs-Modell und ist mit dem Gratis-Schlüssel kostenlos.
+ *
+ * Die Frage ans Modell steht bewusst nicht fest verdrahtet drin: derselbe Weg
+ * trägt zwei Dinge, die Sprachnachricht hier und das Mithören im Raum
+ * (server/tools/ohren.js). Es ändert sich nur die Frage, nicht die Anfrage —
+ * und eine zweite Stelle, die Audio an Gemini schickt, wäre eine zweite Stelle,
+ * die kaputtgehen kann.
+ *
+ * @param {Buffer} ton         Rohe Audiodaten
+ * @param {string} auftrag     Was das Modell mit dem Ton tun soll
+ * @param {{mime?: string, zeitlimitMs?: number, modell?: string}} [wahl]
  */
-async function zuText(ogg) {
+export async function audioLesen(ton, auftrag, { mime = 'audio/ogg', zeitlimitMs = 90_000, modell } = {}) {
   const c = loadConfig()
-  if (!c.geminiKey) throw new Error('Sprachnachrichten brauchen einen Gemini-Schlüssel (gratis: aistudio.google.com/apikey).')
+  if (!c.geminiKey) throw new Error('Ton verstehen braucht einen Gemini-Schlüssel (gratis: aistudio.google.com/apikey).')
 
   const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${c.geminiFastModel || c.geminiModel}:generateContent`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${modell || c.geminiFastModel || c.geminiModel}:generateContent`,
     {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': c.geminiKey },
@@ -68,14 +78,11 @@ async function zuText(ogg) {
         contents: [
           {
             role: 'user',
-            parts: [
-              { text: 'Schreib wortwörtlich auf, was in dieser Aufnahme gesagt wird. Nur den Wortlaut, sonst nichts.' },
-              { inline_data: { mime_type: 'audio/ogg', data: ogg.toString('base64') } },
-            ],
+            parts: [{ text: auftrag }, { inline_data: { mime_type: mime, data: ton.toString('base64') } }],
           },
         ],
       }),
-      signal: AbortSignal.timeout(90_000),
+      signal: AbortSignal.timeout(zeitlimitMs),
     }
   )
   const j = await r.json()
@@ -244,7 +251,10 @@ export class TelegramTuer {
       try {
         await ruf(token, 'sendChatAction', { chat_id: chatId, action: 'typing' })
         const ogg = await dateiHolen(token, (msg.voice || msg.audio).file_id)
-        auftrag = await zuText(ogg)
+        auftrag = await audioLesen(
+          ogg,
+          'Schreib wortwörtlich auf, was in dieser Aufnahme gesagt wird. Nur den Wortlaut, sonst nichts.'
+        )
         if (!auftrag) throw new Error('Nichts verstanden.')
         // Sofort zurückmelden, was angekommen ist — dann sieht man bei einem
         // Hörfehler gleich, woran eine komische Antwort lag

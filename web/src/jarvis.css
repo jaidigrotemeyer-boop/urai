@@ -47,24 +47,11 @@
 }
 :root[data-haut='jarvis'] .app { position: relative; z-index: 1; }
 
-/* Ecken-Winkel: das Erkennungszeichen eines HUD. Nur vier dünne Striche,
-   aber sie machen aus einem Fenster ein Instrument. */
-:root[data-haut='jarvis'] .app::before,
-:root[data-haut='jarvis'] .app::after {
-  content: '';
-  position: fixed; width: 30px; height: 30px;
-  pointer-events: none; z-index: 60;
-  border-color: var(--accent);
-  opacity: 0.7;
-}
-:root[data-haut='jarvis'] .app::before {
-  top: 16px; left: 16px;
-  border-top: 1px solid; border-left: 1px solid;
-}
-:root[data-haut='jarvis'] .app::after {
-  bottom: 16px; right: 16px;
-  border-bottom: 1px solid; border-right: 1px solid;
-}
+/* Die Ecken-Winkel saßen früher hier als zwei Pseudo-Elemente an .app —
+   mehr gaben zwei Elemente nicht her, also fehlten oben rechts und unten
+   links. Jetzt macht das JarvisEcken in components/JarvisLeiste.jsx mit
+   allen vieren. Hier steht bewusst nichts mehr, sonst lägen an zwei Ecken
+   zwei Winkel übereinander. */
 
 /* Harte Kanten statt runder — ein Instrument ist eckig */
 :root[data-haut='jarvis'] .sheet,
@@ -155,6 +142,14 @@
 }
 @keyframes jvSpin { to { transform: rotate(360deg); } }
 @keyframes jvSpinRueck { to { transform: rotate(-360deg); } }
+
+/* .empty zentriert Text über text-align — ein SVG ist aber ein Block und bleibt
+   davon unberührt, klebte also links am Rand. Zwei Zeilen statt eines Flex-
+   Umbaus: .empty trägt sonst nichts, was von display:flex profitieren würde. */
+:root[data-haut='jarvis'] .empty-kern {
+  display: block;
+  margin: 0 auto 22px;
+}
 
 /* Ein einzelner Suchstrahl, der langsam durchläuft. Sieben Sekunden ist
    Absicht: schnell genug, dass man ihn bemerkt, langsam genug, dass er

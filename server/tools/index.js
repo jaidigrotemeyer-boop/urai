@@ -4,6 +4,9 @@ import { shellTools } from './shell.js'
 import { webTools } from './web.js'
 import { computerTools } from './computer.js'
 import { dokumentTools } from './dokument.js'
+import { kurzbefehlTools } from './kurzbefehle.js'
+import { kameraTools } from './kamera.js'
+import { ohrTools } from './ohren.js'
 import { memoryTools } from '../memory.js'
 import { obsidianTools } from '../obsidian.js'
 import { crewTools } from '../crew.js'
@@ -18,6 +21,9 @@ export const ALL_TOOLS = [
   ...webTools,
   ...computerTools,
   ...dokumentTools,
+  ...kurzbefehlTools,
+  ...kameraTools,
+  ...ohrTools,
   ...memoryTools,
   ...obsidianTools,
   ...crewTools,
@@ -65,6 +71,12 @@ export const TOOL_GROUPS = {
   web: webTools.map((t) => t.name),
   computer: computerTools.map((t) => t.name),
   dokumente: dokumentTools.map((t) => t.name),
+  // Kurzbefehle stehen absichtlich für sich und nicht bei "computer": darüber
+  // läuft das Smart Home des Nutzers. Wer Licht und Türschloss nicht freigeben
+  // will, soll die Gruppe abschalten können, ohne Maus und Tastatur zu verlieren.
+  kurzbefehle: kurzbefehlTools.map((t) => t.name),
+  kamera: kameraTools.map((t) => t.name),
+  ohren: ohrTools.map((t) => t.name),
   gedaechtnis: memoryTools.map((t) => t.name),
   obsidian: obsidianTools.map((t) => t.name),
   agenten: crewTools.map((t) => t.name),

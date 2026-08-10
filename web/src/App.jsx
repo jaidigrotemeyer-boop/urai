@@ -14,7 +14,9 @@ import Onboarding from './components/Onboarding.jsx'
 import Briefing from './components/Briefing.jsx'
 import { farbeLesen, useFarbe } from './theme.js'
 import { t, useSprache, sprache } from './i18n.js'
-import { hoeren, sprechen, still, kannHoeren, weckwortHoeren } from './stimme.js'
+import { hoeren, sprechen, sprechenUnterbrechbar, still, kannHoeren, weckwortHoeren } from './stimme.js'
+import JarvisLeiste, { JarvisEcken, useJarvisHaut } from './components/JarvisLeiste.jsx'
+import JarvisKern from './components/JarvisKern.jsx'
 
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 const SESSION = `s-${new Date().toISOString().slice(0, 10)}`
@@ -58,6 +60,9 @@ export default function App() {
   const [briefingZeigen, setBriefingZeigen] = useState(false)
   const mikro = useRef(null)
   const weck = useRef(null)
+  // Griff auf die laufende Sprachausgabe, damit man ihr ins Wort fallen kann
+  const stimmeGriff = useRef(null)
+  const hautAn = useJarvisHaut()
 
   const ws = useRef(null)
   const scroller = useRef(null)
@@ -352,7 +357,23 @@ export default function App() {
         setWarte(null)
         setSchritt(null)
         streaming.current = false
-        if (stimmeAn && msg.text) sprechen(msg.text)
+        if (stimmeAn && msg.text) {
+          stimmeGriff.current = sprechenUnterbrechbar(msg.text, {
+            // Reinreden ist nur bei langen Antworten ein Gewinn — und es geht
+            // nur, solange nicht schon das Weckwort auf demselben Mikrofon
+            // lauscht. Zwei Erkenner auf einem Gerät streiten sich, und dann
+            // funktioniert keiner von beiden.
+            aus: weckAn,
+            onEnde: () => {
+              stimmeGriff.current = null
+            },
+            onUnterbrochen: (text) => {
+              stimmeGriff.current = null
+              const fertig = (text || '').trim()
+              if (fertig.length > 2) send(fertig)
+            },
+          })
+        }
         break
 
       case 'stopped':
@@ -401,6 +422,10 @@ export default function App() {
       mikro.current?.stop()
       return
     }
+    // Erst den unterbrechbaren Griff lösen, dann still(): sonst hängt sein
+    // Erkenner noch am Mikrofon, wenn der hier gleich seinen eigenen aufmacht.
+    stimmeGriff.current?.stop()
+    stimmeGriff.current = null
     still()
     setHoert(true)
     mikro.current = hoeren({
@@ -457,6 +482,9 @@ export default function App() {
     <div className={`app ${wach ? 'wach' : ''}`}>
       {/* Der Suchstrahl gehört zur JARVIS-Haut — ohne sie ist er unsichtbar */}
       <div className="jv-strahl" aria-hidden="true" />
+      {/* Beide zeigen sich von selbst nur, wenn die JARVIS-Haut an ist */}
+      <JarvisEcken />
+      <JarvisLeiste verbunden={connected} gehirn={brain} />
       {!wach && <Boot onDone={() => setWach(true)} />}
       <Cursor busy={busy} />
       {onboardingZeigen && (
@@ -511,6 +539,17 @@ export default function App() {
           <div className="messages" ref={scroller}>
             {items.length === 0 && (
               <div className="empty">
+                {/* Der Reaktor-Kern steht nur im leeren Chat: dort ist Platz und
+                    er sagt etwas (wartet / hört / denkt / redet). Über den
+                    Nachrichten wäre er bloß Deko, die den Text wegdrückt.
+                    Ohne JARVIS-Haut zeigt er sich gar nicht erst. */}
+                {hautAn && (
+                  <JarvisKern
+                    zustand={busy ? 'denkt' : hoert ? 'hoert' : 'ruht'}
+                    groesse={132}
+                    className="empty-kern"
+                  />
+                )}
                 {status?.config?.profilName ? `${t('gruss')}, ${status.config.profilName}.` : t('emptyTitle')}
                 <br />
                 {t('emptySub')}
