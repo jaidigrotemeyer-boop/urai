@@ -47,6 +47,17 @@
 }
 :root[data-haut='jarvis'] .app { position: relative; z-index: 1; }
 
+/* Das Notch-Fenster (?hud=1) ist ein kleines, schwebendes Fenster und muss
+   durchsichtig bleiben — man soll den Schreibtisch dahinter sehen. styles.css
+   setzt dafür background: transparent, aber die Regeln oben sind spezifischer
+   und hätten gewonnen: ein undurchsichtiger Kasten mit Raster und Scanlines
+   quer über dem Bildschirm. Hier wird das zurückgenommen; die Kapsel selbst
+   bringt ihren Stil ohnehin mit. */
+:root[data-haut='jarvis'].nur-hud,
+:root[data-haut='jarvis'].nur-hud body { background: transparent; }
+:root[data-haut='jarvis'].nur-hud body::before,
+:root[data-haut='jarvis'].nur-hud body::after { display: none; }
+
 /* Die Ecken-Winkel saßen früher hier als zwei Pseudo-Elemente an .app —
    mehr gaben zwei Elemente nicht her, also fehlten oben rechts und unten
    links. Jetzt macht das JarvisEcken in components/JarvisLeiste.jsx mit

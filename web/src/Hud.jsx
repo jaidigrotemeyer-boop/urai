@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { t, sprache, useSprache } from './i18n.js'
-import { hoeren, sprechen, still, kannHoeren, weckwortHoeren } from './stimme.js'
+import { hoeren, sprechenUnterbrechbar, still, kannHoeren, weckwortHoeren } from './stimme.js'
 
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 const SESSION = `s-${new Date().toISOString().slice(0, 10)}`
@@ -39,6 +39,8 @@ export default function Hud() {
   const streaming = useRef(false)
   const mikro = useRef(null)
   const gesprochen = useRef('')
+  // Griff auf die laufende Sprachausgabe, damit man ihr ins Wort fallen kann
+  const stimmeGriff = useRef(null)
 
   // Mikrofon an: gesprochenes landet im Feld und wird am Ende gleich abgeschickt
   function zuhoeren() {
@@ -46,6 +48,10 @@ export default function Hud() {
       mikro.current?.stop()
       return
     }
+    // Erst den unterbrechbaren Griff lösen, dann still(): sonst hängt sein
+    // Erkenner noch am Mikrofon, wenn der hier gleich seinen eigenen aufmacht.
+    stimmeGriff.current?.stop()
+    stimmeGriff.current = null
     still()
     setHoert(true)
     setOffen(true)
@@ -180,7 +186,23 @@ export default function Hud() {
         setAgents([])
         setWarte(null)
         streaming.current = false
-        if (stimmeAn && m.text) sprechen(m.text)
+        if (stimmeAn && m.text) {
+          // Wie in App.jsx: Reinreden ist aus, solange das Weckwort auf
+          // demselben Mikrofon lauscht — zwei Erkenner streiten sich.
+          stimmeGriff.current = sprechenUnterbrechbar(m.text, {
+            aus: weckAn,
+            onEnde: () => {
+              stimmeGriff.current = null
+            },
+            onUnterbrochen: (text) => {
+              stimmeGriff.current = null
+              const fertig = (text || '').trim()
+              if (fertig.length > 2) {
+                ws.current?.send(JSON.stringify({ type: 'chat', session: SESSION, text: fertig, lang: sprache() }))
+              }
+            },
+          })
+        }
         setTimeout(() => setAntwort(null), 9000)
         break
       case 'stopped':
@@ -314,7 +336,13 @@ export default function Hud() {
                     const neu = !stimmeAn
                     setStimmeAn(neu)
                     localStorage.setItem('urai-stimme', neu ? 'an' : 'aus')
-                    if (!neu) still()
+                    if (!neu) {
+                      // Stimme aus heißt auch: der mithörende Erkenner geht aus.
+                      // still() allein lässt ihn am Mikrofon hängen.
+                      stimmeGriff.current?.stop()
+                      stimmeGriff.current = null
+                      still()
+                    }
                   }}
                 >
                   {t('voice')} {stimmeAn ? t('on') : t('off')}

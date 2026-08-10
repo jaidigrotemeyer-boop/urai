@@ -622,7 +622,13 @@ export default function App() {
                   const neu = !stimmeAn
                   setStimmeAn(neu)
                   localStorage.setItem('urai-stimme', neu ? 'an' : 'aus')
-                  if (!neu) still()
+                  if (!neu) {
+                    // Stimme aus heißt auch: der mithörende Erkenner geht aus.
+                    // still() allein lässt ihn am Mikrofon hängen.
+                    stimmeGriff.current?.stop()
+                    stimmeGriff.current = null
+                    still()
+                  }
                 }}
               >
                 {t('voice')} {stimmeAn ? t('on') : t('off')}
