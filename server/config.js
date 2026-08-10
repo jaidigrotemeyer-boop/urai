@@ -135,6 +135,15 @@ const DEFAULTS = {
   briefingThemen: [], // z.B. ['Bitcoin', 'KI-Modelle', 'Bundesliga']
   briefingZuletztGezeigt: '', // YYYY-MM-DD, damit es genau einmal pro Tag aufgeht
 
+  // Von selbst reden: URAI meldet sich ungefragt, wenn ihm etwas auffällt.
+  // Die Zahlen sind bewusst knauserig. Ein Assistent, der zu oft dazwischen-
+  // redet, wird abgeschaltet — und meldet dann auch das Wichtige nicht mehr.
+  // Lieber sechs gute Meldungen am Tag als vierzig, die man wegklickt.
+  meldungenAn: true,
+  meldungenProStunde: 6,
+  meldungenRuheVon: 22, // Stunde, ab der geschwiegen wird
+  meldungenRuheBis: 8, // Stunde, ab der wieder geredet werden darf
+
   // Telegram als zweiter Eingang: schreiben oder reinsprechen, unterwegs.
   // Wer hier schreibt, steuert diesen Mac — darum läuft es nur mit einer
   // ausdrücklichen Erlaubnisliste. Leer heißt aus, nicht "jeder darf".

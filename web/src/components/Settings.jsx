@@ -179,6 +179,10 @@ export default function Settings({ onClose, onSaved }) {
       briefingAn: !!cfg.briefingAn,
       briefingThemen: cfg.briefingThemen || [],
       mcpServer: cfg.mcpServer || [],
+      meldungenAn: !!cfg.meldungenAn,
+      meldungenProStunde: Number(cfg.meldungenProStunde) || 6,
+      meldungenRuheVon: Number(cfg.meldungenRuheVon) || 0,
+      meldungenRuheBis: Number(cfg.meldungenRuheBis) || 0,
     }
     if (cfg.telegramToken && !String(cfg.telegramToken).startsWith('••••')) patch.telegramToken = cfg.telegramToken
     if (onboardingErneut) patch.onboardingFertig = false
@@ -408,6 +412,69 @@ export default function Settings({ onClose, onSaved }) {
         <details className="abschnitt">
           <summary>Skills</summary>
           <SkillEinstellungen />
+        </details>
+
+        {/* Etwas, das ungefragt redet, muss man abschalten können — sonst ist
+            es keine Hilfe, sondern etwas, das einem widerfährt. */}
+        <details className="abschnitt">
+          <summary>Von selbst melden</summary>
+          <div className="field">
+            <label>Ungefragt Bescheid sagen</label>
+            <button
+              className={`chip ${cfg.meldungenAn ? 'on' : ''}`}
+              onClick={() => setCfg({ ...cfg, meldungenAn: !cfg.meldungenAn })}
+            >
+              {cfg.meldungenAn ? 'an' : 'aus'}
+            </button>
+            <div className="note">
+              URAI meldet sich, wenn ihm etwas auffällt — ein Ablauf ist durch, ein Auslöser
+              gescheitert, auf dem Bildschirm passiert etwas Erwähnenswertes. Ist die Stimme an,
+              sagt er es auch laut.
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Höchstens pro Stunde</label>
+            <input
+              type="number"
+              min="1"
+              max="30"
+              value={cfg.meldungenProStunde ?? 6}
+              onChange={(e) => setCfg({ ...cfg, meldungenProStunde: e.target.value })}
+            />
+            <div className="note">
+              Bewusst knauserig. Wer zu oft dazwischenredet, wird abgeschaltet — und meldet dann
+              auch das Wichtige nicht mehr. Dringendes (ein gescheiterter Auslöser) kommt immer
+              durch, auch über der Grenze.
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Ruhezeit</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="number"
+                min="0"
+                max="23"
+                style={{ width: 70 }}
+                value={cfg.meldungenRuheVon ?? 22}
+                onChange={(e) => setCfg({ ...cfg, meldungenRuheVon: e.target.value })}
+              />
+              <span className="fuss-dim">bis</span>
+              <input
+                type="number"
+                min="0"
+                max="23"
+                style={{ width: 70 }}
+                value={cfg.meldungenRuheBis ?? 8}
+                onChange={(e) => setCfg({ ...cfg, meldungenRuheBis: e.target.value })}
+              />
+              <span className="fuss-dim">Uhr</span>
+            </div>
+            <div className="note">
+              In dieser Zeit ist Ruhe. Beide Zahlen gleich heißt: keine Ruhezeit.
+            </div>
+          </div>
         </details>
 
         <details className="abschnitt">

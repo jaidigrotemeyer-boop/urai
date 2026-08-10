@@ -1,0 +1,80 @@
+/* ── Meldungen ─────────────────────────────────────────────────────────
+   Oben rechts, unter der Statusleiste. Sie überlagern nichts Bedienbares:
+   ein Einblender, der einen Knopf verdeckt, ist ein Fehler, kein Hinweis. */
+
+.mld-stapel {
+  position: fixed;
+  top: 62px;
+  right: 18px;
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(340px, calc(100vw - 36px));
+  pointer-events: none; /* der Stapel selbst fängt nichts ab */
+}
+
+.mld {
+  pointer-events: auto; /* die einzelne Meldung schon — wegen dem Schließer */
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 12px 11px 13px;
+  border-radius: var(--r-sm, 10px);
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 32px -14px rgba(0, 0, 0, 0.7);
+  font-size: 12.5px;
+  line-height: 1.42;
+  color: var(--text);
+  animation: mldRein 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.1) both;
+}
+
+@keyframes mldRein {
+  from { opacity: 0; transform: translateX(22px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.mld-raus {
+  animation: mldRaus 0.38s ease forwards;
+}
+
+@keyframes mldRaus {
+  to { opacity: 0; transform: translateX(22px); }
+}
+
+/* Der Punkt trägt die Bedeutung, nicht die ganze Fläche. Eine komplett
+   eingefärbte Meldung schreit; ein farbiger Punkt sagt dasselbe leiser. */
+.mld-punkt {
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--accent);
+}
+.mld-erfolg .mld-punkt { background: oklch(0.72 0.16 150); }
+.mld-warnung .mld-punkt { background: var(--danger); }
+
+.mld-text { flex: 1; }
+
+.mld-zu {
+  flex: 0 0 auto;
+  background: none;
+  border: 0;
+  padding: 2px;
+  color: var(--dimmer);
+  cursor: pointer;
+  line-height: 0;
+  border-radius: 5px;
+}
+.mld-zu:hover { color: var(--text); }
+
+/* Dringendes bleibt stehen und sagt das auch optisch */
+.mld-warnung {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mld, .mld-raus { animation: none; }
+}

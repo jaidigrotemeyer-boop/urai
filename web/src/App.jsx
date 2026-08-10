@@ -19,6 +19,7 @@ import JarvisLeiste, { JarvisEcken, useJarvisHaut } from './components/JarvisLei
 import JarvisKern from './components/JarvisKern.jsx'
 import Kacheln from './components/Kacheln.jsx'
 import JarvisStrom from './components/JarvisStrom.jsx'
+import Meldungen from './components/Meldungen.jsx'
 
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 const SESSION = `s-${new Date().toISOString().slice(0, 10)}`
@@ -66,6 +67,7 @@ export default function App() {
   const stimmeGriff = useRef(null)
   const hautAn = useJarvisHaut()
   const [redet, setRedet] = useState(false)
+  const [meldungen, setMeldungen] = useState([])
 
   // Ein Wort für das, was URAI gerade tut. Kern, Datenstrom und die Haut
   // hängen alle daran — vorher wusste jedes Teil es für sich, und dann driftet
@@ -319,6 +321,19 @@ export default function App() {
         setLiveNotes((xs) => [...xs.slice(-40), { t: Date.now(), text: msg.message, err: true }])
         break
 
+      // URAI sagt von sich aus etwas. Ob überhaupt gemeldet wird, hat der
+      // Server schon entschieden (Ruhezeit, Obergrenze, kein Nachplappern) —
+      // hier geht es nur noch um Zeigen und Vorlesen.
+      case 'meldung': {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+        setMeldungen((xs) => [...xs.slice(-3), { id, text: msg.text, art: msg.art, dringend: msg.dringend }])
+        // Vorgelesen wird nur, wenn die Stimme ohnehin an ist und URAI nicht
+        // gerade selbst redet. Sonst schnitte die Meldung der Antwort das Wort
+        // ab, auf die der Nutzer wartet.
+        if (stimmeAn && !redet) sprechen(msg.text)
+        break
+      }
+
       case 'obsidian':
         push({ kind: 'note', text: `${t('savedTo')}: ${msg.note}` })
         break
@@ -506,6 +521,10 @@ export default function App() {
       {/* Beide zeigen sich von selbst nur, wenn die JARVIS-Haut an ist */}
       <JarvisEcken />
       <JarvisLeiste verbunden={connected} gehirn={brain} />
+      <Meldungen
+        meldungen={meldungen}
+        onWeg={(id) => setMeldungen((xs) => xs.filter((m) => m.id !== id))}
+      />
       {!wach && <Boot onDone={() => setWach(true)} />}
       <Cursor busy={busy} />
       {onboardingZeigen && (

@@ -23,6 +23,7 @@ import { holen as briefingHolen, bereit as briefingBereit, heute as briefingHeut
 import { TelegramTuer } from './telegram.js'
 import { stand as lokalStand, ollamaModelle, modellCacheLeeren } from './lokal.js'
 import { alleVerbinden as mcpVerbinden, mcpWerkzeuge, mcpStand } from './mcp.js'
+import { hoererDazu, melden, beschaeftigtSetzen } from './melder.js'
 import { skillListe, skillLesen, skillSchreiben, skillLoeschen } from './skills.js'
 
 // Die Werkzeugliste muss wissen, wo sie die MCP-Werkzeuge herbekommt
@@ -217,6 +218,7 @@ app.post('/api/config', (req, res) => {
     'beweisPflicht', 'beweisWartenMs', 'ausloeserAn', 'ausloeserKarenzS',
     'anstrengung', 'spendenLink', 'onboardingFertig',
     'briefingAn', 'briefingThemen', 'briefingZuletztGezeigt', 'schluessel',
+    'meldungenAn', 'meldungenProStunde', 'meldungenRuheVon', 'meldungenRuheBis',
     'telegramAn', 'telegramToken', 'telegramErlaubteIds', 'telegramSprachantwort',
     'mausGleiten', 'mausGleitenStaerke', 'lokalBudgetGb', 'lokalModell', 'mcpServer',
   ]
@@ -381,6 +383,9 @@ wss.on('connection', (ws) => {
   async function abarbeiten() {
     if (arbeitet) return
     arbeitet = true
+    // Solange eine Antwort läuft, schweigt der Melder: wer gerade bedient wird,
+    // braucht keinen Zuruf über den Speicherstand dazwischen.
+    beschaeftigtSetzen(true)
     while (schlange.length) {
       const job = schlange[0]
       send({ type: 'queue', laenge: schlange.length, arbeitet: true, jetzt: job.text?.slice(0, 60) })
@@ -395,16 +400,37 @@ wss.on('connection', (ws) => {
       schlange.shift()
     }
     arbeitet = false
+    beschaeftigtSetzen(false)
     send({ type: 'queue', laenge: 0, arbeitet: false })
   }
 
+  // Von selbst reden: diese Seite trägt sich als Zuhörer ein. Die Regeln
+  // (Ruhezeit, Obergrenze, kein Nachplappern) liegen im Modul und gelten für
+  // alle Seiten gemeinsam — sonst meldete URAI bei zwei Tabs doppelt.
+  const melderWeg = hoererDazu(send)
+
+  // Was der Meldung wert ist, entscheidet sich hier und nicht im Melder:
+  // der kennt nur die Regeln, nicht die Bedeutung.
+  const sendUndMelden = (nachricht) => {
+    send(nachricht)
+    if (nachricht.type === 'live_note' && nachricht.wichtig) {
+      melden(nachricht.text, { art: 'hinweis' })
+    } else if (nachricht.type === 'ausloeser_fertig') {
+      melden(`Der Ablauf "${nachricht.name || nachricht.ablauf}" ist durch.`, { art: 'erfolg' })
+    } else if (nachricht.type === 'ausloeser_fehler') {
+      // Ein fehlgeschlagener Ablauf ist dringend: er läuft von selbst los,
+      // also merkt es sonst niemand — auch nicht nachts.
+      melden(`Auslöser gescheitert: ${nachricht.text}`, { art: 'warnung', dringend: true })
+    }
+  }
+
   // Auslöser: startet Abläufe von selbst. Meldet sich vorher hier.
-  const waechter = new Waechter({ emit: send })
+  const waechter = new Waechter({ emit: sendUndMelden })
   waechterListe.add(waechter)
   if (loadConfig().ausloeserAn) waechter.start()
 
   // Live-Modus: guckt von selbst mit, solange die Seite offen ist
-  const watcher = new LiveWatcher({ emit: send })
+  const watcher = new LiveWatcher({ emit: sendUndMelden })
   watchers.add(watcher)
   if (loadConfig().liveMode) watcher.start()
 
@@ -449,6 +475,8 @@ wss.on('connection', (ws) => {
     watchers.delete(watcher)
     waechter.stop()
     waechterListe.delete(waechter)
+    // Ohne das sammelt der Melder tote Verbindungen und redet ins Leere
+    melderWeg()
   })
 })
 
