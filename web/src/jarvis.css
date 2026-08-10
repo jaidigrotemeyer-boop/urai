@@ -185,6 +185,43 @@
 }
 @keyframes jvStrahl { from { transform: translateY(-100%); } to { transform: translateY(100vh); } }
 
+/* ── Die Haut reagiert ──────────────────────────────────────────────────
+   App.jsx schreibt data-zustand an .app: ruht | hoert | denkt | spricht.
+   Damit weiß nicht nur der Kern Bescheid, sondern die ganze Fläche.
+
+   Der Unterschied zur Vorlage ist genau das: dort bewegt sich immer alles
+   gleich, egal was passiert. Hier verrät der Hintergrund, ob gearbeitet
+   wird — man sieht es aus drei Metern, ohne etwas zu lesen.
+
+   Alle Übergänge sind lang. Ein HUD, das bei jedem Tastendruck aufblitzt,
+   ist nach einer Stunde unerträglich.
+
+   Hier stand einmal zusätzlich eine Regel, die das Hintergrundraster je nach
+   Zustand heller stellt. Sie ist wieder raus: nachweisen ließ sie sich nicht,
+   weil getComputedStyle für Pseudo-Elemente in der Testansicht einen
+   eingefrorenen Wert liefert — selbst ein !important bewegte ihn nicht.
+   Ungeprüfte Zierde gehört nicht in eine Oberfläche, und der Datenstrom
+   (jarvis-strom.css) trägt die Helligkeitsreaktion ohnehin schon, dort
+   messbar über eigene Variablen. */
+
+/* Denkt: der Strahl läuft schneller durch und wird kräftiger. */
+:root[data-haut='jarvis'] .app[data-zustand='denkt'] > .jv-strahl {
+  animation-duration: 2.4s;
+  background: linear-gradient(to bottom, transparent, oklch(0.75 0.14 210 / 0.09), transparent);
+}
+
+/* Hört zu: der Strahl hält an. Zuhören ist Stillstehen, nicht Rechnen —
+   ein weiterlaufender Suchstrahl würde behaupten, es passiere etwas. */
+:root[data-haut='jarvis'] .app[data-zustand='hoert'] > .jv-strahl {
+  animation-play-state: paused;
+  opacity: 0.35;
+}
+
+/* Redet: ruhig, damit beim Zuhören nichts vom Text ablenkt. */
+:root[data-haut='jarvis'] .app[data-zustand='spricht'] > .jv-strahl {
+  animation-duration: 9s;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root[data-haut='jarvis'] .onb-auge::before,
   :root[data-haut='jarvis'] .onb-auge::after,

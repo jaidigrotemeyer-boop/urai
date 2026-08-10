@@ -1,0 +1,116 @@
+/* ── Datenstrom ───────────────────────────────────────────────────────
+   Die Schicht, die den Bildschirm atmen lässt. Sie steht ganz hinten und
+   darf nie um Aufmerksamkeit kämpfen: sobald man sie bewusst liest, ist
+   sie zu hell. Die Deckkraft unten ist deshalb absichtlich unangenehm
+   niedrig — auf einem hellen Schreibtisch sieht man sie kaum, und das ist
+   richtig so.
+
+   Alles läuft über transform und opacity. Beides fasst der Compositor an,
+   ohne das Layout neu zu rechnen; ein 8-GB-Rechner merkt davon nichts. */
+
+.jst {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10px;
+  line-height: 1.45;
+  letter-spacing: 0.08em;
+
+  /* Tempo-Regler: die Zustände weiter unten drehen nur an dieser Zahl,
+     statt jede Spalte einzeln umzuschreiben. */
+  --jst-tempo: 1;
+  --jst-hell: 0.055;
+
+  transition: opacity 0.6s ease;
+}
+
+.jst-spalte {
+  position: absolute;
+  top: 0;
+  white-space: pre;
+  color: var(--accent);
+  opacity: var(--jst-hell);
+  animation-name: jstFall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-duration: calc(var(--dauer, 45s) * var(--jst-tempo));
+  will-change: transform;
+}
+
+.jst-spalte span {
+  display: block;
+}
+
+/* Der Kopf jeder Spalte ist heller als der Rest — das gibt der Bewegung
+   eine Richtung. Ohne das wirkt es wie ein zitterndes Muster statt wie
+   etwas, das läuft. */
+.jst-spalte span:nth-child(-n + 4) {
+  color: var(--text);
+  opacity: 0.5;
+}
+
+@keyframes jstFall {
+  from {
+    transform: translateY(-102%);
+  }
+  to {
+    transform: translateY(100vh);
+  }
+}
+
+/* Die Messwerte unten links. Klein, ruhig, und nur da, wenn sie echt sind
+   — das Bauteil rendert sie gar nicht erst ohne Daten. */
+.jst-werte {
+  position: absolute;
+  left: 22px;
+  bottom: 54px;
+  display: flex;
+  gap: 14px;
+  color: var(--dimmer);
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 9px;
+}
+
+/* ── Zustände ──────────────────────────────────────────────────────────
+   Der eigentliche Gewinn gegenüber der Vorlage: der Hintergrund weiß, was
+   gerade los ist. Nichts davon springt — alle Übergänge sind lang genug,
+   dass man die Änderung spürt, statt sie zu sehen. */
+
+/* Wartet: langsam und fast unsichtbar. */
+.jst-ruht {
+  --jst-tempo: 1;
+  --jst-hell: 0.05;
+}
+
+/* Hört zu: etwas heller, gleiches Tempo. Zuhören ist kein Rechnen —
+   schneller laufende Spalten wären hier gelogen. */
+.jst-hoert {
+  --jst-hell: 0.11;
+}
+
+/* Denkt: sichtbar schneller. Das ist die eine Stelle, an der der
+   Hintergrund wirklich etwas verrät, das sonst nirgends steht. */
+.jst-denkt {
+  --jst-tempo: 0.42;
+  --jst-hell: 0.13;
+}
+
+/* Redet: ruhig, aber wach. Beim Zuhören soll nichts vom Text ablenken. */
+.jst-spricht {
+  --jst-tempo: 0.8;
+  --jst-hell: 0.08;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Nicht ausblenden, sondern anhalten: die Struktur bleibt sichtbar, die
+     Bewegung geht. Wer Bewegung abstellt, will nicht auch weniger sehen. */
+  .jst-spalte {
+    animation: none;
+    transform: translateY(0);
+  }
+}

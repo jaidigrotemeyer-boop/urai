@@ -18,6 +18,7 @@ import { hoeren, sprechen, sprechenUnterbrechbar, still, kannHoeren, weckwortHoe
 import JarvisLeiste, { JarvisEcken, useJarvisHaut } from './components/JarvisLeiste.jsx'
 import JarvisKern from './components/JarvisKern.jsx'
 import Kacheln from './components/Kacheln.jsx'
+import JarvisStrom from './components/JarvisStrom.jsx'
 
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 const SESSION = `s-${new Date().toISOString().slice(0, 10)}`
@@ -64,6 +65,19 @@ export default function App() {
   // Griff auf die laufende Sprachausgabe, damit man ihr ins Wort fallen kann
   const stimmeGriff = useRef(null)
   const hautAn = useJarvisHaut()
+  const [redet, setRedet] = useState(false)
+
+  // Ein Wort für das, was URAI gerade tut. Kern, Datenstrom und die Haut
+  // hängen alle daran — vorher wusste jedes Teil es für sich, und dann driftet
+  // so etwas auseinander, bis der Kern denkt und der Hintergrund schläft.
+  const zustand = redet ? 'spricht' : busy ? 'denkt' : hoert ? 'hoert' : 'ruht'
+
+  // Derselbe Zustand zusätzlich am <html>: das Hintergrundraster hängt an
+  // body::before, und von .app aus ist dort nicht hinzukommen — nach oben
+  // kann CSS nicht selektieren.
+  useEffect(() => {
+    document.documentElement.dataset.zustand = zustand
+  }, [zustand])
 
   const ws = useRef(null)
   const scroller = useRef(null)
@@ -359,6 +373,7 @@ export default function App() {
         setSchritt(null)
         streaming.current = false
         if (stimmeAn && msg.text) {
+          setRedet(true)
           stimmeGriff.current = sprechenUnterbrechbar(msg.text, {
             // Reinreden ist nur bei langen Antworten ein Gewinn — und es geht
             // nur, solange nicht schon das Weckwort auf demselben Mikrofon
@@ -367,9 +382,11 @@ export default function App() {
             aus: weckAn,
             onEnde: () => {
               stimmeGriff.current = null
+              setRedet(false)
             },
             onUnterbrochen: (text) => {
               stimmeGriff.current = null
+              setRedet(false)
               const fertig = (text || '').trim()
               if (fertig.length > 2) send(fertig)
             },
@@ -427,6 +444,7 @@ export default function App() {
     // Erkenner noch am Mikrofon, wenn der hier gleich seinen eigenen aufmacht.
     stimmeGriff.current?.stop()
     stimmeGriff.current = null
+    setRedet(false)
     still()
     setHoert(true)
     mikro.current = hoeren({
@@ -480,9 +498,11 @@ export default function App() {
   const letzteNotiz = liveNotes.length ? liveNotes[liveNotes.length - 1].text : null
 
   return (
-    <div className={`app ${wach ? 'wach' : ''}`}>
+    <div className={`app ${wach ? 'wach' : ''}`} data-zustand={zustand}>
       {/* Der Suchstrahl gehört zur JARVIS-Haut — ohne sie ist er unsichtbar */}
       <div className="jv-strahl" aria-hidden="true" />
+      {/* Der Datenstrom ganz nach vorn im Baum, damit er hinter allem liegt */}
+      {hautAn && <JarvisStrom zustand={zustand} />}
       {/* Beide zeigen sich von selbst nur, wenn die JARVIS-Haut an ist */}
       <JarvisEcken />
       <JarvisLeiste verbunden={connected} gehirn={brain} />
@@ -544,13 +564,7 @@ export default function App() {
                     er sagt etwas (wartet / hört / denkt / redet). Über den
                     Nachrichten wäre er bloß Deko, die den Text wegdrückt.
                     Ohne JARVIS-Haut zeigt er sich gar nicht erst. */}
-                {hautAn && (
-                  <JarvisKern
-                    zustand={busy ? 'denkt' : hoert ? 'hoert' : 'ruht'}
-                    groesse={132}
-                    className="empty-kern"
-                  />
-                )}
+                {hautAn && <JarvisKern zustand={zustand} groesse={132} className="empty-kern" />}
                 {status?.config?.profilName ? `${t('gruss')}, ${status.config.profilName}.` : t('emptyTitle')}
                 <br />
                 {t('emptySub')}
@@ -627,6 +641,7 @@ export default function App() {
                     // still() allein lässt ihn am Mikrofon hängen.
                     stimmeGriff.current?.stop()
                     stimmeGriff.current = null
+                    setRedet(false)
                     still()
                   }
                 }}
