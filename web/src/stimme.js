@@ -429,3 +429,100 @@ export function weckwortHoeren({ onWach, onBefehl, onFehler, onStatus }) {
     },
   }
 }
+
+// ─────────────────────── Dauerhaft zuhören ───────────────────────
+
+/**
+ * Zuhören ohne Weckwort: alles mitschneiden, was gesagt wird, und jeden
+ * fertigen Satz nach oben reichen.
+ *
+ * ACHTUNG, das ist der Unterschied zu weckwortHoeren(): hier wird NICHT
+ * entschieden, ob etwas gemeint war. Das kann der Browser nicht beurteilen,
+ * und eine Heuristik an dieser Stelle wäre die falsche — sie stünde neben
+ * derjenigen auf dem Server und beide würden auseinanderlaufen. Hier gibt es
+ * nur zwei Filter, und beide sind rein technisch:
+ *
+ *   1. Nur fertige Sätze (isFinal). Zwischenergebnisse ändern sich noch,
+ *      und ein halber Satz ist eine schlechte Grundlage für irgendetwas.
+ *   2. Echo der eigenen Stimme raus — dieselbe Bremse wie beim Reinreden,
+ *      denn ohne Kopfhörer hört das Mikrofon URAI selbst. Ohne das führt
+ *      Dauerlauschen zu einer Endlosschleife: er hört sich, antwortet
+ *      darauf, hört sich wieder.
+ *
+ * Alles Weitere entscheidet /api/gemeint auf dem Server.
+ *
+ * @param {(satz: string) => void} onSatz
+ * @param {(fehler: string) => void} [onFehler]
+ * @param {() => string} [zuletztGesagt] liefert, was URAI gerade sagt — fürs Echo
+ * @returns {{stop: () => void}}
+ */
+export function dauerhaftHoeren({ onSatz, onFehler, zuletztGesagt }) {
+  const Erkenner = window.SpeechRecognition || window.webkitSpeechRecognition
+  if (!Erkenner) {
+    onFehler?.('Dieser Browser kann nicht dauerhaft zuhören. Chrome kann es.')
+    return { stop: () => {} }
+  }
+
+  let r = null
+  let laeuft = true
+  let neustart = null
+
+  function starten() {
+    if (!laeuft) return
+    r = new Erkenner()
+    r.lang = LOCALE[sprache()] || 'en-US'
+    r.continuous = true
+    r.interimResults = false
+    r.maxAlternatives = 1
+
+    r.onresult = (e) => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (!e.results[i].isFinal) continue
+        const satz = String(e.results[i][0].transcript || '').trim()
+        if (!satz) continue
+        // Echo: hört er sich gerade selbst? istEigeneStimme() steckt schon in
+        // dieser Datei und wird hier bewusst wiederverwendet statt kopiert.
+        const eigen = zuletztGesagt?.() || ''
+        if (eigen && istEigeneStimme(satz, eigen)) continue
+        onSatz?.(satz)
+      }
+    }
+
+    r.onerror = (e) => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        laeuft = false
+        onFehler?.('Mikrofon nicht erlaubt.')
+      }
+      // no-speech, aborted, network: passiert im Dauerbetrieb ständig und ist
+      // harmlos. Nur nicht melden — onend startet gleich neu.
+    }
+
+    // Chrome beendet die Erkennung von selbst, auch mit continuous=true.
+    // Ohne diesen Neustart wäre nach etwa einer Minute Ruhe, und zwar
+    // lautlos — die Oberfläche zeigte weiter an, dass zugehört wird.
+    r.onend = () => {
+      if (!laeuft) return
+      clearTimeout(neustart)
+      neustart = setTimeout(starten, 400)
+    }
+
+    try {
+      r.start()
+    } catch {
+      clearTimeout(neustart)
+      neustart = setTimeout(starten, 800)
+    }
+  }
+
+  starten()
+
+  return {
+    stop: () => {
+      laeuft = false
+      clearTimeout(neustart)
+      try {
+        r?.abort()
+      } catch {}
+    },
+  }
+}

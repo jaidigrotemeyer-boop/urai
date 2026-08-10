@@ -14,7 +14,7 @@ import Onboarding from './components/Onboarding.jsx'
 import Briefing from './components/Briefing.jsx'
 import { farbeLesen, useFarbe } from './theme.js'
 import { t, useSprache, sprache } from './i18n.js'
-import { hoeren, sprechen, sprechenUnterbrechbar, still, kannHoeren, weckwortHoeren } from './stimme.js'
+import { hoeren, sprechen, sprechenUnterbrechbar, still, kannHoeren, weckwortHoeren, dauerhaftHoeren } from './stimme.js'
 import JarvisLeiste, { JarvisEcken, useJarvisHaut } from './components/JarvisLeiste.jsx'
 import JarvisKern from './components/JarvisKern.jsx'
 import Kacheln from './components/Kacheln.jsx'
@@ -68,11 +68,20 @@ export default function App() {
   const hautAn = useJarvisHaut()
   const [redet, setRedet] = useState(false)
   const [meldungen, setMeldungen] = useState([])
+  const [dauerAn, setDauerAn] = useState(() => localStorage.getItem('urai-dauerlauschen') === 'an')
+  const [dauerPrueft, setDauerPrueft] = useState(false)
+  const dauer = useRef(null)
+  // Was URAI gerade sagt — nur damit das Dauerlauschen die eigene Stimme
+  // erkennt und nicht auf sich selbst antwortet.
+  const zuletztGesagt = useRef('')
 
   // Ein Wort für das, was URAI gerade tut. Kern, Datenstrom und die Haut
   // hängen alle daran — vorher wusste jedes Teil es für sich, und dann driftet
   // so etwas auseinander, bis der Kern denkt und der Hintergrund schläft.
-  const zustand = redet ? 'spricht' : busy ? 'denkt' : hoert ? 'hoert' : 'ruht'
+  // Dauerlauschen zählt als "hoert": ein dauerhaft offenes Mikrofon muss man
+  // sehen können, ohne danach zu suchen. Wer nicht weiß, dass zugehört wird,
+  // hat kein Werkzeug, sondern eine Wanze.
+  const zustand = redet ? 'spricht' : busy ? 'denkt' : hoert || dauerAn ? 'hoert' : 'ruht'
 
   // Derselbe Zustand zusätzlich am <html>: das Hintergrundraster hängt an
   // body::before, und von .app aus ist dort nicht hinzukommen — nach oben
@@ -194,6 +203,50 @@ export default function App() {
     })
     return () => weck.current?.stop()
   }, [weckAn])
+
+  // Dauerlauschen: jeder fertige Satz geht zur Prüfung an den Server. Ob er
+  // an URAI gerichtet war, entscheidet dort das lokale Modell — im Browser
+  // wäre die Entscheidung nur ein zweites Mal geraten.
+  useEffect(() => {
+    if (!dauerAn || !kannHoeren()) return
+    dauer.current = dauerhaftHoeren({
+      zuletztGesagt: () => zuletztGesagt.current,
+      onSatz: async (satz) => {
+        setDauerPrueft(true)
+        try {
+          const r = await fetch('/api/gemeint', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ text: satz }),
+          })
+          const j = await r.json()
+          if (j.gemeint) send(satz)
+          // Nicht gemeint: absichtlich still. Für jeden verworfenen Satz einen
+          // Hinweis zu zeigen wäre genau der Lärm, den das Ganze vermeiden soll.
+          else if (j.grund === 'kein-lokales-gehirn' || j.grund === 'ollama-aus') {
+            // Das eine Mal, wo Schweigen falsch wäre: ohne lokales Modell kommt
+            // NICHTS durch außer dem Namen, und das muss man erfahren.
+            setDauerAn(false)
+            localStorage.setItem('urai-dauerlauschen', 'aus')
+            push({
+              kind: 'msg',
+              role: 'error',
+              text: 'Dauerlauschen braucht das lokale Gehirn — sonst könnte niemand entscheiden, ob ein Satz an URAI gerichtet war. Stell in den Einstellungen unter „Lokales Gehirn" mindestens 6 GB ein und starte Ollama.',
+            })
+          }
+        } catch {
+          // Netzfehler: still verwerfen. Im Zweifel nicht gemeint.
+        }
+        setDauerPrueft(false)
+      },
+      onFehler: (f) => {
+        setDauerAn(false)
+        localStorage.setItem('urai-dauerlauschen', 'aus')
+        push({ kind: 'msg', role: 'error', text: f })
+      },
+    })
+    return () => dauer.current?.stop()
+  }, [dauerAn])
 
   function handle(msg) {
     switch (msg.type) {
@@ -330,7 +383,10 @@ export default function App() {
         // Vorgelesen wird nur, wenn die Stimme ohnehin an ist und URAI nicht
         // gerade selbst redet. Sonst schnitte die Meldung der Antwort das Wort
         // ab, auf die der Nutzer wartet.
-        if (stimmeAn && !redet) sprechen(msg.text)
+        if (stimmeAn && !redet) {
+          zuletztGesagt.current = msg.text
+          sprechen(msg.text)
+        }
         break
       }
 
@@ -389,6 +445,9 @@ export default function App() {
         streaming.current = false
         if (stimmeAn && msg.text) {
           setRedet(true)
+          // Merken, was gesprochen wird: sonst hört das Dauerlauschen die
+          // eigene Ausgabe, hält sie für einen Auftrag und antwortet darauf.
+          zuletztGesagt.current = msg.text
           stimmeGriff.current = sprechenUnterbrechbar(msg.text, {
             // Reinreden ist nur bei langen Antworten ein Gewinn — und es geht
             // nur, solange nicht schon das Weckwort auf demselben Mikrofon
@@ -525,6 +584,15 @@ export default function App() {
         meldungen={meldungen}
         onWeg={(id) => setMeldungen((xs) => xs.filter((m) => m.id !== id))}
       />
+      {/* Solange dauerhaft zugehört wird, steht das dauerhaft da. Absichtlich
+          nicht ausblendbar: ein offenes Mikrofon ohne sichtbares Zeichen ist
+          genau das, was man an solchen Geräten zu Recht kritisiert. */}
+      {dauerAn && (
+        <div className={`ohr ${dauerPrueft ? 'ohr-prueft' : ''}`} title="URAI hört durchgehend mit">
+          <span className="ohr-punkt" aria-hidden="true" />
+          <span>{dauerPrueft ? 'prüft …' : 'hört mit'}</span>
+        </div>
+      )}
       {!wach && <Boot onDone={() => setWach(true)} />}
       <Cursor busy={busy} />
       {onboardingZeigen && (
@@ -681,6 +749,28 @@ export default function App() {
                   }}
                 >
                   „Hey URAI" {weckAn ? t('on') : t('off')}
+                </button>
+              )}
+              {kannHoeren() && (
+                <button
+                  className={`linkish ${dauerAn ? 'an' : ''}`}
+                  title="Hört durchgehend mit. Ob ein Satz an URAI gerichtet war, entscheidet das lokale Modell."
+                  onClick={() => {
+                    const neu = !dauerAn
+                    setDauerAn(neu)
+                    localStorage.setItem('urai-dauerlauschen', neu ? 'an' : 'aus')
+                    // Weckwort und Dauerlauschen teilen sich das Mikrofon.
+                    // Beide gleichzeitig heißt zwei Erkenner auf einem Gerät,
+                    // und dann funktioniert keiner von beiden.
+                    if (neu && weckAn) {
+                      setWeckAn(false)
+                      localStorage.setItem('urai-weckwort', 'aus')
+                      weck.current?.stop()
+                      setGeweckt(false)
+                    }
+                  }}
+                >
+                  Dauerlauschen {dauerAn ? t('on') : t('off')}
                 </button>
               )}
               <button

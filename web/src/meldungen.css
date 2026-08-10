@@ -78,3 +78,53 @@
 @media (prefers-reduced-motion: reduce) {
   .mld, .mld-raus { animation: none; }
 }
+
+/* ── Das offene Ohr ────────────────────────────────────────────────────
+   Zeigt an, dass dauerhaft zugehört wird. Unten links, wo sonst nichts
+   liegt, und ohne Schließer: das ist kein Hinweis, den man wegklickt,
+   sondern der Zustand eines Mikrofons. Ein offenes Mikrofon ohne
+   sichtbares Zeichen ist genau das, was man an solchen Geräten zu Recht
+   kritisiert — und diese Anzeige kostet nichts. */
+
+.ohr {
+  position: fixed;
+  left: 18px;
+  bottom: 74px;
+  z-index: 54;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px 5px 9px;
+  border-radius: 999px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--dim);
+  pointer-events: none;
+  letter-spacing: 0.04em;
+}
+
+.ohr-punkt {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: ohrPuls 2.2s ease-in-out infinite;
+}
+
+/* Beim Prüfen schneller: dann geht gerade ein Satz zum lokalen Modell.
+   Das ist der einzige Moment, in dem tatsächlich etwas mit dem Gehörten
+   passiert — und genau den soll man sehen. */
+.ohr-prueft .ohr-punkt { animation-duration: 0.7s; }
+.ohr-prueft { color: var(--text); border-color: var(--accent-line); }
+
+@keyframes ohrPuls {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Nicht anhalten, sondern dauerhaft sichtbar lassen: der Punkt ist hier
+     kein Schmuck, sondern die Anzeige selbst. */
+  .ohr-punkt { animation: none; opacity: 1; }
+}

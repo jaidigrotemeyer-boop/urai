@@ -24,6 +24,7 @@ import { TelegramTuer } from './telegram.js'
 import { stand as lokalStand, ollamaModelle, modellCacheLeeren } from './lokal.js'
 import { alleVerbinden as mcpVerbinden, mcpWerkzeuge, mcpStand } from './mcp.js'
 import { hoererDazu, melden, beschaeftigtSetzen } from './melder.js'
+import { istGemeint } from './zuhoeren.js'
 import { skillListe, skillLesen, skillSchreiben, skillLoeschen } from './skills.js'
 
 // Die Werkzeugliste muss wissen, wo sie die MCP-Werkzeuge herbekommt
@@ -135,6 +136,19 @@ app.post('/api/briefing', async (req, res) => {
 // Der Nutzer hat es gesehen — heute nicht nochmal von selbst aufgehen
 app.post('/api/briefing/gesehen', (_req, res) => {
   res.json(saveConfig({ briefingZuletztGezeigt: briefingHeute() }))
+})
+
+// Dauerlauschen: war dieser Satz an URAI gerichtet? Die Entscheidung gehört
+// auf den Server, weil dort das lokale Modell liegt — und weil die Grundhaltung
+// "im Zweifel nein" an EINER Stelle stehen muss, nicht in jeder Oberfläche neu.
+app.post('/api/gemeint', async (req, res) => {
+  try {
+    res.json(await istGemeint(req.body?.text))
+  } catch (err) {
+    // Auch der Fehlerfall sagt nein: ein kaputter Torwächter darf nicht
+    // plötzlich alles durchlassen.
+    res.json({ gemeint: false, grund: `fehler: ${err.message}` })
+  }
 })
 
 app.get('/api/telegram', (_req, res) => {
