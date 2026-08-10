@@ -234,7 +234,7 @@ app.post('/api/config', (req, res) => {
     'briefingAn', 'briefingThemen', 'briefingZuletztGezeigt', 'schluessel',
     'meldungenAn', 'meldungenProStunde', 'meldungenRuheVon', 'meldungenRuheBis',
     'telegramAn', 'telegramToken', 'telegramErlaubteIds', 'telegramSprachantwort',
-    'mausGleiten', 'mausGleitenStaerke', 'lokalBudgetGb', 'lokalModell', 'mcpServer',
+    'mausGleiten', 'mausGleitenStaerke', 'lokalBudgetGb', 'lokalModell', 'lokalSehModell', 'mcpServer',
   ]
   const patch = {}
   for (const k of allowed) if (k in req.body) patch[k] = req.body[k]

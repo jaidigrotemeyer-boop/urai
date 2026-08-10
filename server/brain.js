@@ -447,7 +447,25 @@ async function openaiChat({ provider, messages, tools, onDelta, signal }) {
 /** Bild anschauen. Braucht ein Gehirn, das Bilder kann — das ist Gemini. */
 export async function look({ imageBase64, question, signal, model, flink = false }) {
   const c = loadConfig()
-  if (!c.geminiKey) throw new Error('Bilder anschauen braucht einen Gemini-Schlüssel (gratis: aistudio.google.com/apikey).')
+
+  // Ohne Gemini-Schlüssel zuerst das lokale Seh-Modell versuchen. Vorher warf
+  // look() hier einfach — und weil der Live-Modus seine Fehler schluckt, lief
+  // er sichtbar mit, ohne je eine Notiz zu liefern. Auf einem Rechner, auf dem
+  // ein Seh-Modell installiert ist, ist das dreifach schade: es geht auch ohne
+  // Netz, ohne Schlüssel und ohne Kontingent.
+  if (!c.geminiKey) {
+    const { lokalSehen } = await import('./lokal.js')
+    try {
+      return await lokalSehen(imageBase64, question, { signal })
+    } catch (err) {
+      throw new Error(
+        `Bilder anschauen geht gerade nicht: kein Gemini-Schlüssel, und lokal auch nicht (${err.message}). ` +
+          'Entweder einen Gratis-Schlüssel auf aistudio.google.com/apikey holen, oder in den Einstellungen ' +
+          'unter „Lokales Gehirn" mindestens 2 GB geben und Ollama starten.'
+      )
+    }
+  }
+
   const r = await geminiChat({
     messages: [{ role: 'user', content: question, images: [imageBase64] }],
     tools: [],

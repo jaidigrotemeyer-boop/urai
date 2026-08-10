@@ -109,7 +109,17 @@ export class LiveWatcher {
 
       // Bilder sind gratis (lokal), Fragen ans Gehirn nicht. Also sparsam fragen.
       if (!this.darfFragen(cfg)) {
-        this.last = { ...this.last, bildHash, textHash, app: front.app || this.last.app, text }
+        // last wird hier BEWUSST nicht mitgezogen.
+        //
+        // Vorher stand hier ein Update der Hashes, und das hat Änderungen
+        // verschluckt: Wer während der Sperrfrist zu einem Dokument wechselt
+        // und danach ruhig liest, hätte nie einen Kommentar bekommen. Der
+        // Wechsel galt als "gesehen", obwohl niemand ihn je zu Gesicht bekam,
+        // und danach war der Bildschirm ja unverändert.
+        //
+        // So bleibt die Änderung stehen, bis wirklich gefragt werden durfte.
+        // Beschrieben wird ohnehin der Bildschirm von JETZT, nicht der von
+        // vorhin — es geht also nichts Veraltetes raus.
         this.busy = false
         return
       }
@@ -171,6 +181,7 @@ export class LiveWatcher {
         flink: true, // Mitgucken läuft dauernd — das muss billig und schnell sein
       })
       this.strafe = 0 // ging gut, wieder normal weitermachen
+      this.letzterFehler = null // nach einem guten Blick darf wieder gemeckert werden
       if (!antwort) return null
 
       const zeilen = antwort.trim().split('\n').filter((l) => l.trim())
@@ -191,6 +202,22 @@ export class LiveWatcher {
       if (/429|quota|rate limit/i.test(m)) {
         this.strafe = Math.min((this.strafe || cfg.liveTalkGapMs) * 2, cfg.liveStrafeMaxMs)
         this.emit({ type: 'live_pause', bis: Date.now() + this.strafe })
+        return null
+      }
+
+      // Alles andere EINMAL melden statt still zu schlucken.
+      //
+      // Vorher landete jeder Fehler hier lautlos. Der Live-Modus lief dann
+      // sichtbar weiter, schickte Bilder, und lieferte nie eine Notiz — es sah
+      // aus, als hätte er nichts zu sagen, dabei kam er gar nicht erst zum
+      // Hinsehen. Genau so blieb ein fehlender Gemini-Schlüssel eine ganze
+      // Sitzung lang unbemerkt.
+      //
+      // Nur einmal je Fehlerart: derselbe Fehler alle paar Sekunden wäre
+      // dasselbe Übel von der anderen Seite.
+      if (this.letzterFehler !== m) {
+        this.letzterFehler = m
+        this.emit({ type: 'live_error', message: m })
       }
       return null
     }
@@ -201,7 +228,22 @@ export class LiveWatcher {
    * Kein Bild verlässt je diesen Rechner und keines liegt irgendwo herum.
    */
   async merken(satz, app) {
-    if (!loadConfig().liveRemember) return
+    const cfg = loadConfig()
+    if (!cfg.liveRemember) return
+
+    // Nichts merken, was das kleine lokale Seh-Modell gesehen hat.
+    //
+    // Ohne Gemini-Schlüssel beschreibt moondream den Bildschirm — gut genug für
+    // einen Kommentar nebenher, aber es erfindet plausible Einzelheiten. Bei
+    // drei Messungen am selben Bild nannte es "Firefox", "Google" und "Zoom",
+    // von denen nichts zu sehen war. Als Live-Notiz ist das verzeihlich: sie
+    // ist in zehn Sekunden weg.
+    //
+    // Im Gedächtnis ist es das nicht. Dort steht es morgen noch, sieht aus wie
+    // eine Tatsache, und URAI rechnet später damit. Lieber gar nichts merken
+    // als etwas Erfundenes — dieselbe Regel, die schon in der Anweisung an das
+    // Modell steht.
+    if (!cfg.geminiKey) return
 
     // Technischer Krimskrams gehört nicht ins Gedächtnis
     const muell =

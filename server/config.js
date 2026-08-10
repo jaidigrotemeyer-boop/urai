@@ -165,6 +165,9 @@ const DEFAULTS = {
   // knapp, drosselt server/lokal.js von selbst — der Nutzer hat Vorrang.
   lokalBudgetGb: 0,
   lokalModell: 'llama3.2:3b',
+  // Getrennt vom Textmodell: ein Modell kann das eine oder das andere, selten
+  // beides gut. moondream ist mit knapp 2 GB klein genug für nebenher.
+  lokalSehModell: 'moondream:latest',
 
   // Den Zeiger sichtbar zum Ziel führen, statt ihn hinzubeamen. Kostet pro
   // Klick ein paar Zehntelsekunden — dafür sieht man, was URAI gleich anfasst,

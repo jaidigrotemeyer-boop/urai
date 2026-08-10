@@ -251,6 +251,102 @@ export async function lokalFragen(art, messages, { signal } = {}) {
   })
 }
 
+/**
+ * Ein Bild lokal anschauen lassen.
+ *
+ * Läuft unter der Stufe "notiz" (ab 2 GB) — die heißt in der Leiter nicht
+ * umsonst "Live-Notizen": genau dafür ist sie gedacht. Ein Seh-Modell wie
+ * moondream ist mit knapp 2 GB kleiner als das Textmodell, das auf derselben
+ * Stufe schon erlaubt ist.
+ *
+ * Warum das überhaupt existiert: Bildschirm-Beschreiben ging bisher nur über
+ * Gemini. Ohne Schlüssel lief der Live-Modus zwar sichtbar mit, lieferte aber
+ * nie eine Notiz — die Bilder gingen ins Leere. Ein Rechner, auf dem ein
+ * Seh-Modell installiert ist, sollte dafür nicht ins Netz müssen.
+ *
+ * @param {string} imageBase64  Bild ohne data:-Vorspann
+ * @param {string} frage
+ * @returns {Promise<string>}
+ */
+export async function lokalSehen(imageBase64, frage, { signal } = {}) {
+  if (!darfLokal('notiz')) throw new Error('Lokales Sehen ist auf dieser Stufe nicht vorgesehen.')
+  if (!(await ollamaDa())) throw new Error('Kein lokales Modell erreichbar (Ollama läuft nicht).')
+
+  const cfg = loadConfig()
+  const sehModell = cfg.lokalSehModell || 'moondream:latest'
+
+  // Stufe 1: hinsehen — und zwar auf ENGLISCH.
+  //
+  // Kleine Seh-Modelle können nur Englisch. Auf die deutsche Frage aus dem
+  // Live-Modus antwortete moondream wörtlich mit "!!!". Auf "Describe this
+  // screenshot in one sentence." kam ein sauberer Satz. Das ist keine Marotte
+  // dieses einen Modells, sondern der Normalfall in dieser Größenklasse.
+  //
+  // Und die eigentliche Frage bekommt es gar nicht erst zu sehen: die Anweisung
+  // aus live.js hat Formatregeln und eine WICHTIG-Zeile — daran scheitert ein
+  // 2-GB-Seh-Modell zuverlässig. Es soll nur eine Sache tun: beschreiben.
+  // Der Satz ist kurz, und das ist gemessen, nicht geraten. Am selben Bild:
+  //   "Describe this screen."                          -> 384 Zeichen, brauchbar
+  //   "Describe this screenshot in one sentence."       -> "urna.de/v1/posts/3"
+  //   "Describe what is on this screen in two or ..."   -> "xtracker"
+  // Je mehr man ein 2-GB-Modell anweist, desto eher fällt es aus der Aufgabe.
+  const einBlick = () =>
+    schlange.einreihen(async () => {
+      const r = await fetch('http://localhost:11434/api/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: sehModell,
+          // Ollama nimmt Bilder als Feld der Nachricht, nicht als eigene Rolle
+          messages: [{ role: 'user', content: 'Describe this screen.', images: [imageBase64] }],
+          stream: false,
+        }),
+        signal: signal || AbortSignal.timeout(90_000),
+      })
+      if (!r.ok) {
+        const grund = (await r.text()).slice(0, 200)
+        // Der häufigste Fall: das Seh-Modell ist gar nicht geladen. Das ist eine
+        // Ansage wert, keine HTTP-Nummer — sonst sucht man an der falschen Stelle.
+        if (r.status === 404) {
+          throw new Error(`Seh-Modell "${sehModell}" fehlt. Einmal "ollama pull ${sehModell}" ausführen.`)
+        }
+        throw new Error(`Ollama HTTP ${r.status}: ${grund}`)
+      }
+      const j = await r.json()
+      return String(j.message?.content || '').trim()
+    })
+
+  // Einmal nachfassen: dieses Modell liefert auch bei gleichem Bild und
+  // gleichem Satz mal einen Absatz und mal einen Wortfetzen. Ein zweiter
+  // Versuch kostet wenige Sekunden und rettet die Mehrzahl der Ausrutscher.
+  let beschreibung = await einBlick()
+  if (beschreibung.length < 40) beschreibung = await einBlick()
+
+  if (beschreibung.length < 40) {
+    throw new Error(
+      `Das Seh-Modell "${sehModell}" liefert nur Bruchstücke (${JSON.stringify(beschreibung.slice(0, 40))}).`
+    )
+  }
+
+  // Stufe 2: das Textmodell beantwortet die eigentliche Frage — auf Grundlage
+  // der Beschreibung, nicht des Bildes. Es kann Deutsch, es kann Formatregeln,
+  // und es hat das Bild nie gesehen, kann also auch nichts dazuerfinden, was
+  // nicht in der Beschreibung steht.
+  return lokalFragen('notiz', [
+    {
+      role: 'system',
+      content: [
+        'Ein Seh-Modell hat einen Bildschirm beschrieben. Du beantwortest damit die Frage des Nutzers.',
+        'Halte dich strikt an die Beschreibung. Was dort nicht steht, weißt du nicht — dann sag das.',
+        '',
+        'Beschreibung des Bildschirms:',
+        beschreibung,
+      ].join('\n'),
+    },
+    { role: 'user', content: frage },
+  ], { signal })
+}
+
 /** Alles auf einen Blick — für den Regler in den Einstellungen. */
 export async function stand() {
   const budget = budgetLesen()
