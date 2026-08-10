@@ -11,6 +11,9 @@ const pexec = promisify(execFile)
 
 // Gleiche Wache wie in files.js: nichts wird außerhalb vom Revier angefasst.
 function resolve(p) {
+  // Ohne diese Prüfung stürzt ein fehlerhafter Werkzeug-Aufruf (leerer, fehlender
+  // oder falsch typisierter pfad) mit einer rohen TypeError ab statt einer Meldung.
+  if (typeof p !== 'string' || !p.trim()) throw new Error('pfad fehlt oder ist kein Text.')
   const c = loadConfig()
   const abs = path.resolve(p.startsWith('~') ? p.replace(/^~/, process.env.HOME) : p)
   const root = path.resolve(c.workspace || process.env.HOME)
@@ -481,6 +484,64 @@ function xlsxTeile(titel, blaetter, kopfzeile) {
   return teile
 }
 
+// ── Lesen ───────────────────────────────────────────────────────────────
+// Gegenrichtung zu packe(): kein temporärer Ordner nötig, unzip kann
+// einzelne Teile direkt aus dem Archiv auf stdout ausgeben.
+
+async function unzipListe(abs) {
+  try {
+    const { stdout } = await pexec('unzip', ['-Z1', abs])
+    return stdout.split('\n').filter(Boolean)
+  } catch (e) {
+    if (e.code === 'ENOENT') throw new Error('Das Programm "unzip" fehlt auf diesem Rechner.')
+    throw new Error(`Konnte "${abs}" nicht als Office-Datei öffnen: ${e.stderr || e.message}`)
+  }
+}
+
+async function unzipTeil(abs, teil) {
+  try {
+    const { stdout } = await pexec('unzip', ['-p', abs, teil], { maxBuffer: 20_000_000 })
+    return stdout
+  } catch (e) {
+    if (e.code === 'ENOENT') throw new Error('Das Programm "unzip" fehlt auf diesem Rechner.')
+    throw new Error(`Konnte "${teil}" nicht aus "${abs}" entpacken: ${e.stderr || e.message}`)
+  }
+}
+
+// Gegenstück zu esc(): XML-Entities zurück in normalen Text.
+function entesc(s) {
+  return String(s ?? '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+}
+
+// Word legt Text in <w:t>…</w:t> ab, ein Absatz ist <w:p>…</w:p> — Formatierung
+// drumherum interessiert beim Lesen nicht, nur der Inhalt in Reihenfolge.
+function docxText(xml) {
+  const absaetze = (xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || []).map((p) => {
+    // <w:br/> ist ein Umbruch mitten im Absatz (wordLauf() beim Schreiben) —
+    // ohne ihn kleben zwei Zeilen zu einem Wort zusammen.
+    const teile = p.match(/<w:t[^>]*>[\s\S]*?<\/w:t>|<w:br\s*\/>/g) || []
+    return teile
+      .map((t) =>
+        t.startsWith('<w:br')
+          ? '\n'
+          : entesc(t.replace(/^<w:t[^>]*>/, '').replace(/<\/w:t>$/, ''))
+      )
+      .join('')
+  })
+  return absaetze.filter((a) => a.trim()).join('\n')
+}
+
+// PowerPoint legt Text in <a:t>…</a:t> ab, jede Folie ist eine eigene XML-Datei im Archiv.
+function folieText(xml) {
+  const teile = xml.match(/<a:t>([\s\S]*?)<\/a:t>/g) || []
+  return teile.map((t) => entesc(t.replace(/^<a:t>/, '').replace(/<\/a:t>$/, ''))).join(' ')
+}
+
 // ── Werkzeuge ───────────────────────────────────────────────────────────
 
 export const dokumentTools = [
@@ -591,6 +652,42 @@ export const dokumentTools = [
       const bytes = await packe(xlsxTeile(titel, sauber, kopfzeile !== false), abs)
       const anzahl = sauber.reduce((s, b) => s + b.zeilen.length, 0)
       return `Excel-Datei geschrieben: ${abs} (${sauber.length} Blatt/Blätter, ${anzahl} Zeilen, ${bytes} Bytes)`
+    },
+  },
+  {
+    name: 'dokument_lesen',
+    description:
+      'Bestehende Word- (.docx) oder PowerPoint-Datei (.pptx) lesen und ihren Text zurückgeben, z.B. zum Zusammenfassen.',
+    parameters: {
+      type: 'object',
+      properties: { pfad: { type: 'string', description: 'Welche Datei, z.B. ~/Schreibtisch/bericht.docx' } },
+      required: ['pfad'],
+    },
+    async run({ pfad }) {
+      const abs = resolve(pfad)
+      const max = loadConfig().fsMaxBytes
+      const tief = abs.toLowerCase()
+      let text
+      if (tief.endsWith('.pptx')) {
+        const eintraege = await unzipListe(abs)
+        const folien = eintraege
+          .filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+          .sort((a, b) => Number(a.match(/\d+/)[0]) - Number(b.match(/\d+/)[0]))
+        if (!folien.length) throw new Error('Keine Folien gefunden — ist es wirklich eine .pptx-Datei?')
+        const stuecke = []
+        for (const [i, name] of folien.entries()) {
+          const xml = await unzipTeil(abs, name)
+          stuecke.push(`── Folie ${i + 1} ──\n${folieText(xml) || '(leer)'}`)
+        }
+        text = stuecke.join('\n\n')
+      } else if (tief.endsWith('.docx')) {
+        const xml = await unzipTeil(abs, 'word/document.xml')
+        text = docxText(xml)
+        if (!text) throw new Error('Kein Text gefunden — ist es wirklich eine .docx-Datei?')
+      } else {
+        throw new Error('dokument_lesen versteht nur .docx und .pptx.')
+      }
+      return text.length > max ? text.slice(0, max) + '\n…(gekürzt)' : text
     },
   },
 ]

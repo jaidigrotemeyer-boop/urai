@@ -1,5 +1,50 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-10
+Erledigt: `dokument_lesen` in `server/tools/dokument.js` — `dokument.js` konnte
+.docx/.pptx bisher nur schreiben (dokument_word/dokument_powerpoint/dokument_excel),
+nie lesen. Der Agent stand vor jeder existierenden Word/PowerPoint-Datei des
+Nutzers mit leeren Händen. Jetzt entpackt `dokument_lesen` mit `unzip` (schon
+vorhanden, keine neue Abhängigkeit) `word/document.xml` bzw. die `ppt/slides/
+slideN.xml`-Teile und liest den reinen Text heraus (Regex auf `<w:t>`/`<a:t>`,
+XML-Entities zurückgewandelt). Reines Server-Werkzeug ohne UI, darum echte
+Dateien über `dokument_word`/`dokument_powerpoint` erzeugt und wieder
+gelesen (Umlaute, `& < > " '`, mehrere Folien, interner Zeilenumbruch).
+
+Prüfer 1 (Funktioniert es) fand nichts, Prüfer 2 (Randfälle) fand einen echten
+Fehler: `resolve()` — dieselbe Wache wie in `files.js` — prüft den Typ von
+`pfad` nicht. Ein leerer, fehlender oder falsch typisierter `pfad` (null,
+undefined, Zahl) ließ eine rohe `TypeError` durchbrechen statt einer Meldung.
+Behoben mit einer Wache am Anfang von `resolve()` in `dokument.js`
+(`typeof p !== 'string' || !p.trim()`) — betrifft dadurch gleich alle vier
+Dokument-Werkzeuge. Nachgeprüft: alle vorher abstürzenden Fälle liefern jetzt
+`pfad fehlt oder ist kein Text.` statt Stacktrace. Danach nochmal Build und
+Round-Trip-Test durchlaufen lassen, beides sauber.
+
+Nebenbei bemerkt: `main` war beim Start dieser Nacht 10 Commits hinter
+`origin/main` (u.a. die JARVIS-Oberfläche und `dokument_excel` fehlten lokal).
+Erst mit `git fetch` und Fast-Forward aufgeholt, dann die schon fertige
+Änderung an `dokument.js` auf den neuen Stand übertragen — sonst wäre
+`dokument_excel` beim Push wieder verschwunden.
+
+Offener Fund, nicht behoben (außerhalb vom heutigen Auftrag): `resolve()` in
+`server/tools/files.js` hat exakt dieselbe ungeprüfte `p.startsWith(...)`-
+Stelle wie `dokument.js` vor der heutigen Änderung — dieselbe TypeError-Falle
+gilt dort für `fs_read`/`fs_write`/`fs_edit`/`fs_search`/`fs_glob`. Kleiner,
+sicherer Fix für eine der nächsten Nächte (eine Zeile, ein Ort).
+
+Weiterhin offen: `dokument_lesen` deckt nur .docx/.pptx ab, nicht .xlsx
+(seit gestern gibt es `dokument_excel` zum Schreiben, aber kein Lesen von
+Excel-Dateien zurück). Auch das ZIP+XML, wäre ein naheliegender Anschluss.
+
+Unverändert offen aus früheren Nächten:
+- Auslöser-Übersicht fehlt ganz in der Oberfläche (`server/ausloeser.js`,
+  `server/index.js` GET/POST `/api/ausloeser` sind fertig, UI fehlt).
+- `fs_search` meldet echte Fehler (ungültiges Muster, Programm fehlt, keine
+  Rechte) pauschal als "(nichts gefunden)".
+- Werkstatt-Ansicht ist mit Abstand die dichteste Stelle in web/src/ — nächster
+  Kandidat fürs Ruhiger-Machen, falls nicht schon durch neuere Nächte entschärft.
+
 ## 2026-08-09
 Erledigt: Werkstatt-Fußleiste entrümpelt (`web/src/components/Werkstatt.jsx`,
 `web/src/werkstatt.css`) — bis zu neun Elemente standen in einer Zeile
