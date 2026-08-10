@@ -23,6 +23,7 @@ import { holen as briefingHolen, bereit as briefingBereit, heute as briefingHeut
 import { TelegramTuer } from './telegram.js'
 import { stand as lokalStand, ollamaModelle, modellCacheLeeren } from './lokal.js'
 import { alleVerbinden as mcpVerbinden, mcpWerkzeuge, mcpStand } from './mcp.js'
+import { skillListe, skillLesen, skillSchreiben, skillLoeschen } from './skills.js'
 
 // Die Werkzeugliste muss wissen, wo sie die MCP-Werkzeuge herbekommt
 mcpQuelleSetzen(mcpWerkzeuge)
@@ -165,6 +166,35 @@ app.get('/api/mcp', (_req, res) => res.json(mcpStand()))
 app.post('/api/mcp/neu', async (_req, res) => {
   const ergebnis = await mcpVerbinden()
   res.json({ ergebnis, stand: mcpStand() })
+})
+
+// ── Skills: Anleitungen, die das Gehirn nur bei Bedarf holt ──
+// Die Liste kommt bewusst ohne den Anleitungstext. Wer den will, holt den einzelnen Skill —
+// dieselbe Sparsamkeit wie im Systemprompt, nur hier für die Oberfläche.
+app.get('/api/skills', (_req, res) => res.json(skillListe()))
+
+app.get('/api/skills/:id', (req, res) => {
+  try {
+    res.json(skillLesen(req.params.id))
+  } catch (err) {
+    res.status(err.code === 'KEIN_SKILL' ? 404 : 400).json({ fehler: err.message })
+  }
+})
+
+app.post('/api/skills', (req, res) => {
+  try {
+    res.json(skillSchreiben(req.body || {}))
+  } catch (err) {
+    res.status(400).json({ fehler: err.message })
+  }
+})
+
+app.delete('/api/skills/:id', (req, res) => {
+  try {
+    res.json({ ok: skillLoeschen(req.params.id) })
+  } catch (err) {
+    res.status(400).json({ fehler: err.message })
+  }
 })
 
 app.post('/api/config', (req, res) => {

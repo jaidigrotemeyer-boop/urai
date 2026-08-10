@@ -14,6 +14,7 @@ import { liveTools } from '../live.js'
 import { selfTools } from '../self.js'
 import { ablaufTools } from '../ablauf.js'
 import { ausloeserTools } from '../ausloeser.js'
+import { skillTools } from '../skills.js'
 
 export const ALL_TOOLS = [
   ...fileTools,
@@ -31,6 +32,7 @@ export const ALL_TOOLS = [
   ...selfTools,
   ...ablaufTools,
   ...ausloeserTools,
+  ...skillTools,
 ]
 
 // MCP-Werkzeuge kommen erst zur Laufzeit dazu (der Server sagt beim Verbinden,
@@ -84,4 +86,7 @@ export const TOOL_GROUPS = {
   selbst: selfTools.map((t) => t.name),
   ablaeufe: ablaufTools.map((t) => t.name),
   ausloeser: ausloeserTools.map((t) => t.name),
+  // Getrennt von "ablaeufe": ein Ablauf führt aus, ein Skill weiß nur etwas.
+  // Wer das eine abschalten will, will damit selten auch das andere los sein.
+  skills: skillTools.map((t) => t.name),
 }

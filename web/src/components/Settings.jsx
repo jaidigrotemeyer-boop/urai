@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { t, SPRACHEN, sprache, setzeSprache, useSprache } from '../i18n.js'
 import LokalRegler from './LokalRegler.jsx'
+import McpEinstellungen from './McpEinstellungen.jsx'
+import SkillEinstellungen from './SkillEinstellungen.jsx'
 import { hautLesen, hautSetzen } from '../theme.js'
 
 /** Kleines Formular, um einen eigenen OpenAI-kompatiblen Anbieter einzutragen. */
@@ -176,6 +178,7 @@ export default function Settings({ onClose, onSaved }) {
       telegramSprachantwort: !!cfg.telegramSprachantwort,
       briefingAn: !!cfg.briefingAn,
       briefingThemen: cfg.briefingThemen || [],
+      mcpServer: cfg.mcpServer || [],
     }
     if (cfg.telegramToken && !String(cfg.telegramToken).startsWith('••••')) patch.telegramToken = cfg.telegramToken
     if (onboardingErneut) patch.onboardingFertig = false
@@ -210,6 +213,10 @@ export default function Settings({ onClose, onSaved }) {
     const next = await res.json()
     // Telegram neu verbinden, sonst gilt der neue Token erst nach Neustart
     await fetch('/api/telegram/neu', { method: 'POST' }).catch(() => {})
+    // Dasselbe für MCP: save() endet mit onClose(), also gäbe es hier keine
+    // zweite Gelegenheit mehr. Ohne das müsste der Nutzer URAI neu starten —
+    // und genau der Neustart-Zwang war der Grund, das überhaupt zu bauen.
+    await fetch('/api/mcp/neu', { method: 'POST' }).catch(() => {})
     setSaving(false)
     onSaved?.(next)
     onClose()
@@ -387,6 +394,20 @@ export default function Settings({ onClose, onSaved }) {
           />
         </div>
 
+        </details>
+
+        {/* Fremde Werkzeuge und eigenes Wissen: zwei eigene Abschnitte, nicht
+            bei den Abläufen. Ein Ablauf führt aus, ein Skill weiß nur etwas,
+            und ein MCP-Server gehört jemand anderem — drei verschiedene Dinge,
+            die man auch getrennt an- und abschalten können muss. */}
+        <details className="abschnitt">
+          <summary>Apps verbinden (MCP)</summary>
+          <McpEinstellungen cfg={cfg} setCfg={setCfg} />
+        </details>
+
+        <details className="abschnitt">
+          <summary>Skills</summary>
+          <SkillEinstellungen />
         </details>
 
         <details className="abschnitt">

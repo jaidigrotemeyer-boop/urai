@@ -1,0 +1,410 @@
+/* ── MCP-Server in den Einstellungen ──────────────────────────────────
+   Gehört zu components/McpEinstellungen.jsx und wird von dort importiert.
+
+   Kein fester Farbwert, nirgends: das Farbrad des Nutzers setzt --accent am
+   :root, und die JARVIS-Haut tauscht Radien und Schriften. Beides gewinnt
+   automatisch, solange hier nur Variablen stehen. Rot- und Grüntöne entstehen
+   deshalb per color-mix aus --danger bzw. --accent statt aus rgba(). Ältere
+   Engines ohne color-mix fallen auf die Zeile davor zurück — darum steht vor
+   jedem color-mix eine schlichte Ersatzangabe. */
+
+.mcp {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Die Ansage vorweg ───────────────────────────────────────────────
+   Bewusst am Rand markiert statt als roter Kasten: das ist eine Tatsache
+   über MCP, keine Fehlermeldung. Ein Warndreieck hier würde den echten
+   Fehlern weiter unten ihre Wirkung nehmen. */
+.mcp-warnung {
+  padding: 9px 12px;
+  border-left: 2px solid var(--accent-line);
+  background: var(--accent-soft);
+  border-radius: 0 var(--r-sm, 6px) var(--r-sm, 6px) 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--dim);
+}
+
+/* ── Neu verbinden ───────────────────────────────────────────────────
+   Der Knopf, der den Neustart ersetzt. Steht oben und allein in seiner
+   Zeile, damit er nicht zwischen den Server-Zeilen untergeht. */
+.mcp-leiste {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mcp-leiste button {
+  /* Der Knopf soll nicht mitwachsen, wenn "Verbinde …" kürzer ist als
+     "Neu verbinden" — sonst zuckt die Zeile bei jedem Klick. */
+  min-width: 132px;
+}
+
+.mcp-leiste button:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.mcp-leiste-text {
+  flex: 1;
+  min-width: 160px;
+  font-size: 11px;
+  color: var(--dimmer);
+  line-height: 1.45;
+}
+
+.mcp-meldung {
+  padding: 8px 11px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-sm, 6px);
+  background: var(--accent-soft);
+  font-size: 11.5px;
+  color: var(--text);
+}
+
+.mcp-meldung-fehler {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+.mcp-hinweis {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--dimmer);
+}
+
+.mcp-hinweis-fehler {
+  color: var(--danger);
+  margin-top: 6px;
+}
+
+.mcp-leer {
+  padding: 14px 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-sm, 6px);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--dimmer);
+}
+
+/* ── Die Server-Liste ────────────────────────────────────────────────── */
+.mcp-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mcp-server {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm, 6px);
+  background: var(--panel);
+}
+
+/* Ein abgeschalteter Server bleibt lesbar, tritt aber zurück — er ist
+   nicht kaputt, er ist nur gerade nicht im Spiel. */
+.mcp-server-aus {
+  opacity: 0.62;
+}
+
+.mcp-kopf {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mcp-titel {
+  /* Ohne min-width:0 darf ein Flex-Kind nicht unter seinen Inhalt schrumpfen —
+     eine lange Composio-URL würde die Karte seitlich aufreißen. */
+  min-width: 0;
+  flex: 1;
+}
+
+.mcp-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcp-url {
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--dimmer);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Zustand ─────────────────────────────────────────────────────────
+   Punkt plus Wort, nicht Punkt allein: Farbe allein trägt die Aussage
+   nicht, wenn jemand sie nicht unterscheiden kann. */
+.mcp-zustand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 3px 9px;
+  border: 1px solid var(--line-soft);
+  border-radius: 99px;
+  font-size: 10.5px;
+  white-space: nowrap;
+  color: var(--dim);
+}
+
+.mcp-punkt {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.mcp-zustand-an {
+  color: var(--accent);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+/* Der Punkt des verbundenen Servers glimmt — das ist der eine Zustand,
+   den man aus dem Augenwinkel erkennen soll. */
+.mcp-zustand-an .mcp-punkt {
+  box-shadow: 0 0 6px var(--accent);
+}
+
+.mcp-zustand-fehler {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+.mcp-zustand-aus,
+.mcp-zustand-ruht {
+  color: var(--dimmer);
+}
+
+/* Kein Zustand, sondern eine Buchhaltung: die Einstellung hier weicht vom
+   angebundenen Stand ab. Erklärt, warum "Neu verbinden" nichts ändert. */
+.mcp-marke {
+  align-self: flex-start;
+  padding: 2px 7px;
+  border-radius: 99px;
+  border: 1px solid var(--line-soft);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--warn);
+}
+
+.mcp-fehler {
+  padding: 7px 10px;
+  border-radius: var(--r-sm, 6px);
+  border-left: 2px solid var(--danger);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--danger);
+  /* Fehlertexte vom Server sind eine lange Zeile ohne Leerzeichen —
+     ohne Umbruch schöben sie die Karte auf. */
+  overflow-wrap: anywhere;
+}
+
+/* ── Token ───────────────────────────────────────────────────────────
+   Im Ruhezustand steht hier Text, kein Eingabefeld. Ein Feld mit vier
+   Punkten drin sieht aus wie ein Platzhalter, und wer drüberschreibt oder
+   es leert, wirft ohne es zu merken den echten Token weg. */
+.mcp-token {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.mcp-token input {
+  flex: 1;
+  min-width: 150px;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.mcp-token button {
+  font-size: 11.5px;
+  padding: 5px 10px;
+}
+
+.mcp-token-stand {
+  font-size: 11px;
+  color: var(--dimmer);
+}
+
+.mcp-token-da {
+  color: var(--dim);
+}
+
+/* ── Die Werkzeuge des Servers ───────────────────────────────────────
+   Zugeklappt, weil ein Composio-Server dreistellig viele mitbringen kann
+   und die Karte sonst die ganzen Einstellungen sprengt. */
+.mcp-werkzeuge > summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--dim);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 0;
+}
+
+.mcp-werkzeuge > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mcp-werkzeuge > summary::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.25s;
+}
+
+.mcp-werkzeuge[open] > summary {
+  color: var(--accent);
+}
+
+.mcp-werkzeuge[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.mcp-wz-liste {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  /* Deckel plus eigener Rollbalken: die Liste soll auskunftsfähig sein,
+     ohne dass man an den anderen Einstellungen vorbeiscrollen muss. */
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 9px 10px;
+  border-radius: var(--r-sm, 6px);
+  border: 1px solid var(--line-soft);
+}
+
+.mcp-wz {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mcp-wz-name {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+.mcp-wz-text {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--dimmer);
+}
+
+.mcp-knoepfe {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+.mcp-knoepfe button {
+  font-size: 11.5px;
+  padding: 5px 11px;
+}
+
+/* ── Neuen Server eintragen ──────────────────────────────────────────── */
+.mcp-neu {
+  padding: 12px 13px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-sm, 6px);
+}
+
+.mcp-neu-titel {
+  font-size: 11px;
+  color: var(--dim);
+  margin-bottom: 8px;
+}
+
+.mcp-neu-felder {
+  display: grid;
+  /* Zwei Spalten, solange Platz ist: die Einstellungen stehen in einem
+     schmalen Blatt, und drei Felder nebeneinander wären dort Stummel. */
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: 6px;
+}
+
+.mcp-neu-felder input {
+  font-size: 12.5px;
+}
+
+.mcp-neu-felder button {
+  grid-column: 1 / -1;
+}
+
+.mcp-neu-felder button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Unter der JARVIS-Haut ───────────────────────────────────────────
+   Farben und Schriften kommen von allein: jarvis.css tauscht die Variablen
+   am :root, und hier steht nichts Festes. Die harten Kanten kommen NICHT
+   von allein — jarvis.css zieht den Radius über eine namentliche Liste von
+   Klassen (.sheet, .karte, .abschnitt …), und die kannte diesen Abschnitt
+   noch nicht. Statt in fremder Datei nachzutragen, meldet sich der
+   Abschnitt hier selbst an; so bleibt alles zu MCP an einem Ort. */
+:root[data-haut='jarvis'] .mcp-server,
+:root[data-haut='jarvis'] .mcp-neu,
+:root[data-haut='jarvis'] .mcp-leer,
+:root[data-haut='jarvis'] .mcp-meldung,
+:root[data-haut='jarvis'] .mcp-fehler,
+:root[data-haut='jarvis'] .mcp-wz-liste {
+  border-radius: 5px;
+}
+
+:root[data-haut='jarvis'] .mcp-warnung {
+  border-radius: 0 5px 5px 0;
+}
+
+/* Die Beschriftungen des Abschnitts in Monospace — dieselbe Behandlung,
+   die jarvis.css den übrigen Überschriften gibt. Der Fließtext der
+   Warnung bleibt bewusst außen vor: Monospace über ganze Sätze ist Stil
+   auf Kosten der Lesbarkeit. */
+:root[data-haut='jarvis'] .mcp-neu-titel,
+:root[data-haut='jarvis'] .mcp-werkzeuge > summary,
+:root[data-haut='jarvis'] .mcp-zustand {
+  font-family: var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 10px;
+}

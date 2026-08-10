@@ -7,6 +7,7 @@ import { logMessage, recall, history } from './memory.js'
 import { saveSession, addToIndex } from './obsidian.js'
 import { beschreiben } from './aktivitaet.js'
 import { mitBeweis } from './beweis.js'
+import { skillHinweis } from './skills.js'
 
 const SYSTEM = `Du bist URAI — ein Agent, der auf dem Mac des Nutzers wirklich handelt.
 
@@ -212,7 +213,17 @@ export class Agent {
     // Zähler für den ganzen Auftrag — alle Agenten teilen ihn sich
     this.run = run || { count: 0, log: [] }
     this.emit = depth === 0 ? emit : (msg) => emit({ ...msg, agent: name, depth })
-    this.messages = [{ role: 'system', content: `${SYSTEM}\n\n${haltung()}\n\nSprich mit dem Nutzer in: ${sprachName()}.` }]
+    // Die Skill-Liste kommt nur mit Name und "wann" mit — nie mit dem Anleitungstext.
+    // skillHinweis() gibt einen leeren String zurück, wenn es keine Skills gibt; der filter
+    // wirft ihn raus, damit kein leerer Abschnitt im Prompt steht.
+    this.messages = [
+      {
+        role: 'system',
+        content: [SYSTEM, haltung(), skillHinweis(), `Sprich mit dem Nutzer in: ${sprachName()}.`]
+          .filter(Boolean)
+          .join('\n\n'),
+      },
+    ]
     this.pending = new Map()
     this.abort = null
     this.running = false

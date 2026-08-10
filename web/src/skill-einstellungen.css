@@ -1,0 +1,338 @@
+/* ── Skills in den Einstellungen ──────────────────────────────────────
+   Gehört zu components/SkillEinstellungen.jsx und wird von dort importiert.
+
+   Kein fester Farbwert, nirgends: das Farbrad des Nutzers setzt --accent am
+   :root, und die JARVIS-Haut tauscht Radien und Schriften. Beides gewinnt
+   automatisch, solange hier nur Variablen stehen. Getönte Flächen entstehen
+   deshalb per color-mix aus --accent bzw. --danger statt aus rgba(). Vor
+   jedem color-mix steht eine schlichte Ersatzangabe für Engines, die es
+   nicht können — sonst fiele die Fläche ganz weg.
+
+   Die eine gestalterische Entscheidung, die den ganzen Abschnitt trägt: das
+   „wann“ ist die größte Zeile der Karte. Der Name steht darüber, aber das
+   „wann“ ist das, was das Gehirn wirklich liest — und was der Nutzer beim
+   Durchsehen prüfen will. */
+
+.skl {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Was ein Skill ist ───────────────────────────────────────────────
+   Am Rand markiert statt als Kasten: das ist eine Erklärung, keine Warnung.
+   Der zweite Absatz grenzt gegen die Abläufe ab und steht deshalb optisch
+   abgesetzt — die beiden zu verwechseln ist der wahrscheinlichste Irrtum
+   in diesen Einstellungen. */
+.skl-erklaerung {
+  padding: 9px 12px;
+  border-left: 2px solid var(--accent-line);
+  background: var(--accent-soft);
+  border-radius: 0 var(--r-sm, 6px) var(--r-sm, 6px) 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--dim);
+}
+
+.skl-erklaerung-ab {
+  display: block;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--dimmer);
+}
+
+/* ── Kopfleiste der Liste ────────────────────────────────────────────── */
+.skl-leiste {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.skl-leiste-text {
+  flex: 1;
+  min-width: 160px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--dimmer);
+}
+
+.skl-leiste-text code {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--dim);
+}
+
+/* ── Zustandszeile ───────────────────────────────────────────────────
+   Speichern, Löschen, Fehler: immer dieselbe Zeile an derselben Stelle.
+   Drei Meldungen an drei Orten wären drei Orte zum Übersehen. */
+.skl-stand {
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm, 6px);
+  background: var(--panel);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--dim);
+  /* Servertexte können lange Pfade enthalten — ohne Umbruch schieben sie
+     das Blatt seitlich auf. */
+  overflow-wrap: anywhere;
+}
+
+.skl-stand-gut {
+  color: var(--accent);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.skl-stand-fehler {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+.skl-leer {
+  padding: 14px 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-sm, 6px);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--dimmer);
+}
+
+/* ── Die Karten ──────────────────────────────────────────────────────── */
+.skl-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skl-karte {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm, 6px);
+  background: var(--panel);
+}
+
+.skl-kopf {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.skl-name {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skl-datum {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dimmer);
+}
+
+/* ── Das „wann“ ──────────────────────────────────────────────────────
+   Größer als der Name und in voller Textfarbe. Das ist Absicht: der Name
+   ist eine Beschriftung, das „wann“ ist der Inhalt. Darum auch kein
+   Abschneiden mit Auslassungspunkten — ein halb sichtbarer Auslöser ist
+   nicht prüfbar, und mehr als zwei Zeilen wird er ohnehin nicht. */
+.skl-wann {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.skl-wann-marke {
+  display: inline-block;
+  margin-right: 7px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  /* Die Marke sitzt im Textfluss, soll aber die Zeilenhöhe nicht aufblähen. */
+  vertical-align: 1px;
+}
+
+/* Fehlt das „wann“, ist der Skill faktisch tot — das ist keine Kleinigkeit
+   am Rand, sondern der Grund, warum er nie benutzt wird. */
+.skl-wann-fehlt {
+  color: var(--dimmer);
+  font-size: 11.5px;
+}
+
+.skl-wann-fehlt .skl-wann-marke {
+  color: var(--warn);
+  border-color: var(--warn);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+}
+
+.skl-fuss {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+/* Der Dateiname steht da, weil das hier wirklich eine Datei ist: wer den
+   Skill lieber im Editor oder in Obsidian anfasst, findet ihn so wieder. */
+.skl-id {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--dimmer);
+  overflow-wrap: anywhere;
+}
+
+.skl-karte-knoepfe {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.skl-karte-knoepfe button,
+.skl-kopfzeile button {
+  font-size: 11.5px;
+  padding: 5px 11px;
+}
+
+.skl-mini {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--dimmer);
+}
+
+.skl-mini-warn {
+  color: var(--warn);
+}
+
+/* ── Bearbeiten ──────────────────────────────────────────────────────── */
+.skl-kopfzeile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.skl-kopf-titel {
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: var(--dimmer);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skl-label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.skl-label-text {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.skl-label-hilfe {
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--dimmer);
+}
+
+/* Das „wann“ bekommt auch im Formular seinen eigenen Rahmen: es ist das
+   Feld, das die Leute am ehesten überfliegen, und genau das darf es nicht. */
+.skl-label-wann {
+  padding: 10px 11px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-sm, 6px);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.skl-label-wann .skl-label-text {
+  color: var(--accent);
+}
+
+/* ── Das Textfeld ────────────────────────────────────────────────────
+   Der eigentliche Grund für diese Ansicht. Eine Anleitung ist ein Aufsatz
+   mit Listen und Absätzen; in drei Zeilen wäre sie nicht zu bearbeiten,
+   sondern nur zu erdulden. Mindestens 22 Zeilen, und darüber hinaus
+   wächst es mit dem Fenster mit. Monospace, weil es Markdown ist und in
+   einer Datei landet — Einrückungen von Listen sollen stimmen. */
+.skl-anleitung {
+  min-height: 340px;
+  height: min(52vh, 620px);
+  resize: vertical;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.62;
+  tab-size: 2;
+  /* Weiche Umbrüche im Fließtext, aber lange URLs sollen nicht das Feld
+     seitlich aufreißen. */
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.skl-knoepfe {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.skl-knoepfe button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Unter der JARVIS-Haut ───────────────────────────────────────────
+   Farben und Schriften kommen von allein: jarvis.css tauscht die Variablen
+   am :root. Die harten Kanten kommen NICHT von allein — jarvis.css zieht
+   den Radius über eine namentliche Liste von Klassen (.sheet, .karte …),
+   und die kennt diesen Abschnitt nicht. Statt in fremder Datei nachzutragen,
+   meldet sich der Abschnitt hier selbst an; so bleibt alles zu den Skills
+   an einem Ort. */
+:root[data-haut='jarvis'] .skl-karte,
+:root[data-haut='jarvis'] .skl-leer,
+:root[data-haut='jarvis'] .skl-stand,
+:root[data-haut='jarvis'] .skl-label-wann {
+  border-radius: 5px;
+}
+
+:root[data-haut='jarvis'] .skl-erklaerung {
+  border-radius: 0 5px 5px 0;
+}
+
+/* Die Beschriftungen in Monospace — dieselbe Behandlung, die jarvis.css den
+   übrigen Überschriften gibt. Der Fließtext der Erklärung und das „wann“
+   selbst bleiben außen vor: Monospace über ganze Sätze ist Stil auf Kosten
+   der Lesbarkeit, und ausgerechnet diese Sätze sollen gelesen werden. */
+:root[data-haut='jarvis'] .skl-label-text,
+:root[data-haut='jarvis'] .skl-name {
+  font-family: var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 10.5px;
+}
