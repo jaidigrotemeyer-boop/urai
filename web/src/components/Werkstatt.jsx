@@ -483,6 +483,9 @@ function Baustein({
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => onAendern({ beschriftung: e.target.value })}
         />
+        {/* Vor dem ersten Lauf gibt es keinen Takt zu zeigen — die ID stand hier
+           nur als Platzhalter, obwohl sie schon im Namensfeld (placeholder) steht.
+           Span bleibt leer statt entfernt, um am Layout der Kopfzeile nichts zu riskieren. */}
         <span className="baustein-takt">
           {takt ? (
             <>
@@ -494,9 +497,7 @@ function Baustein({
                 </>
               ) : null}
             </>
-          ) : (
-            <span className="takt-still">{b.id}</span>
-          )}
+          ) : null}
         </span>
         <button
           className="baustein-falten"

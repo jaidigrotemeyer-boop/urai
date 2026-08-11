@@ -1,5 +1,58 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-11
+Erledigt: Werkstatt-Baustein-Kopf beruhigt (`web/src/components/Werkstatt.jsx`) —
+im Ruhezustand (vor dem ersten Lauf) zeigte die Takt-Spanne jedes Bausteins die
+eigene ID als Platzhaltertext (`<span className="takt-still">{b.id}</span>`),
+obwohl dieselbe ID schon als Placeholder im Namensfeld direkt daneben steht.
+Reine Wiederholung, die bei mehreren Bausteinen im Ablauf unnötiges Rauschen
+erzeugt — genau die Art Überladung, die der Nutzer loswerden will. Jetzt bleibt
+die Spanne im Ruhezustand leer, zeigt aber weiterhin Takt/ms/tok sobald ein
+Lauf stattgefunden hat.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes), diesen
+gewählt, weil er den größten offenen Nutzerwunsch (ruhigere Oberfläche)
+direkt trifft, isoliert an einer Stelle bleibt und praktisch kein Bruchrisiko
+hat. Die anderen zwei Vorschläge — Typ-Wache in `server/tools/files.js`
+`resolve()` (dieselbe TypeError-Falle wie vor dem `dokument.js`-Fix, weiterhin
+offen) und `dokument_lesen` um .xlsx erweitern (analog zu docx/pptx, i18n
+selbst geprüft: alle sieben Sprachen weiterhin bei 155/155 Schlüsseln,
+keine neue Lücke) — sind gute Kandidaten für kommende Nächte.
+
+Prüfer 1 hat Build UND echten Browser-Test (Vite-Build über den Server
+serviert, Chromium/Playwright) selbst durchgeführt: Ruhezustand leer, Falten-
+Knopf bleibt rechtsbündig, simulierter Takt-Inhalt rendert ohne Layoutbruch.
+Dabei einen echten Fehler in meiner eigenen Begründung gefunden: mein
+Kommentar behauptete, `margin-left:auto` auf der leeren Spanne halte den
+Knopf rechtsbündig — tatsächlich liegt das an `width:100%` auf dem
+Namensfeld-Input (global in `web/src/styles.css`), nicht an der Auto-Margin
+(per DOM-Test bestätigt: Span entfernt → Knopf blieb exakt an derselben
+Stelle). Verhalten war dadurch nie falsch, nur die Begründung im Kommentar —
+korrigiert, Kommentar behauptet jetzt keine falsche Kausalität mehr. Prüfer 2
+fand keinen echten Fehler (0ms-Takt bleibt korrekt sichtbar, da `takt` als
+Objekt geprüft wird, nicht `takt.ms`; einzige Randnotiz: ist ein eigener Name
+gesetzt, war die ID vorher zusätzlich im Taktfeld sichtbar, jetzt nirgends
+mehr im Kopf — laut Auftrag gewollt, kein Bug).
+
+Offener Fund aus Prüfer 1, nicht behoben (kein Bug, nur fürs Verständnis):
+`.baustein-takt { margin-left: auto }` in `web/src/werkstatt.css` greift an
+dieser Stelle praktisch nicht — der Input mit `width:100%` frisst den freien
+Platz vorher weg. Für künftige Änderungen an dieser Kopfzeile wichtig zu
+wissen, damit niemand sich auf die Auto-Margin verlässt, wo sie nicht wirkt.
+
+Unverändert offen aus früheren Nächten:
+- `server/tools/files.js`, `resolve()`: fehlende Typ-Wache für `pfad`
+  (dieselbe Stelle wie letzte Nacht vermerkt, diesmal von Prüfer-Agent im
+  Code bestätigt) — kleiner, sicherer Fix, ein Ort, Muster liegt schon vor.
+- `dokument_lesen` deckt weiterhin nur .docx/.pptx ab, nicht .xlsx.
+- Auslöser-Übersicht fehlt ganz in der Oberfläche (`server/ausloeser.js`,
+  `server/index.js` GET/POST `/api/ausloeser` sind fertig, UI fehlt).
+- `fs_search` meldet echte Fehler pauschal als "(nichts gefunden)".
+- Werkstatt-Kopfzeile ist entrümpelt, aber die Baustein-Felder darunter
+  (Typ-Badge/Namensfeld-Gewichtung) waren in einem der drei heutigen
+  Vorschläge auch als unruhig genannt — als nächster kleiner Schritt für
+  eine kommende Nacht denkbar, heute bewusst nicht mit angefasst.
+
 ## 2026-08-10
 Erledigt: `dokument_lesen` in `server/tools/dokument.js` — `dokument.js` konnte
 .docx/.pptx bisher nur schreiben (dokument_word/dokument_powerpoint/dokument_excel),
