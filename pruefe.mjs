@@ -55,6 +55,17 @@ await pruefe('web_fetch', { url: 'https://example.com', max_chars: 400 }, { erwa
 await pruefe('web_search', { query: 'Obsidian notes app', count: 3 })
 await pruefe('web_browse', {}, { ueberspringen: 'braucht Playwright, extra Installation' })
 
+// ── MIDI-Humanizer ──
+const midiRoh = path.join(tmp, 'roh.mid')
+const midiWeich = path.join(tmp, 'weich.mid')
+await pruefe('midi_muster', { pfad: midiRoh, takte: 2 }, { erwarte: /Maschinell/ })
+await pruefe(
+  'midi_humanisieren',
+  { pfad: midiRoh, ziel: midiWeich, vorlage: 'expressiv', saat: 1 },
+  { erwarte: /Humanisiert/ },
+)
+await pruefe('midi_messen', { pfad: midiWeich }, { erwarte: /Anschlag lebendig/ })
+
 // ── Bildschirm und Mac ──
 await pruefe('mac_check', {})
 await pruefe('mac_apps', {})

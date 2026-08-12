@@ -55,6 +55,9 @@ Helfer (`agent_spawn`). Unter-Agenten dürfen weitere Agenten erschaffen. Ohne R
 Fertige Rollen: `rechercheur`, `programmierer`, `bildschirm`, `schreiber`, `pruefer`, `allrounder`.
 Grenzen gegen endloses Vermehren: `maxAgentDepth` (3) und `maxAgentsPerRun` (12).
 
+**Rhythmus menschlich machen** — `midi_humanisieren` nimmt einer starren MIDI-Datei das Maschinelle:
+Timing, Anschlag, Swing, Akkord-Spreizung, Notenlängen. Mehr dazu unten.
+
 **Obsidian** — alles wird automatisch als Markdown abgelegt:
 
 ```
@@ -68,6 +71,52 @@ Grenzen gegen endloses Vermehren: `maxAgentDepth` (3) und `maxAgentsPerRun` (12)
 Der Vault wird automatisch aus Obsidians eigener Liste gefunden.
 
 **Gedächtnis** — SQLite plus Vektoren, merkt sich Vorlieben und Projekt-Wissen über Sitzungen hinweg.
+
+## Humanizer
+
+Ein Drum-Computer setzt jeden Schlag exakt aufs Raster — genau das hört man als Maschine.
+Eine Hand trifft immer ein paar Millisekunden daneben, schlägt mal fester und mal weicher,
+zieht Akkorde auseinander und hält Noten unterschiedlich lang. Der Humanizer gibt einer
+fertigen MIDI-Datei genau das zurück.
+
+Im Chat reicht „mach den Beat menschlich". Ohne Server geht es auch von Hand:
+
+```bash
+node humanisieren.mjs --muster roh.mid        # stocksteifen Test-Loop bauen
+node humanisieren.mjs roh.mid --expressiv     # → roh-menschlich.mid
+node humanisieren.mjs --messen roh-menschlich.mid
+```
+
+Drei fertige Vorlagen, oder jeden Regler einzeln:
+
+| Vorlage | Timing | Anschlag | Swing | Für |
+|---|---|---|---|---|
+| `--subtil` | ±8 ms | ±6 | – | Beat soll tight bleiben, nur nicht tot |
+| `--expressiv` | ±18 ms | ±14 | 0.35 | gespielt statt programmiert |
+| `--stark` | ±30 ms | ±24 | 0.5 | betont locker, fast schlampig |
+
+| Regler | Was er macht |
+|---|---|
+| `--timing <ms>` | Streuung der Anschlagszeit |
+| `--velocity <n>` | Streuung der Anschlagstärke (MIDI 0–127) |
+| `--swing <0-1>` | 1.0 = volle Triole; `--swingRaster 16` für Sechzehntel |
+| `--spreizung <ms>` | Akkordtöne von unten nach oben versetzen |
+| `--laenge <0-1>` | wie stark die Notenlängen atmen |
+| `--stabilitaet <0-1>` | wie ruhig die Eins bleibt, während der Rest wackelt |
+| `--akzent <0-1>` | wie viel lauter betonte Zählzeiten werden |
+| `--kanaele 9,10` | nur diese MIDI-Kanäle anfassen |
+| `--saat <zahl>` | gleiche Saat = exakt gleiches Ergebnis |
+
+Zwei Dinge unterscheiden das von blindem Zufall: **starke Zählzeiten bleiben ruhiger**
+als schwache (`stabilitaet`), und die Lautstärke folgt der Metrik (`akzent`).
+Gleichmäßiges Rauschen auf allen Noten klingt nicht menschlich, sondern kaputt.
+
+`midi_messen` sagt hinterher, was daraus geworden ist — Abweichung vom Raster in
+Millisekunden und Streuung des Anschlags **je Instrument**. Über alle Noten gerechnet
+sähe schon eine Maschine lebendig aus, nur weil die Bassdrum lauter ist als die Hi-Hat.
+
+Nichts davon braucht ein Zusatzpaket: MIDI-Leser und -Schreiber stecken in
+`server/humanizer.js`. Hintergrund und Herleitung: [docs/dripprinter-humanizer.md](docs/dripprinter-humanizer.md).
 
 ## Notch-Fenster
 
@@ -153,8 +202,9 @@ server/
   ocr.jxa.js    Apple Vision Text-Erkennung
   obsidian.js   Vault schreiben, lesen, durchsuchen
   memory.js     SQLite + Vektor-Gedächtnis
+  humanizer.js  MIDI lesen/schreiben und menschlich machen
   config.js     Einstellungen
-  tools/        files, shell, web, computer
+  tools/        files, shell, web, computer, midi
 web/            React-Oberfläche (Chat links, Live-Auge rechts)
 data/           config.json und urai.db — bleibt hier
 ```
