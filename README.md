@@ -120,6 +120,37 @@ Hinterher stehen die Messwerte von vorher und nachher nebeneinander.
 Das ist ein Lektorat-Werkzeug. Es macht Text besser lesbar. Es sagt nichts darüber,
 was irgendein Erkennungsdienst hinterher meldet, und verspricht das auch nicht.
 
+## Tipp-Effekt
+
+`tipp_effekt` schreibt Text ins vorderste Fenster — Zeichen für Zeichen, im Rhythmus
+einer Hand. Für Screencasts, Demos und Vorführungen, auch in ein offenes
+Google-Dokument.
+
+Eine Maschine tippt mit gleichem Abstand, und das sieht sofort falsch aus. Der
+Rhythmus hier ist im Wort schnell, stockt vor dem Komma, hält nach dem Punkt an,
+macht ab und zu eine Denkpause und wird über die Zeit schneller oder müder.
+
+```
+Dauer 10m auf diesen Absatz:
+  ∅ im Wort 282 ms · nach Punkt 1338 ms · am Umbruch 1584 ms
+```
+
+| Regler | Was er macht |
+|---|---|
+| `dauer` | Gesamtdauer: `45s`, `10m`, `1h30m` |
+| `zeichenProMinute` | statt `dauer` ein festes Tempo (260 ≈ geübte Hand) |
+| `probe` | nur schätzen, nichts tippen |
+| `saat` | gleicher Wert, gleicher Rhythmus |
+
+Die Wunschdauer streckt oder staucht den fertigen Rhythmus als Ganzes — die Form
+bleibt, nur der Maßstab ändert sich. Der rote **Stopp**-Knopf bricht mitten im Text ab.
+
+Zwei Grenzen sind eingebaut. Nach unten: unter ~45 ms je Anschlag verweigert das
+Werkzeug, weil ein einzelner Tastendruck das Betriebssystem selbst schon so viel
+kostet — dafür gibt es `mac_type`, das alles auf einmal einfügt. Nach oben: vier
+Stunden. Was länger läuft, ist kein sichtbarer Tipp-Effekt mehr; dann ist die
+Schreibgeschichte des Dokuments das eigentliche Ergebnis, und die wäre erfunden.
+
 ## Notch-Fenster
 
 Unten im Chat auf **Notch-Fenster** tippen — oder direkt `localhost:3017/?hud=1`.
@@ -205,6 +236,7 @@ server/
   obsidian.js   Vault schreiben, lesen, durchsuchen
   memory.js     SQLite + Vektor-Gedächtnis
   vermenschlichen.js  Text messen und lektorieren
+  tippen.js     Tipp-Rhythmus einer Hand
   config.js     Einstellungen
   tools/        files, shell, web, computer, text
 web/            React-Oberfläche (Chat links, Live-Auge rechts)

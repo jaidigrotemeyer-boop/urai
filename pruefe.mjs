@@ -72,6 +72,8 @@ await pruefe('mac_screenshot', {})
 await pruefe('mac_ui', {})
 await pruefe('mac_find_text', { text: 'Datei' })
 await pruefe('mac_notify', { message: 'URAI Selbsttest läuft' })
+// probe rechnet nur, tippt nicht — darf darum auch ohne --alles laufen
+await pruefe('tipp_effekt', { text: 'Ein Satz zum Prüfen.', dauer: '30s', probe: true }, { erwarte: /Schätzung/ })
 for (const n of ['mac_click', 'mac_click_text', 'mac_move', 'mac_type', 'mac_key', 'mac_scroll', 'mac_drag', 'mac_menu', 'mac_window', 'mac_open_app', 'mac_applescript']) {
   await pruefe(n, {}, { ueberspringen: ALLES ? undefined : 'greift ein — nur mit --alles' })
 }
