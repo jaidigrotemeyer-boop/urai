@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Handschrift</title>
+<style>
+  :root {
+    --grund: #fbfaf7; --karte: #fff; --rand: #e3e0d8; --schrift: #22201c;
+    --leise: #6f6a60; --ton: #8a5a2b; --tonhell: #f3e9dd; --warn: #a6402c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --grund: #16151300; --grund: #161513; --karte: #1e1c19; --rand: #322f2a;
+      --schrift: #ece8e0; --leise: #9a9386; --ton: #d9a066; --tonhell: #2a231a; --warn: #e08b76;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1.25rem 4rem; background: var(--grund); color: var(--schrift);
+    font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  main { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 .25rem; letter-spacing: -.01em; }
+  h1 + p { margin: 0 0 2rem; color: var(--leise); }
+  h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--leise); margin: 0 0 .75rem; }
+  section { background: var(--karte); border: 1px solid var(--rand); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem; }
+  textarea {
+    width: 100%; min-height: 190px; resize: vertical; padding: .8rem; border-radius: 8px;
+    border: 1px solid var(--rand); background: var(--grund); color: var(--schrift);
+    font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  textarea:focus, input:focus, select:focus { outline: 2px solid var(--ton); outline-offset: 1px; }
+  .knopfreihe { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .75rem; }
+  button {
+    font: inherit; font-weight: 550; padding: .5rem 1rem; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--rand); background: var(--karte); color: var(--schrift);
+  }
+  button:hover:not(:disabled) { border-color: var(--ton); }
+  button.wichtig { background: var(--ton); border-color: var(--ton); color: #fff; }
+  button.warnung { color: var(--warn); border-color: var(--warn); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  label { display: block; font-size: .85rem; color: var(--leise); margin-bottom: .3rem; }
+  input[type=text], input[type=password], input[type=number] {
+    width: 100%; padding: .45rem .6rem; border-radius: 7px; border: 1px solid var(--rand);
+    background: var(--grund); color: var(--schrift); font: inherit;
+  }
+  input[type=range] { width: 100%; accent-color: var(--ton); }
+  .zeit { font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .gitter { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .75rem; }
+  .zahl { background: var(--grund); border: 1px solid var(--rand); border-radius: 8px; padding: .6rem .7rem; }
+  .zahl b { display: block; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+  .zahl span { font-size: .78rem; color: var(--leise); }
+  ul { margin: .75rem 0 0; padding-left: 1.1rem; }
+  li { margin-bottom: .3rem; }
+  .marke { display: inline-block; background: var(--tonhell); color: var(--ton); border-radius: 5px; padding: .05rem .4rem; font-size: .78rem; margin-right: .35rem; }
+  .urteil { margin-top: .9rem; padding: .65rem .8rem; border-radius: 8px; background: var(--tonhell); font-weight: 550; }
+  .leise { color: var(--leise); font-size: .87rem; }
+  .fehler { color: var(--warn); }
+  .balken { height: 8px; border-radius: 4px; background: var(--rand); overflow: hidden; margin: .6rem 0; }
+  .balken i { display: block; height: 100%; background: var(--ton); width: 0; transition: width .3s; }
+  details summary { cursor: pointer; color: var(--leise); font-size: .87rem; }
+  details[open] summary { margin-bottom: .9rem; }
+  .feld + .feld { margin-top: .75rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Handschrift</h1>
+  <p>Text messen, lektorieren — und Zeichen für Zeichen tippen, im Rhythmus einer Hand.</p>
+
+  <section>
+    <h2>Text</h2>
+    <textarea id="text" placeholder="Text hier einfügen …" spellcheck="false"></textarea>
+    <div class="knopfreihe">
+      <button id="messen" class="wichtig">Messen</button>
+      <button id="umschreiben">Umschreiben</button>
+      <span id="textstand" class="leise" style="align-self:center"></span>
+    </div>
+    <div id="befund"></div>
+  </section>
+
+  <section>
+    <h2>Tippen</h2>
+    <label for="regler">Dauer — <b id="dauerText" class="zeit">2 min</b></label>
+    <input type="range" id="regler" min="0" max="1000" value="330">
+    <p class="leise" id="tempoText"></p>
+
+    <div class="feld">
+      <label for="vorlauf">Vorlauf in Sekunden — Zeit, ins Zielfenster zu klicken</label>
+      <input type="number" id="vorlauf" min="0" max="120" value="5">
+    </div>
+
+    <div class="knopfreihe">
+      <button id="tippen" class="wichtig">Tippen starten</button>
+      <button id="stopp" class="warnung" disabled>Stopp</button>
+    </div>
+    <div class="balken"><i id="fortschritt"></i></div>
+    <p id="laufstand" class="leise">Bereit.</p>
+    <p id="tippbereit" class="leise"></p>
+  </section>
+
+  <section>
+    <details>
+      <summary>Einstellungen</summary>
+      <p class="leise">Zum Umschreiben braucht es ein Sprachmodell. Ein Gratis-Schlüssel genügt — er bleibt auf diesem Rechner. Messen und Tippen laufen auch ohne.</p>
+      <div class="feld"><label for="geminiKey">Gemini-Schlüssel — aistudio.google.com/apikey</label><input type="password" id="geminiKey" autocomplete="off"></div>
+      <div class="feld"><label for="groqKey">Groq-Schlüssel — console.groq.com/keys</label><input type="password" id="groqKey" autocomplete="off"></div>
+      <div class="feld"><label for="openrouterKey">OpenRouter-Schlüssel — openrouter.ai</label><input type="password" id="openrouterKey" autocomplete="off"></div>
+      <div class="feld"><label for="cerebrasKey">Cerebras-Schlüssel — cloud.cerebras.ai</label><input type="password" id="cerebrasKey" autocomplete="off"></div>
+      <div class="feld"><label for="ton">Ton beim Umschreiben, z.B. sachlich, locker</label><input type="text" id="ton"></div>
+      <div class="knopfreihe"><button id="speichern">Speichern</button><span id="einstellstand" class="leise" style="align-self:center"></span></div>
+    </details>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id)
+const hole = async (weg, daten) => {
+  const antwort = await fetch(weg, daten ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(daten) } : {})
+  const j = await antwort.json()
+  if (!antwort.ok) throw new Error(j.fehler || 'Fehler')
+  return j
+}
+
+// Der Regler läuft logarithmisch von 10 Sekunden bis vier Stunden. Linear
+// wäre die untere Hälfte unbrauchbar — dort sitzen die interessanten Werte.
+const MIN_S = 10, MAX_S = 4 * 3600
+const reglerZuSekunden = (v) => Math.round(MIN_S * Math.pow(MAX_S / MIN_S, v / 1000))
+const zeitText = (s) => s < 60 ? `${s} s` : s < 3600 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1).replace('.0', '')} h`
+
+function dauerZeigen() {
+  const s = reglerZuSekunden(+$('regler').value)
+  $('dauerText').textContent = zeitText(s)
+  const zeichen = $('text').value.length
+  $('tempoText').textContent = zeichen
+    ? `${zeichen} Zeichen — das sind ${Math.round(zeichen / (s / 60))} Zeichen je Minute.`
+    : 'Noch kein Text.'
+  return s
+}
+
+$('regler').oninput = dauerZeigen
+$('text').oninput = () => {
+  const t = $('text').value
+  $('textstand').textContent = t ? `${t.length} Zeichen, ${(t.match(/\S+/g) || []).length} Wörter` : ''
+  dauerZeigen()
+}
+
+function befundZeigen(m) {
+  const zahl = (wert, was) => `<div class="zahl"><b>${wert}</b><span>${was}</span></div>`
+  $('befund').innerHTML = `
+    <div class="gitter" style="margin-top:1rem">
+      ${zahl(m.woerter, 'Wörter')}
+      ${zahl(m.satz.mittel, 'Wörter je Satz (∅)')}
+      ${zahl(m.satz.gleichmass, 'Gleichmaß — klein heißt gleichförmig')}
+      ${zahl(m.floskeln.anzahl, 'Floskeln')}
+    </div>
+    ${m.floskeln.beispiele.length ? `<ul>${m.floskeln.beispiele.map((b) => {
+      const [art, stelle] = b.split(': ')
+      return `<li><span class="marke">${art}</span>${stelle}</li>`
+    }).join('')}</ul>` : ''}
+    ${m.auffaellig.length ? `<ul>${m.auffaellig.map((a) => `<li>${a}</li>`).join('')}</ul>` : ''}
+    <div class="urteil">${m.urteil}</div>`
+}
+
+$('messen').onclick = async () => {
+  try {
+    befundZeigen(await hole('/api/messen', { text: $('text').value }))
+  } catch (e) {
+    $('befund').innerHTML = `<p class="fehler">${e.message}</p>`
+  }
+}
+
+$('umschreiben').onclick = async () => {
+  const knopf = $('umschreiben')
+  knopf.disabled = true
+  knopf.textContent = 'Schreibt um …'
+  try {
+    const r = await hole('/api/umschreiben', { text: $('text').value })
+    $('text').value = r.text
+    $('text').dispatchEvent(new Event('input'))
+    befundZeigen(r.nachher)
+    $('befund').insertAdjacentHTML('afterbegin', `<p class="leise" style="margin:.9rem 0 0">Überarbeitet mit ${r.anbieter}. Vorher: ${r.vorher.urteil}</p>`)
+  } catch (e) {
+    $('befund').innerHTML = `<p class="fehler">${e.message}</p>`
+  } finally {
+    knopf.disabled = false
+    knopf.textContent = 'Umschreiben'
+  }
+}
+
+$('tippen').onclick = async () => {
+  try {
+    await hole('/api/tippen', {
+      text: $('text').value,
+      dauer: `${reglerZuSekunden(+$('regler').value)}s`,
+      vorlauf: +$('vorlauf').value || 0,
+    })
+    verfolgen()
+  } catch (e) {
+    $('laufstand').innerHTML = `<span class="fehler">${e.message}</span>`
+  }
+}
+
+$('stopp').onclick = () => hole('/api/stopp', {}).catch(() => {})
+
+let ticker = null
+function verfolgen() {
+  clearInterval(ticker)
+  ticker = setInterval(async () => {
+    const s = await hole('/api/stand').catch(() => null)
+    const l = s?.lauf
+    if (!l) return
+    $('stopp').disabled = !l.laeuft
+    $('tippen').disabled = l.laeuft
+    $('fortschritt').style.width = `${(l.getippt / Math.max(1, l.gesamt)) * 100}%`
+    if (l.phase === 'vorlauf') {
+      $('laufstand').textContent = `Gleich geht es los — jetzt ins Zielfenster klicken. Noch ${Math.ceil(l.restMs / 1000)} s.`
+    } else if (l.laeuft) {
+      $('laufstand').textContent = `Tippt … ${l.getippt} von ${l.gesamt} Zeichen, noch etwa ${zeitText(Math.round(l.restMs / 1000))}.`
+    } else {
+      clearInterval(ticker)
+      $('laufstand').innerHTML = l.fehler
+        ? `<span class="fehler">${l.fehler}</span>`
+        : l.getippt < l.gesamt
+          ? `Gestoppt nach ${l.getippt} von ${l.gesamt} Zeichen.`
+          : `Fertig — ${l.gesamt} Zeichen getippt.`
+    }
+  }, 400)
+}
+
+$('speichern').onclick = async () => {
+  const daten = {}
+  for (const id of ['geminiKey', 'groqKey', 'openrouterKey', 'cerebrasKey', 'ton']) daten[id] = $(id).value
+  daten.vorlauf = +$('vorlauf').value || 0
+  try {
+    await hole('/api/einstellungen', daten)
+    for (const id of ['geminiKey', 'groqKey', 'openrouterKey', 'cerebrasKey']) $(id).value = ''
+    $('einstellstand').textContent = 'Gespeichert.'
+    starten()
+  } catch (e) {
+    $('einstellstand').innerHTML = `<span class="fehler">${e.message}</span>`
+  }
+}
+
+async function starten() {
+  const s = await hole('/api/stand').catch(() => null)
+  if (!s) return
+  $('ton').value = s.einstellungen.ton || ''
+  $('vorlauf').value = s.einstellungen.vorlauf ?? 5
+  $('umschreiben').disabled = !s.gehirn
+  $('umschreiben').title = s.gehirn ? '' : 'Braucht einen Schlüssel — siehe Einstellungen.'
+  $('tippbereit').innerHTML = s.tippen.ok
+    ? `${s.tippen.hinweis}${s.tippen.rechte ? ' ' + s.tippen.rechte : ''}`
+    : `<span class="fehler">${s.tippen.hinweis}</span>`
+  if (!s.tippen.ok) $('tippen').disabled = true
+  if (s.lauf?.laeuft) verfolgen()
+  dauerZeigen()
+}
+starten()
+</script>
+</body>
+</html>

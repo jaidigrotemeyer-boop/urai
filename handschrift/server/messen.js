@@ -1,12 +1,13 @@
-// Text-Humanizer: KI-Prosa liest sich flach. Immer gleich lange Sätze, immer
-// dieselben Übergänge, immer dieselben Floskeln. Dieses Modul zeigt diese
-// Stellen mit Zahlen und Beispielen — und schreibt den Text auf Wunsch um.
+// Messen: was lässt einen Text nach Fließband klingen?
 //
-// Das ist ein Lektorat-Werkzeug, kein Tarnkappen-Werkzeug. Es macht Text
-// besser lesbar; es macht keine Aussage darüber, was irgendein Erkennungsdienst
-// hinterher meldet, und verspricht das auch nicht.
-
-import { chat } from './brain.js'
+// KI-Prosa ist auffällig gleichmäßig — alle Sätze etwa gleich lang, immer
+// dieselben Übergänge, immer dieselben Floskeln. Dieses Modul zeigt diese
+// Stellen mit Zahl und Beispiel. Reine Rechnung: kein Netz, kein Schlüssel,
+// nichts verlässt den Rechner.
+//
+// Das ist ein Lektorat-Werkzeug. Es macht Text besser lesbar; es macht keine
+// Aussage darüber, was irgendein Erkennungsdienst hinterher meldet, und
+// verspricht das auch nicht.
 
 // Abkürzungen, hinter denen kein Satz endet. Ohne diese Liste zerfällt jedes
 // "z. B." in zwei Sätze und die Satzlängen-Messung wird wertlos.
@@ -206,63 +207,4 @@ function urteilen(f) {
   if (!punkte) return 'Unauffällig: die Sätze atmen, keine Floskelhäufung.'
   if (punkte <= 2) return `Weitgehend in Ordnung, ${punkte === 1 ? 'eine Auffälligkeit' : punkte + ' Auffälligkeiten'}.`
   return `Klingt maschinell: ${punkte} Auffälligkeiten, vor allem gleichförmige Sätze und Floskeln.`
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Umschreiben
-// ────────────────────────────────────────────────────────────────────────────
-
-const AUFTRAG = `Du bist Lektor. Du überarbeitest einen Text, damit er nicht mehr nach Fließband klingt.
-
-Feste Regeln:
-- Der Inhalt bleibt. Keine neue Behauptung, keine neue Zahl, kein neues Beispiel, nichts weglassen.
-- Sprache des Originals beibehalten.
-- Länge um höchstens ein Zehntel verändern.
-- Überschriften, Listen, Zitate, Code und Links bleiben, wie sie sind.
-- Antworte ausschließlich mit dem überarbeiteten Text. Keine Vorrede, kein Kommentar.
-
-Woran du arbeitest:
-- Satzlängen mischen. Auch mal ein Satz mit drei Wörtern. Auch mal ein langer.
-- Floskeln und Übergangswörter streichen oder durch etwas Konkretes ersetzen.
-- Wiederholte Satzanfänge auflösen.
-- Nicht jeden Absatz gleich lang bauen.
-- Aktiv statt Substantivketten. Konkretes Wort statt Allerweltswort.
-- Die Stimme des Autors nicht gegen deine eigene tauschen.`
-
-/**
- * Text vom Gehirn überarbeiten lassen — mit den gemessenen Beanstandungen als
- * Auftrag, nicht mit einem vagen "mach es menschlicher".
- */
-export async function humanisieren(text, { ton, extra, signal } = {}) {
-  const roh = String(text || '').trim()
-  if (!roh) throw new Error('Kein Text da.')
-  const vorher = messen(roh)
-  const beanstandet = vorher.auffaellig.length
-    ? `Gemessene Schwächen dieses Textes:\n- ${vorher.auffaellig.join('\n- ')}`
-    : 'Der Text ist bereits unauffällig. Fass ihn nur an, wo es wirklich besser wird.'
-
-  const { text: neu, provider, model } = await chat({
-    messages: [
-      { role: 'system', content: AUFTRAG },
-      {
-        role: 'user',
-        content: [
-          beanstandet,
-          ton ? `Gewünschter Ton: ${ton}` : '',
-          extra || '',
-          '',
-          'Hier der Text:',
-          '',
-          roh,
-        ]
-          .filter(Boolean)
-          .join('\n'),
-      },
-    ],
-    signal,
-  })
-
-  const sauber = String(neu || '').trim()
-  if (!sauber) throw new Error('Das Gehirn hat nichts zurückgegeben.')
-  return { text: sauber, vorher, nachher: messen(sauber), provider, model }
 }
