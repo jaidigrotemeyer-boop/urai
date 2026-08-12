@@ -7,7 +7,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { messen } from './messen.js'
 import { zeichenPlan, aufDauer, dauerLesen, abspielen, zeitText, MAX_DAUER_MS } from './tippen.js'
-import { umschreiben, einerDa } from './gehirn.js'
+import { umschreiben, anbieter } from './gehirn.js'
 import { zeichen, bereit, SYSTEM } from './schreiben.js'
 import { lesen, schreiben, oeffentlich } from './config.js'
 
@@ -112,9 +112,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && weg === '/api/stand') {
+      const gehirne = await anbieter()
       return json(res, 200, {
         einstellungen: oeffentlich(),
-        gehirn: einerDa(),
+        gehirn: gehirne.length > 0,
+        gehirne: gehirne.map((g) => g.name),
         tippen: await bereit(),
         system: SYSTEM,
         maxStunden: MAX_DAUER_MS / 3600000,

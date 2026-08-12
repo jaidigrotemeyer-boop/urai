@@ -3,6 +3,7 @@
 import { messen } from './server/messen.js'
 import { zeichenPlan, aufDauer, dauerLesen, abspielen, zeitText, MAX_DAUER_MS } from './server/tippen.js'
 import { bereit } from './server/schreiben.js'
+import { umschreiben, bewertung, saeubern } from './server/gehirn.js'
 
 let gut = 0
 let schlecht = 0
@@ -103,6 +104,57 @@ const grosserPlan = zeichenPlan(lang, { saat: 1 })
 const t2 = Date.now()
 await abspielen(grosserPlan, { tippe: async () => {}, warte: async () => {} })
 pruefe('langer Text bleibt schnell', Date.now() - t1 < 2000, `${grosserPlan.schritte.length} Zeichen, ${t2 - t1} ms geplant`)
+
+console.log('\n  UMSCHREIBEN')
+// Das Modell wird hier eingesetzt statt angerufen: so lässt sich prüfen, was
+// die Schleife mit guten, faulen und schlechten Antworten macht.
+const GUT =
+  'Künstliche Intelligenz verändert Unternehmen. Große wie kleine. Was den Erfolg ausmacht, hängt an mehr Stellen als den offensichtlichen, und die wenigsten davon stehen in der Broschüre des Anbieters.\n\n' +
+  'Automatisierung verzahnt Prozesse. Sie spart Kosten, Zeit und Nerven — vor allem Nerven, wenn man die Leute fragt, die vorher jede Zahl von Hand übertragen haben. Das ist der Teil, den Präsentationen gern auslassen.\n\n' +
+  'Die Mitarbeiter entscheiden, ob es klappt. Nicht die Technik. Wer nur in Software investiert und nicht in die Menschen, die damit arbeiten sollen, kauft eine teure Enttäuschung.'
+
+pruefe('Bewertung trennt flach von lebendig', bewertung(messen(FLACH)) > bewertung(messen(LEBENDIG)) * 3,
+  `flach ${bewertung(messen(FLACH))} · lebendig ${bewertung(messen(LEBENDIG))}`)
+
+pruefe('Vorrede wird abgeschnitten', saeubern('Hier ist der überarbeitete Text:\n\nDer Bäcker steht auf.') === 'Der Bäcker steht auf.')
+pruefe('Code-Block wird ausgepackt', saeubern('```markdown\nDer Bäcker steht auf.\n```') === 'Der Bäcker steht auf.')
+
+const einmal = await umschreiben(FLACH, { fragen: async () => GUT })
+pruefe('gute Antwort wird genommen', einmal.text === GUT, `${einmal.punkte.vorher} → ${einmal.punkte.nachher} Punkte`)
+pruefe('nur eine Runde nötig', einmal.versuche.length === 1)
+
+// Faules Modell: gibt den Text unverändert zurück. Muss auffallen.
+let faulRunden = 0
+let faul = null
+try {
+  await umschreiben(FLACH, { fragen: async () => { faulRunden++; return FLACH } })
+} catch (err) {
+  faul = err.message
+}
+pruefe('unveränderte Antwort wird abgelehnt', /nicht besser/.test(faul || ''), faul?.slice(0, 60))
+pruefe('dabei wurde nachgehakt', faulRunden === 3, `${faulRunden} Runden`)
+
+// Erst faul, dann gut: die bessere Fassung muss gewinnen.
+let n = 0
+const spaet = await umschreiben(FLACH, { fragen: async () => (++n < 2 ? FLACH : GUT) })
+pruefe('späte gute Runde gewinnt', spaet.text === GUT, `${spaet.versuche.length} Runden`)
+
+// Zusammenfasser: liefert einen Bruchteil des Textes zurück.
+let zuKurz = null
+try {
+  await umschreiben(FLACH, { fragen: async () => 'KI ist wichtig für Firmen.' })
+} catch (err) {
+  zuKurz = err.message
+}
+pruefe('Zusammenfassung wird verworfen', /Länge|brauchbare/.test(zuKurz || ''), zuKurz?.slice(0, 70))
+
+let ohne = null
+try {
+  await umschreiben(FLACH, { fragen: async () => { throw new Error('kein Netz') } })
+} catch (err) {
+  ohne = err.message
+}
+pruefe('Ausfall wird durchgereicht', /kein Netz/.test(ohne || ''))
 
 console.log('\n  SYSTEM')
 const b = await bereit()

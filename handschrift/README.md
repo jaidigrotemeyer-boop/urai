@@ -70,7 +70,31 @@ sind keine Verteilung.
 vages „mach es menschlicher", sondern die konkreten Stellen. Inhalt, Sprache und
 Länge bleiben; Überschriften, Listen, Zitate und Code auch.
 
-Dafür braucht es einen Gratis-Schlüssel, einer genügt. Er liegt in
+Entscheidend ist, was danach passiert: **die Antwort wird nachgemessen.** Ein
+Modell, das „weniger Fließband" hört, liefert oft dieselben Floskeln in neuer
+Reihenfolge. Darum zählt hier nicht die Absicht, sondern das Ergebnis.
+
+- Wird es nicht besser, wird noch einmal gefragt — mit dem, was übrig geblieben
+  ist. Bis zu drei Runden.
+- Behalten wird die **beste** Fassung, nicht die letzte.
+- Verliert eine Fassung mehr als ein Drittel des Textes oder bläht ihn auf, wird
+  sie verworfen: dann hat das Modell zusammengefasst statt lektoriert.
+- Wird es in keiner Runde besser, sagt Handschrift das, statt eine schlechtere
+  Fassung als Erfolg zu verkaufen.
+
+Hinterher stehen die Punkte da: klein ist gut. `212 → 0` heißt, es hat gewirkt.
+
+### Woher das Modell kommt
+
+Läuft **Ollama** auf deinem Rechner, wird es zuerst gefragt — kein Schlüssel,
+kein Netz, keine Kosten:
+
+```bash
+ollama serve
+ollama pull llama3.2:3b
+```
+
+Sonst genügt ein Gratis-Schlüssel, einer reicht. Er liegt in
 `data/einstellungen.json` auf deinem Rechner:
 
 | Anbieter | Schlüssel holen |
@@ -80,7 +104,16 @@ Dafür braucht es einen Gratis-Schlüssel, einer genügt. Er liegt in
 | Groq | console.groq.com/keys |
 | OpenRouter | openrouter.ai |
 
-Messen und Tippen laufen auch ohne.
+Messen und Tippen laufen auch ohne beides.
+
+### Warum es keinen Umschreiber ohne Modell gibt
+
+Naheliegend wäre, die Floskeln einfach per Regel zu streichen. Im Deutschen
+geht das nicht: „In der heutigen Zeit **spielt** KI eine Rolle." wird dabei zu
+„**Spielt** KI eine Rolle." Ein vorangestelltes Adverbial dreht Verb und Subjekt
+um, und wer es entfernt, muss zurückdrehen — das braucht Satzbau-Analyse, keine
+Ersetzung. Ausprobiert, die Messwerte wurden besser, der Text kaputt. Darum
+wieder ausgebaut.
 
 Das ist ein Lektorat-Werkzeug. Es macht Text besser lesbar. Es sagt nichts
 darüber, was irgendein Erkennungsdienst hinterher meldet, und verspricht das
@@ -120,7 +153,7 @@ server/
   messen.js    die Messung — reine Rechnung, kein Netz
   tippen.js    der Tipp-Rhythmus — reine Rechnung, keine Tastatur
   schreiben.js schlägt die Tasten an (macOS, Windows, Linux)
-  gehirn.js    Umschreiben über einen Gratis-Anbieter
+  gehirn.js    Umschreiben mit Nachmessen (Ollama oder Gratis-Anbieter)
   config.js    Einstellungen in data/
 web/index.html Oberfläche, eine Datei, kein Bauschritt
 data/          Schlüssel und Einstellungen — bleibt hier
@@ -133,4 +166,5 @@ node pruefe.mjs
 ```
 
 Misst flachen gegen lebendigen Text, prüft den Rhythmus, die Dauer-Eingaben,
-die Grenzen und den Stopp — 22 Prüfungen, ohne dass eine Taste angeschlagen wird.
+die Grenzen, den Stopp und die Umschreib-Schleife — 39 Prüfungen, ohne dass eine
+Taste angeschlagen oder ein Modell angerufen wird.

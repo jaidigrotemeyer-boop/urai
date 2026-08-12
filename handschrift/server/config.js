@@ -14,6 +14,7 @@ const STANDARD = {
   groqKey: '',
   openrouterKey: '',
   cerebrasKey: '',
+  ollamaModell: '',
   ton: '',
   zeichenProMinute: 260,
   vorlauf: 5, // Sekunden bis zum ersten Anschlag — Zeit, ins Zielfenster zu klicken
@@ -41,6 +42,7 @@ export function oeffentlich() {
   const c = lesen()
   return {
     ton: c.ton,
+    ollamaModell: c.ollamaModell,
     zeichenProMinute: c.zeichenProMinute,
     vorlauf: c.vorlauf,
     schluessel: {

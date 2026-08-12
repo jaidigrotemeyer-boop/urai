@@ -103,7 +103,9 @@
   <section>
     <details>
       <summary>Einstellungen</summary>
-      <p class="leise">Zum Umschreiben braucht es ein Sprachmodell. Ein Gratis-Schlüssel genügt — er bleibt auf diesem Rechner. Messen und Tippen laufen auch ohne.</p>
+      <p class="leise">Zum Umschreiben braucht es ein Sprachmodell. Läuft <b>Ollama</b> daheim, wird es von selbst genommen — ohne Schlüssel, ohne Netz. Sonst genügt ein Gratis-Schlüssel; er bleibt auf diesem Rechner. Messen und Tippen laufen auch ohne beides.</p>
+      <p id="gehirnstand" class="leise"></p>
+      <div class="feld"><label for="ollamaModell">Ollama-Modell, falls mehrere da sind (z.B. llama3.2:3b)</label><input type="text" id="ollamaModell" autocomplete="off"></div>
       <div class="feld"><label for="geminiKey">Gemini-Schlüssel — aistudio.google.com/apikey</label><input type="password" id="geminiKey" autocomplete="off"></div>
       <div class="feld"><label for="groqKey">Groq-Schlüssel — console.groq.com/keys</label><input type="password" id="groqKey" autocomplete="off"></div>
       <div class="feld"><label for="openrouterKey">OpenRouter-Schlüssel — openrouter.ai</label><input type="password" id="openrouterKey" autocomplete="off"></div>
@@ -180,7 +182,11 @@ $('umschreiben').onclick = async () => {
     $('text').value = r.text
     $('text').dispatchEvent(new Event('input'))
     befundZeigen(r.nachher)
-    $('befund').insertAdjacentHTML('afterbegin', `<p class="leise" style="margin:.9rem 0 0">Überarbeitet mit ${r.anbieter}. Vorher: ${r.vorher.urteil}</p>`)
+    const runden = r.versuche.length === 1 ? 'im ersten Anlauf' : `nach ${r.versuche.length} Anläufen`
+    $('befund').insertAdjacentHTML(
+      'afterbegin',
+      `<p class="leise" style="margin:.9rem 0 0">Überarbeitet mit ${r.anbieter}, ${runden} · nachgemessen: ${r.punkte.vorher} → ${r.punkte.nachher} Punkte (klein ist gut)<br>vorher: ${r.vorher.urteil}</p>`,
+    )
   } catch (e) {
     $('befund').innerHTML = `<p class="fehler">${e.message}</p>`
   } finally {
@@ -231,7 +237,7 @@ function verfolgen() {
 
 $('speichern').onclick = async () => {
   const daten = {}
-  for (const id of ['geminiKey', 'groqKey', 'openrouterKey', 'cerebrasKey', 'ton']) daten[id] = $(id).value
+  for (const id of ['geminiKey', 'groqKey', 'openrouterKey', 'cerebrasKey', 'ton', 'ollamaModell']) daten[id] = $(id).value
   daten.vorlauf = +$('vorlauf').value || 0
   try {
     await hole('/api/einstellungen', daten)
@@ -247,6 +253,10 @@ async function starten() {
   const s = await hole('/api/stand').catch(() => null)
   if (!s) return
   $('ton').value = s.einstellungen.ton || ''
+  $('ollamaModell').value = s.einstellungen.ollamaModell || ''
+  $('gehirnstand').innerHTML = s.gehirne?.length
+    ? `Gefragt wird der Reihe nach: <b>${s.gehirne.join('</b>, <b>')}</b>.`
+    : 'Noch kein Gehirn erreichbar — Umschreiben ist aus.'
   $('vorlauf').value = s.einstellungen.vorlauf ?? 5
   $('umschreiben').disabled = !s.gehirn
   $('umschreiben').title = s.gehirn ? '' : 'Braucht einen Schlüssel — siehe Einstellungen.'
