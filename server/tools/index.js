@@ -6,7 +6,7 @@ import { computerTools } from './computer.js'
 import { dokumentTools } from './dokument.js'
 import { kurzbefehlTools } from './kurzbefehle.js'
 import { kameraTools } from './kamera.js'
-import { midiTools } from './midi.js'
+import { textTools } from './text.js'
 import { ohrTools } from './ohren.js'
 import { memoryTools } from '../memory.js'
 import { obsidianTools } from '../obsidian.js'
@@ -25,7 +25,7 @@ export const ALL_TOOLS = [
   ...dokumentTools,
   ...kurzbefehlTools,
   ...kameraTools,
-  ...midiTools,
+  ...textTools,
   ...ohrTools,
   ...memoryTools,
   ...obsidianTools,
@@ -80,7 +80,7 @@ export const TOOL_GROUPS = {
   // will, soll die Gruppe abschalten können, ohne Maus und Tastatur zu verlieren.
   kurzbefehle: kurzbefehlTools.map((t) => t.name),
   kamera: kameraTools.map((t) => t.name),
-  midi: midiTools.map((t) => t.name),
+  text: textTools.map((t) => t.name),
   ohren: ohrTools.map((t) => t.name),
   gedaechtnis: memoryTools.map((t) => t.name),
   obsidian: obsidianTools.map((t) => t.name),

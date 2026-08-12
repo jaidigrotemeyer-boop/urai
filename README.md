@@ -55,8 +55,8 @@ Helfer (`agent_spawn`). Unter-Agenten dürfen weitere Agenten erschaffen. Ohne R
 Fertige Rollen: `rechercheur`, `programmierer`, `bildschirm`, `schreiber`, `pruefer`, `allrounder`.
 Grenzen gegen endloses Vermehren: `maxAgentDepth` (3) und `maxAgentsPerRun` (12).
 
-**Rhythmus menschlich machen** — `midi_humanisieren` nimmt einer starren MIDI-Datei das Maschinelle:
-Timing, Anschlag, Swing, Akkord-Spreizung, Notenlängen. Mehr dazu unten.
+**Text entmaschinen** — `text_messen` zeigt mit Zahlen, was einen Text nach Fließband klingen lässt,
+`text_menschlich` schreibt ihn um. Mehr dazu unten.
 
 **Obsidian** — alles wird automatisch als Markdown abgelegt:
 
@@ -72,51 +72,53 @@ Der Vault wird automatisch aus Obsidians eigener Liste gefunden.
 
 **Gedächtnis** — SQLite plus Vektoren, merkt sich Vorlieben und Projekt-Wissen über Sitzungen hinweg.
 
-## Humanizer
+## Text-Humanizer
 
-Ein Drum-Computer setzt jeden Schlag exakt aufs Raster — genau das hört man als Maschine.
-Eine Hand trifft immer ein paar Millisekunden daneben, schlägt mal fester und mal weicher,
-zieht Akkorde auseinander und hält Noten unterschiedlich lang. Der Humanizer gibt einer
-fertigen MIDI-Datei genau das zurück.
+KI-Prosa liest sich flach. Alle Sätze gleich lang, immer dieselben Übergänge,
+immer dieselben Floskeln. Zwei Werkzeuge dagegen — eins misst, eins schreibt um.
 
-Im Chat reicht „mach den Beat menschlich". Ohne Server geht es auch von Hand:
+`text_messen` rechnet lokal und braucht kein Gehirn. Es zeigt jede Stelle mit Zahl
+und Beispiel:
 
 ```bash
-node humanisieren.mjs --muster roh.mid        # stocksteifen Test-Loop bauen
-node humanisieren.mjs roh.mid --expressiv     # → roh-menschlich.mid
-node humanisieren.mjs --messen roh-menschlich.mid
+node vermenschlichen.mjs aufsatz.md
 ```
 
-Drei fertige Vorlagen, oder jeden Regler einzeln:
+```
+  100 Wörter · 8 Sätze
+  Satzlänge ∅ 12.5 (11–15), Streuung 1.3, Gleichmaß 0.11
+  Mittelbau 75 % · Floskeln 11 (110 je 1000 Wörter)
 
-| Vorlage | Timing | Anschlag | Swing | Für |
-|---|---|---|---|---|
-| `--subtil` | ±8 ms | ±6 | – | Beat soll tight bleiben, nur nicht tot |
-| `--expressiv` | ±18 ms | ±14 | 0.35 | gespielt statt programmiert |
-| `--stark` | ±30 ms | ±24 | 0.5 | betont locker, fast schlampig |
+    Zeitgeist-Einstieg: „In der heutigen Zeit"
+    Überleitung: „Darüber hinaus"
+    Mengen-Floskel: „eine Vielzahl von"
 
-| Regler | Was er macht |
-|---|---|
-| `--timing <ms>` | Streuung der Anschlagszeit |
-| `--velocity <n>` | Streuung der Anschlagstärke (MIDI 0–127) |
-| `--swing <0-1>` | 1.0 = volle Triole; `--swingRaster 16` für Sechzehntel |
-| `--spreizung <ms>` | Akkordtöne von unten nach oben versetzen |
-| `--laenge <0-1>` | wie stark die Notenlängen atmen |
-| `--stabilitaet <0-1>` | wie ruhig die Eins bleibt, während der Rest wackelt |
-| `--akzent <0-1>` | wie viel lauter betonte Zählzeiten werden |
-| `--kanaele 9,10` | nur diese MIDI-Kanäle anfassen |
-| `--saat <zahl>` | gleiche Saat = exakt gleiches Ergebnis |
+  Auffällig:
+    – Satzlängen zu gleichmäßig: ∅ 12.5 Wörter, Streuung nur 1.3 (11–15).
+    – 75 % aller Sätze liegen zwischen 12 und 25 Wörtern — es fehlen kurze und lange.
+    – Absätze fast gleich lang (∅ 33.3 Wörter, Streuung 7.6).
 
-Zwei Dinge unterscheiden das von blindem Zufall: **starke Zählzeiten bleiben ruhiger**
-als schwache (`stabilitaet`), und die Lautstärke folgt der Metrik (`akzent`).
-Gleichmäßiges Rauschen auf allen Noten klingt nicht menschlich, sondern kaputt.
+  Klingt maschinell: 4 Auffälligkeiten, vor allem gleichförmige Sätze und Floskeln.
+```
 
-`midi_messen` sagt hinterher, was daraus geworden ist — Abweichung vom Raster in
-Millisekunden und Streuung des Anschlags **je Instrument**. Über alle Noten gerechnet
-sähe schon eine Maschine lebendig aus, nur weil die Bassdrum lauter ist als die Hi-Hat.
+Worauf geschaut wird: **Satzlängen-Gleichmaß** (Streuung im Verhältnis zur Länge —
+erst dadurch sind kurze und lange Texte vergleichbar), der **Mittelbau** (Anteil der
+Sätze zwischen 12 und 25 Wörtern; hoch heißt: es fehlen die kurzen und die langen),
+**Floskeln** nach Art sortiert, wiederholte **Satzanfänge**, **Wortwiederholung**,
+**Gedankenstriche** und **Dreier-Aufzählungen**, dazu das **Gleichmaß der Absätze**.
 
-Nichts davon braucht ein Zusatzpaket: MIDI-Leser und -Schreiber stecken in
-`server/humanizer.js`. Hintergrund und Herleitung: [docs/dripprinter-humanizer.md](docs/dripprinter-humanizer.md).
+`text_menschlich` gibt diese Messwerte als Auftrag ans Gehirn — nicht ein vages
+„mach es menschlicher", sondern die konkreten Stellen:
+
+```bash
+node vermenschlichen.mjs aufsatz.md --schreiben --ziel neu.md --ton sachlich
+```
+
+Inhalt, Sprache und Länge bleiben; Überschriften, Listen, Zitate und Code auch.
+Hinterher stehen die Messwerte von vorher und nachher nebeneinander.
+
+Das ist ein Lektorat-Werkzeug. Es macht Text besser lesbar. Es sagt nichts darüber,
+was irgendein Erkennungsdienst hinterher meldet, und verspricht das auch nicht.
 
 ## Notch-Fenster
 
@@ -202,9 +204,9 @@ server/
   ocr.jxa.js    Apple Vision Text-Erkennung
   obsidian.js   Vault schreiben, lesen, durchsuchen
   memory.js     SQLite + Vektor-Gedächtnis
-  humanizer.js  MIDI lesen/schreiben und menschlich machen
+  vermenschlichen.js  Text messen und lektorieren
   config.js     Einstellungen
-  tools/        files, shell, web, computer, midi
+  tools/        files, shell, web, computer, text
 web/            React-Oberfläche (Chat links, Live-Auge rechts)
 data/           config.json und urai.db — bleibt hier
 ```

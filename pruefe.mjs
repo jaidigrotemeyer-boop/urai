@@ -55,16 +55,14 @@ await pruefe('web_fetch', { url: 'https://example.com', max_chars: 400 }, { erwa
 await pruefe('web_search', { query: 'Obsidian notes app', count: 3 })
 await pruefe('web_browse', {}, { ueberspringen: 'braucht Playwright, extra Installation' })
 
-// ── MIDI-Humanizer ──
-const midiRoh = path.join(tmp, 'roh.mid')
-const midiWeich = path.join(tmp, 'weich.mid')
-await pruefe('midi_muster', { pfad: midiRoh, takte: 2 }, { erwarte: /Maschinell/ })
-await pruefe(
-  'midi_humanisieren',
-  { pfad: midiRoh, ziel: midiWeich, vorlage: 'expressiv', saat: 1 },
-  { erwarte: /Humanisiert/ },
-)
-await pruefe('midi_messen', { pfad: midiWeich }, { erwarte: /Anschlag lebendig/ })
+// ── Text-Lektorat ──
+const flach =
+  'In der heutigen Zeit spielt die Digitalisierung eine entscheidende Rolle für Unternehmen. ' +
+  'Darüber hinaus ist es wichtig zu beachten, dass eine Vielzahl von Faktoren zusammenwirkt. ' +
+  'Darüber hinaus bietet die Technologie eine breite Palette an neuen Möglichkeiten. ' +
+  'Zusammenfassend lässt sich sagen, dass die Digitalisierung von entscheidender Bedeutung ist.'
+await pruefe('text_messen', { text: flach }, { erwarte: /Floskeln/ })
+await pruefe('text_menschlich', {}, { ueberspringen: 'braucht ein Gehirn mit Schlüssel' })
 
 // ── Bildschirm und Mac ──
 await pruefe('mac_check', {})
