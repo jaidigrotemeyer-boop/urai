@@ -10,6 +10,9 @@ const pexec = promisify(execFile)
 const maxBytes = () => loadConfig().fsMaxBytes
 
 function resolve(p) {
+  // Ohne diese Prüfung stürzt ein fehlerhafter Werkzeug-Aufruf (leerer, fehlender
+  // oder falsch typisierter pfad) mit einer rohen TypeError ab statt einer Meldung.
+  if (typeof p !== 'string' || !p.trim()) throw new Error('pfad fehlt oder ist kein Text.')
   const c = loadConfig()
   const abs = path.resolve(p.startsWith('~') ? p.replace(/^~/, process.env.HOME) : p)
   const root = path.resolve(c.workspace || process.env.HOME)

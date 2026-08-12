@@ -1,5 +1,57 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-12
+Erledigt: `server/tools/files.js`, `resolve()` — dieselbe Typ-Wache wie in
+`server/tools/dokument.js` seit dem 2026-08-10-Fix, jetzt auch hier. War seit
+drei Nächten in Folge als sicherster nächster Kandidat vermerkt, heute
+endlich angefasst. Ohne die Wache stürzt `resolve()` bei einem leeren,
+fehlenden oder falsch typisierten `pfad` (null, undefined, Zahl) sofort mit
+einer rohen `TypeError: Cannot read properties of undefined (reading
+'startsWith')` ab, statt einer verständlichen Meldung — betrifft alle sechs
+Datei-Werkzeuge (`fs_list`, `fs_read`, `fs_write`, `fs_edit`, `fs_search`,
+`fs_glob`). Jetzt kommt stattdessen `pfad fehlt oder ist kein Text.`.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes). Oberfläche
+schlug vor, den Typ-Badge im Werkstatt-Baustein-Kopf (`.baustein-marke`)
+ohne Rahmen zu machen — beim eigenen Blick in den Code zeigte sich aber,
+dass der Rahmen eine bewusste Design-Entscheidung ist (Kommentar "die
+Groq-Seite: harte Kante") und mit dem Gefahr-Zustand (`hat-gefahr`)
+verzahnt ist; hätte mehr Sorgfalt gebraucht als der ~5-10-Zeilen-Rahmen
+vermuten ließ. Fehlendes schlug vor, `POST /api/ausloeser` zu validieren
+(server/ausloeser.js `schreiben()` schreibt jeden Body ungeprüft, ein
+Nicht-Array würde beim nächsten `lesen()` still zu `[]` — alle Auslöser
+weg) — echtes Risiko, aber die Auslöser-Übersicht hat noch keine UI, die
+den Endpunkt überhaupt aufruft, darum heute nicht dringend genug gegenüber
+dem Server-Fix mit dem besseren Nutzen/Risiko-Verhältnis.
+
+Prüfer 1 (Funktioniert es) hat `node --check`, ein eigenes Testskript
+(`fileTools` importiert, alle sechs Werkzeuge mit `path` ∈ {undefined,
+null, 123, '', '   '} aufgerufen — 28/30 exakt mit der neuen Meldung, die
+2 verbleibenden lösten legitim den String-Default `'.'` von `fs_search`/
+`fs_glob` aus, keine Fehlfunktion) und einen Regressionstest (`fs_list`
+mit gültigem Pfad) selbst ausgeführt. Prüfer 2 (Randfälle) fand keinen
+echten Fehler: alle sechs Aufrufstellen übergeben `p` nur als Pflichtfeld
+oder mit String-Default, kein Codepfad ruft `tool.run` ungeschützt auf
+(try/catch in `agent.js` und `ablauf.js`), `coerceArgs` in `agent.js`
+entfernt einen bewusst leeren `path` sogar ganz aus den Argumenten — landet
+also ebenfalls sauber im `undefined`-Fall der neuen Wache.
+
+Build (`npm run build`) und der Server-Modul-Ladetest liefen sauber durch,
+`git diff --cached` enthielt nur die eine Zeile in `files.js`.
+
+Offen für kommende Nächte:
+- Werkstatt-Baustein-Kopf: Typ-Badge (`.baustein-marke`) wirkt dicht neben
+  dem Namensfeld, hängt aber am `hat-gefahr`-Zustand und einer bewussten
+  Design-Note — beim Anfassen den Gefahr-Zustand mitdenken, nicht nur den
+  Rahmen entfernen.
+- `POST /api/ausloeser` validiert den Body weiterhin nicht (Datenverlust-
+  Risiko bei fehlerhaftem Body, siehe oben) — sinnvoll, sobald die
+  Auslöser-Übersicht in der Oberfläche gebaut wird, oder eigenständig davor.
+- `dokument_lesen` deckt weiterhin nur .docx/.pptx ab, nicht .xlsx.
+- Auslöser-Übersicht fehlt ganz in der Oberfläche (`server/ausloeser.js`,
+  `server/index.js` GET/POST `/api/ausloeser` sind fertig, UI fehlt).
+- `fs_search` meldet echte Fehler pauschal als "(nichts gefunden)".
+
 ## 2026-08-11
 Erledigt: Werkstatt-Baustein-Kopf beruhigt (`web/src/components/Werkstatt.jsx`) —
 im Ruhezustand (vor dem ersten Lauf) zeigte die Takt-Spanne jedes Bausteins die
