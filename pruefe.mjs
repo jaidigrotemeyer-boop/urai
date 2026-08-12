@@ -55,15 +55,6 @@ await pruefe('web_fetch', { url: 'https://example.com', max_chars: 400 }, { erwa
 await pruefe('web_search', { query: 'Obsidian notes app', count: 3 })
 await pruefe('web_browse', {}, { ueberspringen: 'braucht Playwright, extra Installation' })
 
-// ── Text-Lektorat ──
-const flach =
-  'In der heutigen Zeit spielt die Digitalisierung eine entscheidende Rolle für Unternehmen. ' +
-  'Darüber hinaus ist es wichtig zu beachten, dass eine Vielzahl von Faktoren zusammenwirkt. ' +
-  'Darüber hinaus bietet die Technologie eine breite Palette an neuen Möglichkeiten. ' +
-  'Zusammenfassend lässt sich sagen, dass die Digitalisierung von entscheidender Bedeutung ist.'
-await pruefe('text_messen', { text: flach }, { erwarte: /Floskeln/ })
-await pruefe('text_menschlich', {}, { ueberspringen: 'braucht ein Gehirn mit Schlüssel' })
-
 // ── Bildschirm und Mac ──
 await pruefe('mac_check', {})
 await pruefe('mac_apps', {})
@@ -72,8 +63,6 @@ await pruefe('mac_screenshot', {})
 await pruefe('mac_ui', {})
 await pruefe('mac_find_text', { text: 'Datei' })
 await pruefe('mac_notify', { message: 'URAI Selbsttest läuft' })
-// probe rechnet nur, tippt nicht — darf darum auch ohne --alles laufen
-await pruefe('tipp_effekt', { text: 'Ein Satz zum Prüfen.', dauer: '30s', probe: true }, { erwarte: /Schätzung/ })
 for (const n of ['mac_click', 'mac_click_text', 'mac_move', 'mac_type', 'mac_key', 'mac_scroll', 'mac_drag', 'mac_menu', 'mac_window', 'mac_open_app', 'mac_applescript']) {
   await pruefe(n, {}, { ueberspringen: ALLES ? undefined : 'greift ein — nur mit --alles' })
 }

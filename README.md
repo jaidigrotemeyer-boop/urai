@@ -81,9 +81,6 @@ Helfer (`agent_spawn`). Unter-Agenten dürfen weitere Agenten erschaffen. Ohne R
 Fertige Rollen: `rechercheur`, `programmierer`, `bildschirm`, `schreiber`, `pruefer`, `allrounder`.
 Grenzen gegen endloses Vermehren: `maxAgentDepth` (3) und `maxAgentsPerRun` (12).
 
-**Text entmaschinen** — `text_messen` zeigt mit Zahlen, was einen Text nach Fließband klingen lässt,
-`text_menschlich` schreibt ihn um. Mehr dazu unten.
-
 **Obsidian** — alles wird automatisch als Markdown abgelegt:
 
 ```
@@ -97,85 +94,6 @@ Grenzen gegen endloses Vermehren: `maxAgentDepth` (3) und `maxAgentsPerRun` (12)
 Der Vault wird automatisch aus Obsidians eigener Liste gefunden.
 
 **Gedächtnis** — SQLite plus Vektoren, merkt sich Vorlieben und Projekt-Wissen über Sitzungen hinweg.
-
-## Text-Humanizer
-
-KI-Prosa liest sich flach. Alle Sätze gleich lang, immer dieselben Übergänge,
-immer dieselben Floskeln. Zwei Werkzeuge dagegen — eins misst, eins schreibt um.
-
-`text_messen` rechnet lokal und braucht kein Gehirn. Es zeigt jede Stelle mit Zahl
-und Beispiel:
-
-```bash
-node vermenschlichen.mjs aufsatz.md
-```
-
-```
-  100 Wörter · 8 Sätze
-  Satzlänge ∅ 12.5 (11–15), Streuung 1.3, Gleichmaß 0.11
-  Mittelbau 75 % · Floskeln 11 (110 je 1000 Wörter)
-
-    Zeitgeist-Einstieg: „In der heutigen Zeit"
-    Überleitung: „Darüber hinaus"
-    Mengen-Floskel: „eine Vielzahl von"
-
-  Auffällig:
-    – Satzlängen zu gleichmäßig: ∅ 12.5 Wörter, Streuung nur 1.3 (11–15).
-    – 75 % aller Sätze liegen zwischen 12 und 25 Wörtern — es fehlen kurze und lange.
-    – Absätze fast gleich lang (∅ 33.3 Wörter, Streuung 7.6).
-
-  Klingt maschinell: 4 Auffälligkeiten, vor allem gleichförmige Sätze und Floskeln.
-```
-
-Worauf geschaut wird: **Satzlängen-Gleichmaß** (Streuung im Verhältnis zur Länge —
-erst dadurch sind kurze und lange Texte vergleichbar), der **Mittelbau** (Anteil der
-Sätze zwischen 12 und 25 Wörtern; hoch heißt: es fehlen die kurzen und die langen),
-**Floskeln** nach Art sortiert, wiederholte **Satzanfänge**, **Wortwiederholung**,
-**Gedankenstriche** und **Dreier-Aufzählungen**, dazu das **Gleichmaß der Absätze**.
-
-`text_menschlich` gibt diese Messwerte als Auftrag ans Gehirn — nicht ein vages
-„mach es menschlicher", sondern die konkreten Stellen:
-
-```bash
-node vermenschlichen.mjs aufsatz.md --schreiben --ziel neu.md --ton sachlich
-```
-
-Inhalt, Sprache und Länge bleiben; Überschriften, Listen, Zitate und Code auch.
-Hinterher stehen die Messwerte von vorher und nachher nebeneinander.
-
-Das ist ein Lektorat-Werkzeug. Es macht Text besser lesbar. Es sagt nichts darüber,
-was irgendein Erkennungsdienst hinterher meldet, und verspricht das auch nicht.
-
-## Tipp-Effekt
-
-`tipp_effekt` schreibt Text ins vorderste Fenster — Zeichen für Zeichen, im Rhythmus
-einer Hand. Für Screencasts, Demos und Vorführungen, auch in ein offenes
-Google-Dokument.
-
-Eine Maschine tippt mit gleichem Abstand, und das sieht sofort falsch aus. Der
-Rhythmus hier ist im Wort schnell, stockt vor dem Komma, hält nach dem Punkt an,
-macht ab und zu eine Denkpause und wird über die Zeit schneller oder müder.
-
-```
-Dauer 10m auf diesen Absatz:
-  ∅ im Wort 282 ms · nach Punkt 1338 ms · am Umbruch 1584 ms
-```
-
-| Regler | Was er macht |
-|---|---|
-| `dauer` | Gesamtdauer: `45s`, `10m`, `1h30m` |
-| `zeichenProMinute` | statt `dauer` ein festes Tempo (260 ≈ geübte Hand) |
-| `probe` | nur schätzen, nichts tippen |
-| `saat` | gleicher Wert, gleicher Rhythmus |
-
-Die Wunschdauer streckt oder staucht den fertigen Rhythmus als Ganzes — die Form
-bleibt, nur der Maßstab ändert sich. Der rote **Stopp**-Knopf bricht mitten im Text ab.
-
-Zwei Grenzen sind eingebaut. Nach unten: unter ~45 ms je Anschlag verweigert das
-Werkzeug, weil ein einzelner Tastendruck das Betriebssystem selbst schon so viel
-kostet — dafür gibt es `mac_type`, das alles auf einmal einfügt. Nach oben: vier
-Stunden. Was länger läuft, ist kein sichtbarer Tipp-Effekt mehr; dann ist die
-Schreibgeschichte des Dokuments das eigentliche Ergebnis, und die wäre erfunden.
 
 ## Notch-Fenster
 
@@ -261,10 +179,8 @@ server/
   ocr.jxa.js    Apple Vision Text-Erkennung
   obsidian.js   Vault schreiben, lesen, durchsuchen
   memory.js     SQLite + Vektor-Gedächtnis
-  vermenschlichen.js  Text messen und lektorieren
-  tippen.js     Tipp-Rhythmus einer Hand
   config.js     Einstellungen
-  tools/        files, shell, web, computer, text
+  tools/        files, shell, web, computer
 web/            React-Oberfläche (Chat links, Live-Auge rechts)
 data/           config.json und urai.db — bleibt hier
 ```

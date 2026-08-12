@@ -21,7 +21,6 @@ import {
   macPruefen,
 } from '../screen.js'
 import { loadConfig } from '../config.js'
-import { zeichenPlan, aufDauer, dauerLesen, abspielen, zeitText } from '../tippen.js'
 import {
   screenSizeWin,
   captureWin,
@@ -587,64 +586,4 @@ export const computerTools = [
       return 'Meldung gezeigt.'
     },
   },
-  {
-    name: 'tipp_effekt',
-    description:
-      'Text ins vorderste Fenster tippen — Zeichen für Zeichen im Rhythmus einer Hand: schnell im Wort, ' +
-      'Pause nach Punkt und Komma, ab und zu eine Denkpause. Für Screencast, Demo, Vorführung, ' +
-      'auch in ein offenes Google-Dokument. Dauer einstellbar (45s, 10m, 2h), höchstens vier Stunden. ' +
-      'Mit probe=true wird nur geschätzt, ohne zu tippen. Der Stopp-Knopf bricht jederzeit ab.',
-    parameters: {
-      type: 'object',
-      properties: {
-        text: { type: 'string', description: 'Was getippt werden soll' },
-        dauer: { type: 'string', description: 'Wie lange insgesamt, z.B. 45s, 10m, 1h30m' },
-        zeichenProMinute: { type: 'number', description: 'Statt dauer: Tempo, z.B. 260 für geübte Hand' },
-        probe: { type: 'boolean', description: 'Nur schätzen, nichts tippen' },
-        saat: { type: 'number', description: 'Zufalls-Saat — gleicher Wert, gleicher Rhythmus' },
-      },
-      required: ['text'],
-    },
-    danger: true,
-    async run({ text, dauer, zeichenProMinute, probe = false, saat }, ctx) {
-      if (typeof text !== 'string' || !text) throw new Error('text fehlt.')
-      const plan = aufDauer(zeichenPlan(text, { zeichenProMinute, saat }), dauerLesen(dauer))
-      const schnitt = plan.gesamtMs / Math.max(1, plan.schritte.length)
-      if (probe)
-        return `Schätzung: ${plan.schritte.length} Zeichen in ${zeitText(plan.gesamtMs)} (∅ ${Math.round(schnitt)} ms je Anschlag).`
-
-      // Jeder einzelne Tastendruck kostet das Betriebssystem schon ~20-40 ms.
-      // Wer schneller tippen lässt, bekommt am Ende einen längeren Lauf als
-      // bestellt — das lieber vorher sagen als hinterher erklären.
-      if (schnitt < 45)
-        throw new Error(
-          `Zu schnell für Tastendruck um Tastendruck (∅ ${Math.round(schnitt)} ms). ` +
-            'Nimm eine längere Dauer, ein kleineres zeichenProMinute — oder mac_type, das fügt alles auf einmal ein.',
-        )
-
-      ctx?.emit?.('tippen', `${plan.schritte.length} Zeichen, ~${zeitText(plan.gesamtMs)}`)
-      const r = await abspielen(plan, {
-        tippe: zeichenTippen,
-        warte: (ms) => new Promise((fertig) => setTimeout(fertig, ms)),
-        signal: ctx?.signal,
-        melde: ({ getippt, gesamt }) => ctx?.emit?.('tippen', `${getippt}/${gesamt} Zeichen`),
-      })
-      const gestoppt = r.getippt < r.gesamt ? ` — abgebrochen nach ${r.getippt} von ${r.gesamt}` : ''
-      return `Getippt: ${r.getippt} Zeichen in ${zeitText(r.ms)}${gestoppt}.`
-    },
-  },
 ]
-
-/** Ein einzelnes Zeichen anschlagen — das, was der Tipp-Effekt hundertfach braucht. */
-async function zeichenTippen(z) {
-  if (!IST_MAC) return typeWin(z)
-  if (z === '\n' || z === '\r') {
-    if (CLICLICK) return void (await pexec(CLICLICK, ['kp:return']))
-    return void (await osa('tell application "System Events" to keystroke return'))
-  }
-  // cliclick ist deutlich schneller als ein AppleScript-Aufruf pro Zeichen und
-  // hält damit auch flottere Tempi durch.
-  if (CLICLICK) return void (await pexec(CLICLICK, [`t:${z}`]))
-  const esc = z.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-  await osa(`tell application "System Events" to keystroke "${esc}"`)
-}
