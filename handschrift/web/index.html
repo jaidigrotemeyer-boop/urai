@@ -80,6 +80,12 @@
   .mangel { list-style: none; padding: 0; margin: .75rem 0 0; }
   .mangel li { padding-left: 1.1rem; position: relative; margin-bottom: .35rem; }
   .mangel li::before { content: '·'; position: absolute; left: .35rem; color: var(--ton); font-weight: 700; }
+  .urteil-oben { margin-top: 1.1rem; }
+  .mehr { margin-top: 1rem; }
+  .mehr > summary { padding: .25rem 0; }
+  .mehr .gitter { margin-top: .25rem; }
+  /* Die Schlüssel liegen eine Klappe tiefer: wer Ollama nutzt, braucht sie nie. */
+  .schluessel { margin-top: 1rem; }
 </style>
 </head>
 <body>
@@ -130,10 +136,13 @@
       <p class="leise">Zum Umschreiben braucht es ein Sprachmodell. Läuft <b>Ollama</b> daheim, wird es von selbst genommen — ohne Schlüssel, ohne Netz. Sonst genügt ein Gratis-Schlüssel; er bleibt auf diesem Rechner. Messen und Tippen laufen auch ohne beides.</p>
       <p id="gehirnstand" class="leise"></p>
       <div class="feld"><label for="ollamaModell">Ollama-Modell, falls mehrere da sind (z.B. llama3.2:3b)</label><input type="text" id="ollamaModell" autocomplete="off"></div>
-      <div class="feld"><label for="geminiKey">Gemini-Schlüssel — aistudio.google.com/apikey</label><input type="password" id="geminiKey" autocomplete="off"></div>
-      <div class="feld"><label for="groqKey">Groq-Schlüssel — console.groq.com/keys</label><input type="password" id="groqKey" autocomplete="off"></div>
-      <div class="feld"><label for="openrouterKey">OpenRouter-Schlüssel — openrouter.ai</label><input type="password" id="openrouterKey" autocomplete="off"></div>
-      <div class="feld"><label for="cerebrasKey">Cerebras-Schlüssel — cloud.cerebras.ai</label><input type="password" id="cerebrasKey" autocomplete="off"></div>
+      <details class="schluessel">
+        <summary>Schlüssel für einen Gratis-Anbieter — nur nötig ohne Ollama</summary>
+        <div class="feld"><label for="geminiKey">Gemini — aistudio.google.com/apikey</label><input type="password" id="geminiKey" autocomplete="off"></div>
+        <div class="feld"><label for="groqKey">Groq — console.groq.com/keys</label><input type="password" id="groqKey" autocomplete="off"></div>
+        <div class="feld"><label for="openrouterKey">OpenRouter — openrouter.ai</label><input type="password" id="openrouterKey" autocomplete="off"></div>
+        <div class="feld"><label for="cerebrasKey">Cerebras — cloud.cerebras.ai</label><input type="password" id="cerebrasKey" autocomplete="off"></div>
+      </details>
       <div class="feld"><label for="ton">Ton beim Umschreiben, z.B. sachlich, locker</label><input type="text" id="ton"></div>
       <div class="knopfreihe"><button id="speichern">Speichern</button><span id="einstellstand" class="leise" style="align-self:center"></span></div>
     </details>
@@ -185,26 +194,33 @@ const ARTNAME = {
 const sicher = (t) =>
   String(t).replace(/[&<>"]/g, (z) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[z])
 
+/**
+ * Erst die Antwort, dann die Begründung, dann die Belege — und die Belege
+ * eingeklappt. Vorher standen vier Kacheln, zwei Listen und das Urteil
+ * gleichzeitig da; man musste suchen, was die Aussage ist.
+ */
 function befundZeigen(m, art) {
   const zahl = (wert, was) => `<div class="zahl"><b>${sicher(wert)}</b><span>${was}</span></div>`
+  const punkte = m.floskeln.beispiele.map((b) => {
+    const i = b.indexOf(': ')
+    const kopf = i < 0 ? 'Floskel' : b.slice(0, i)
+    const stelle = i < 0 ? b : b.slice(i + 2)
+    return `<li><span class="marke">${sicher(kopf)}</span><span class="stelle">${sicher(stelle)}</span></li>`
+  })
+
   $('befund').innerHTML = `
-    <div class="befund-kopf">
-      ${art ? `<span class="art">${ARTNAME[art] || art}</span>` : ''}
-    </div>
-    <div class="gitter" style="margin-top:.5rem">
-      ${zahl(m.woerter, 'Wörter')}
-      ${zahl(m.satz.mittel, 'Wörter je Satz (∅)')}
-      ${zahl(m.satz.gleichmass, 'Gleichmaß — klein heißt gleichförmig')}
-      ${zahl(m.floskeln.anzahl, 'Floskeln')}
-    </div>
-    ${m.floskeln.beispiele.length ? `<ul class="funde">${m.floskeln.beispiele.map((b) => {
-      const i = b.indexOf(': ')
-      const art = i < 0 ? 'Floskel' : b.slice(0, i)
-      const stelle = i < 0 ? b : b.slice(i + 2)
-      return `<li><span class="marke">${sicher(art)}</span><span class="stelle">${sicher(stelle)}</span></li>`
-    }).join('')}</ul>` : ''}
+    <div class="urteil urteil-oben">${sicher(m.urteil)}</div>
     ${m.auffaellig.length ? `<ul class="mangel">${m.auffaellig.map((a) => `<li>${sicher(a)}</li>`).join('')}</ul>` : ''}
-    <div class="urteil">${sicher(m.urteil)}</div>`
+    <details class="mehr">
+      <summary>Zahlen und Belege${art ? ` · ${ARTNAME[art] || art}` : ''}</summary>
+      <div class="gitter">
+        ${zahl(m.woerter, 'Wörter')}
+        ${zahl(m.satz.mittel, 'Wörter je Satz (∅)')}
+        ${zahl(m.satz.gleichmass, 'Gleichmaß — klein heißt gleichförmig')}
+        ${zahl(m.floskeln.anzahl, 'Floskeln')}
+      </div>
+      ${punkte.length ? `<ul class="funde">${punkte.join('')}</ul>` : ''}
+    </details>`
 }
 
 $('messen').onclick = async () => {
