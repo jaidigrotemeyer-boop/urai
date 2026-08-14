@@ -3,7 +3,7 @@
 import { messen } from './server/messen.js'
 import { zeichenPlan, aufDauer, dauerLesen, abspielen, zeitText, MAX_DAUER_MS } from './server/tippen.js'
 import { bereit } from './server/schreiben.js'
-import { umschreiben, bewertung, saeubern } from './server/gehirn.js'
+import { umschreiben, bewertung, saeubern, putzen, strukturPruefen, istDeutsch, listenAufraeumen, textArt } from './server/gehirn.js'
 
 let gut = 0
 let schlecht = 0
@@ -155,6 +155,69 @@ try {
   ohne = err.message
 }
 pruefe('Ausfall wird durchgereicht', /kein Netz/.test(ohne || ''))
+
+console.log('\n  FORM — damit es nicht komisch aussieht')
+pruefe('Zeilen-Leerzeichen weg', putzen('Hallo   \nWelt  ', 'x') === 'Hallo\nWelt')
+pruefe('drei Leerzeilen werden zwei', putzen('A\n\n\n\nB', 'x') === 'A\n\nB')
+pruefe('krumme Zitate zurück auf gerade', putzen('Er sagte „hallo".', 'Er sagte "moin".') === 'Er sagte "hallo".')
+pruefe('als Zitat verpackter Text wird ausgepackt', saeubern('„Der Bäcker steht auf."') === 'Der Bäcker steht auf.')
+pruefe('Sprache erkannt', istDeutsch('Der Hund ist auf der Wiese und schläft') && !istDeutsch('The dog is on the lawn and sleeps'))
+
+const MIT_FORM = '# Titel\n\nEin Absatz mit Inhalt.\n\n- Punkt eins\n- Punkt zwei\n\nEin Schlusswort dazu.'
+pruefe('gleiche Form ist in Ordnung', strukturPruefen(MIT_FORM, '# Titel\n\nAnderer Absatz.\n\n- Eins\n- Zwei\n\nAnderes Schlusswort.').length === 0)
+pruefe('verlorene Überschrift fällt auf', /Überschriften/.test(strukturPruefen(MIT_FORM, 'Titel\n\nAbsatz.\n\n- Eins\n- Zwei\n\nSchluss.').join()))
+pruefe('verlorene Listenpunkte fallen auf', /Listenpunkte/.test(strukturPruefen(MIT_FORM, '# Titel\n\nAbsatz.\n\n- Eins\n\nSchluss.').join()))
+pruefe('zur Wand zusammengelaufen fällt auf', /Absätze verloren/.test(strukturPruefen('A.\n\nB.\n\nC.', 'A. B. C.').join()))
+pruefe('Sprachwechsel fällt auf', /Sprache/.test(strukturPruefen('Der Hund liegt auf der Wiese und schläft tief.', 'The dog is on the lawn and sleeps deeply.').join()))
+pruefe('Abbruch mitten im Satz fällt auf', /mitten im Satz/.test(strukturPruefen('Ein ganzer Satz.', 'Ein abgeschnittener Satz der').join()))
+
+// Modell liefert inhaltlich besser, aber formal kaputt: darf nicht durchgehen.
+const KAPUTT = GUT.replace(/\n\n/g, ' ')
+let formRunden = 0
+let formFehler = null
+try {
+  await umschreiben(FLACH, { fragen: async () => { formRunden++; return KAPUTT } })
+} catch (err) {
+  formFehler = err.message
+}
+pruefe('formal kaputte Fassung wird verworfen', /brauchbare|Form/.test(formFehler || ''), formFehler?.slice(0, 70))
+pruefe('dabei wurde nachgehakt', formRunden === 3, `${formRunden} Runden`)
+
+console.log('\n  STICHPUNKTE UND GRÖSSEN')
+pruefe(
+  'nebeneinander geklebte Punkte kommen untereinander',
+  listenAufraeumen('- Punkt eins - Punkt zwei - Punkt drei') === '- Punkt eins\n- Punkt zwei\n- Punkt drei',
+)
+pruefe(
+  'nummerierte Punkte ebenso',
+  listenAufraeumen('1. eins 2. zwei 3. drei') === '1. eins\n2. zwei\n3. drei',
+)
+pruefe(
+  'Gedankenstrich im Fließtext bleibt in Ruhe',
+  listenAufraeumen('Er kam - und ging wieder - ohne Gruß.') === 'Er kam - und ging wieder - ohne Gruß.',
+)
+pruefe('Liste bekommt Luft davor', putzen('Text davor\n- eins\n- zwei', 'x') === 'Text davor\n\n- eins\n- zwei')
+pruefe('Raute ohne Leerzeichen wird Überschrift', putzen('#Titel\n\nText.', 'x').startsWith('# Titel'))
+pruefe('Überschrift bekommt Luft danach', putzen('# Titel\nText.', 'x') === '# Titel\n\nText.')
+
+for (const [t, soll] of [
+  ['Ein Absatz ohne alles. Noch ein Satz.', 'fliesstext'],
+  ['- eins\n- zwei\n- drei', 'liste'],
+  ['# Titel\n\nText dazu.', 'gegliedert'],
+  ['# Titel\n\nText.\n\n- eins\n- zwei', 'dokument'],
+  ['Text\n\n```js\ncode()\n```', 'code'],
+])
+  pruefe(`Textart "${soll}" erkannt`, textArt(t) === soll, textArt(t))
+
+pruefe(
+  'aus großer Überschrift darf keine kleine werden',
+  /Ebenen/.test(strukturPruefen('# Groß\n\nEin Satz hier.', '### Groß\n\nEin Satz hier.').join()),
+)
+
+// Erst formal kaputt, dann sauber — die saubere muss gewinnen.
+let f = 0
+const gerettet = await umschreiben(FLACH, { fragen: async () => (++f < 2 ? KAPUTT : GUT) })
+pruefe('saubere Fassung gewinnt danach', gerettet.text === GUT, `${gerettet.versuche.length} Runden`)
 
 console.log('\n  SYSTEM')
 const b = await bereit()

@@ -7,7 +7,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { messen } from './messen.js'
 import { zeichenPlan, aufDauer, dauerLesen, abspielen, zeitText, MAX_DAUER_MS } from './tippen.js'
-import { umschreiben, anbieter } from './gehirn.js'
+import { umschreiben, anbieter, textArt } from './gehirn.js'
 import { zeichen, bereit, SYSTEM } from './schreiben.js'
 import { lesen, schreiben, oeffentlich } from './config.js'
 
@@ -132,8 +132,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && weg === '/api/messen') {
-      const { text } = await koerper(req)
-      return json(res, 200, messen(String(text || '')))
+      const roh = String((await koerper(req)).text || '')
+      return json(res, 200, { ...messen(roh), art: textArt(roh) })
     }
 
     if (req.method === 'POST' && weg === '/api/umschreiben') {

@@ -77,12 +77,54 @@ Reihenfolge. Darum zählt hier nicht die Absicht, sondern das Ergebnis.
 - Wird es nicht besser, wird noch einmal gefragt — mit dem, was übrig geblieben
   ist. Bis zu drei Runden.
 - Behalten wird die **beste** Fassung, nicht die letzte.
-- Verliert eine Fassung mehr als ein Drittel des Textes oder bläht ihn auf, wird
-  sie verworfen: dann hat das Modell zusammengefasst statt lektoriert.
 - Wird es in keiner Runde besser, sagt Handschrift das, statt eine schlechtere
   Fassung als Erfolg zu verkaufen.
 
 Hinterher stehen die Punkte da: klein ist gut. `212 → 0` heißt, es hat gewirkt.
+
+### Er schaut erst, was für ein Text das ist
+
+Ein Merkblatt aus Stichpunkten will anders lektoriert werden als ein Aufsatz.
+Handschrift bestimmt die Art vorher und schreibt sie dem Modell in den Auftrag:
+
+| Art | Was dem Modell gesagt wird |
+|---|---|
+| **Fließtext** | Bleibt Fließtext — keine Überschriften, keine Aufzählungen einbauen. |
+| **Aufzählung** | Bleibt Aufzählung. Jeder Stichpunkt in einer eigenen Zeile. |
+| **Mit Überschriften** | Überschriften bleiben, samt Ebene: aus `#` darf kein `###` werden. |
+| **Dokument** | Beides bleibt, mit denselben Ebenen und derselben Anzahl. |
+| **Mit Code** | Der Code bleibt Zeichen für Zeichen; überarbeitet wird nur der Text drumherum. |
+
+Die erkannte Art steht in der Oberfläche über den Zahlen.
+
+### Damit es nicht komisch aussieht
+
+Ein Modell kann inhaltlich liefern und formal Unsinn bauen. Jede Fassung muss
+darum durch fünf Tore, sonst fliegt sie raus und es wird neu gefragt — mit der
+Beanstandung als Auftrag:
+
+| Tor | Was auffliegt |
+|---|---|
+| **Länge** | Unter zwei Dritteln oder über 140 %: zusammengefasst statt lektoriert. |
+| **Gerüst** | Überschriften, Listenpunkte und Code-Zäune müssen exakt gleich viele sein — und die Überschriften auf derselben Ebene stehen. |
+| **Absätze** | Verlorene Absätze heißt: der Text ist zur Wand zusammengelaufen. |
+| **Sprache** | Deutsch rein, Englisch raus — der Klassiker kleiner Modelle. |
+| **Ende** | Endet das Original sauber und die Fassung mitten im Satz, war sie abgeschnitten. |
+
+Dazu wird geputzt, was sonst sofort ins Auge fällt: Leerzeichen am Zeilenende,
+drei Leerzeilen am Stück, ein als Zitat verpackter Text, krumme
+Anführungszeichen in einem Text, der vorher gerade hatte — und vor allem
+**Stichpunkte, die nebeneinander statt untereinander landen.** Modelle geben
+Listen gern als eine Zeile zurück (`- eins - zwei - drei`); daraus werden wieder
+drei Zeilen. Ein Gedankenstrich mitten im Fließtext bleibt dabei in Ruhe, weil
+nur Zeilen aufgeteilt werden, die schon mit einem Aufzählungszeichen beginnen.
+
+Über **A−** und **A+** lässt sich der Text größer und kleiner stellen; die
+Einstellung bleibt über Neustarts erhalten.
+
+Die verworfenen Runden stehen hinterher in der Oberfläche. Ein langsames
+Umschreiben soll nicht wie ein Hänger wirken, sondern zeigen, was aussortiert
+wurde.
 
 ### Woher das Modell kommt
 
@@ -166,5 +208,6 @@ node pruefe.mjs
 ```
 
 Misst flachen gegen lebendigen Text, prüft den Rhythmus, die Dauer-Eingaben,
-die Grenzen, den Stopp und die Umschreib-Schleife — 39 Prüfungen, ohne dass eine
-Taste angeschlagen oder ein Modell angerufen wird.
+die Grenzen, den Stopp, die Umschreib-Schleife, alle Form-Tore und die
+Textart-Erkennung — 65 Prüfungen, ohne dass eine Taste angeschlagen oder ein
+Modell angerufen wird.

@@ -130,7 +130,173 @@ export function saeubern(roh) {
   t = t.replace(VORREDE, '').trim()
   // Ein nachgeschobener Kommentar hinter einer Trennlinie gehört nicht zum Text.
   t = t.replace(/\n+(?:---+|___+)\n[\s\S]*$/, '').trim()
+  // Manche Modelle legen den ganzen Text in Anführungszeichen, als würden sie
+  // ihn zitieren.
+  const zitat = t.match(/^["„»“](.*)["“«”]$/s)
+  if (zitat && !/["„»]/.test(zitat[1])) t = zitat[1].trim()
   return t
+}
+
+/**
+ * Stichpunkte gehören untereinander, nicht nebeneinander.
+ *
+ * Modelle geben Listen gern als eine einzige Zeile zurück
+ * ("- Punkt eins - Punkt zwei - Punkt drei"). Gesplittet wird nur, wenn die
+ * Zeile schon mit einem Aufzählungszeichen beginnt — dann sind die weiteren
+ * Zeichen mit Sicherheit auch welche und kein Gedankenstrich im Fließtext.
+ */
+export function listenAufraeumen(text) {
+  const zeilen = String(text).split('\n')
+  const raus = []
+  for (const zeile of zeilen) {
+    if (/^\s*[-*+]\s+\S/.test(zeile)) {
+      raus.push(...zeile.trimEnd().split(/\s+(?=[-*+]\s+\S)/))
+    } else if (/^\s*\d+\.\s+\S/.test(zeile)) {
+      raus.push(...zeile.trimEnd().split(/\s+(?=\d+\.\s+\S)/))
+    } else {
+      raus.push(zeile)
+    }
+  }
+
+  // Überschrift und Listenblock brauchen Luft, sonst klebt in Markdown alles
+  // aneinander und die Liste wird gar nicht als Liste erkannt.
+  const fertig = []
+  for (const [i, zeile] of raus.entries()) {
+    const vorher = raus[i - 1]
+    const istPunkt = /^\s*(?:[-*+]|\d+\.)\s+/.test(zeile)
+    const istKopf = /^#{1,6}\s/.test(zeile)
+    const vorherPunkt = vorher !== undefined && /^\s*(?:[-*+]|\d+\.)\s+/.test(vorher)
+    const vorherLeer = vorher === undefined || !vorher.trim()
+    if ((istKopf || (istPunkt && !vorherPunkt)) && !vorherLeer) fertig.push('')
+    if (!istKopf && !istPunkt && vorherPunkt && zeile.trim()) fertig.push('')
+    fertig.push(zeile)
+    if (istKopf && raus[i + 1]?.trim()) fertig.push('')
+  }
+  return fertig.join('\n')
+}
+
+/**
+ * Kleinkram glätten, der sonst sofort als "komisch" ins Auge fällt: Leerzeichen
+ * am Zeilenende, drei Leerzeilen am Stück, Überschriften ohne Leerzeichen hinter
+ * der Raute, nebeneinander geklebte Stichpunkte, und typografische
+ * Anführungszeichen in einem Text, der vorher gerade hatte (oder umgekehrt).
+ */
+export function putzen(neu, original) {
+  let t = String(neu || '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+$/gm, '')
+    // "#Titel" ohne Leerzeichen ist keine Überschrift, sieht aber wie eine aus.
+    .replace(/^(#{1,6})(\S)/gm, '$1 $2')
+
+  t = listenAufraeumen(t)
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  const krumm = (s) => (s.match(/[„“”»«]/g) || []).length
+  const gerade = (s) => (s.match(/"/g) || []).length
+  if (krumm(original) === 0 && krumm(t) > 0) t = t.replace(/[„“”]/g, '"').replace(/[»«]/g, '"')
+  else if (gerade(original) === 0 && krumm(original) > 0 && gerade(t) > 0) {
+    // Zurück auf deutsche Anführungszeichen, paarweise von links nach rechts.
+    let auf = true
+    t = t.replace(/"/g, () => ((auf = !auf) ? '“' : '„'))
+  }
+  return t
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Sieht das noch aus wie der Text, den man reingegeben hat?
+// ────────────────────────────────────────────────────────────────────────────
+
+const geruest = (t) => ({
+  absaetze: t.split(/\n\s*\n/).filter((a) => a.trim()).length,
+  // Nicht nur zählen, sondern die Ebenen merken: eine H1, die als H3
+  // zurückkommt, ist plötzlich klein — der Text sieht anders aus, obwohl die
+  // Anzahl stimmt.
+  ebenen: (t.match(/^#{1,6} /gm) || []).map((h) => h.trim().length).join(''),
+  ueberschriften: (t.match(/^#{1,6} /gm) || []).length,
+  listen: (t.match(/^\s*(?:[-*+]|\d+\.)\s+/gm) || []).length,
+  code: (t.match(/^```/gm) || []).length,
+})
+
+// Grobe Sprachprobe über die häufigsten Funktionswörter. Reicht völlig, um
+// zu merken, dass ein Modell auf Englisch geantwortet hat — ein Fehler, den
+// kleine Modelle regelmäßig machen und der sofort auffällt.
+const DE = /\b(?:der|die|das|und|ist|nicht|ein|eine|zu|von|mit|sich|auf|für|dass|den|dem|im|als|auch|wird|sind)\b/gi
+const EN = /\b(?:the|and|is|not|a|an|to|of|with|for|that|in|as|are|this|it|on|be|by|from)\b/gi
+const anteil = (t, muster) => (t.match(muster) || []).length / Math.max(1, (t.match(/\S+/g) || []).length)
+
+/**
+ * 'de', 'en' — oder null, wenn die Probe zu dünn ist. Das null ist wichtig:
+ * "Anderer Absatz. Eins. Zwei." enthält kein einziges Funktionswort, und ein
+ * erzwungenes Urteil darüber meldete früher einen Sprachwechsel, wo keiner war.
+ */
+export function sprache(t) {
+  const woerter = (t.match(/\S+/g) || []).length
+  const de = (t.match(DE) || []).length
+  const en = (t.match(EN) || []).length
+  if (woerter < 8 || de + en < 3 || de === en) return null
+  return de > en ? 'de' : 'en'
+}
+
+export const istDeutsch = (t) => sprache(t) === 'de'
+
+/**
+ * Was am Ergebnis formal kaputt ist. Leere Liste heißt: sieht aus wie vorher,
+ * nur besser geschrieben.
+ */
+export function strukturPruefen(original, neu) {
+  const a = geruest(original)
+  const b = geruest(neu)
+  const klagen = []
+
+  if (a.ueberschriften !== b.ueberschriften)
+    klagen.push(`Überschriften: ${a.ueberschriften} vorher, ${b.ueberschriften} nachher`)
+  else if (a.ebenen !== b.ebenen) klagen.push('Überschriften-Ebenen verschoben (aus groß wurde klein oder umgekehrt)')
+  if (a.listen !== b.listen) klagen.push(`Listenpunkte: ${a.listen} vorher, ${b.listen} nachher`)
+  if (a.code !== b.code) klagen.push(`Code-Zäune: ${a.code} vorher, ${b.code} nachher`)
+  // Absätze dazu sind kein Schaden, verlorene schon: dann ist der Text zur
+  // Wand zusammengelaufen.
+  if (b.absaetze < a.absaetze) klagen.push(`Absätze verloren: ${a.absaetze} vorher, ${b.absaetze} nachher`)
+
+  const a1 = sprache(original)
+  const b1 = sprache(neu)
+  if (a1 && b1 && a1 !== b1) klagen.push(`Sprache gewechselt: ${a1} → ${b1}`)
+
+  // Abbruch mitten im Satz — beim Original zählt das letzte echte Zeichen.
+  const endetSauber = (t) => /[.!?…:;"'“”»)\]\d]$/.test(t.trim())
+  if (endetSauber(original) && !endetSauber(neu)) klagen.push('endet mitten im Satz')
+
+  return klagen
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Was für ein Text ist das überhaupt?
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Ein Merkblatt aus Stichpunkten will anders lektoriert werden als ein Aufsatz.
+ * Ohne diese Unterscheidung macht das Modell aus jeder Liste Fließtext — und
+ * das ist die häufigste Art, wie eine Überarbeitung "komisch" wird.
+ */
+export function textArt(t) {
+  const g = geruest(t)
+  const zeilen = t.split('\n').filter((z) => z.trim()).length
+  if (g.code > 0) return 'code'
+  if (g.ueberschriften > 0 && g.listen > 0) return 'dokument'
+  if (g.ueberschriften > 0) return 'gegliedert'
+  if (g.listen >= Math.max(3, zeilen * 0.5)) return 'liste'
+  return 'fliesstext'
+}
+
+const FORMHINWEIS = {
+  fliesstext: 'Es ist Fließtext ohne Gliederung. Lass ihn Fließtext — bau keine Überschriften und keine Aufzählungen ein.',
+  liste:
+    'Es ist eine Aufzählung. Sie bleibt eine Aufzählung: jeder Stichpunkt steht in einer eigenen Zeile, mit demselben Zeichen davor. Mach daraus keinen Fließtext und häng die Punkte nicht aneinander.',
+  gegliedert:
+    'Der Text hat Überschriften. Behalte sie und ihre Ebene: aus einer großen Überschrift (#) darf keine kleine (###) werden und umgekehrt.',
+  dokument:
+    'Der Text hat Überschriften und Aufzählungen. Beides bleibt, mit denselben Ebenen und derselben Anzahl. Stichpunkte stehen untereinander, jeder in einer eigenen Zeile.',
+  code: 'Im Text stehen Code-Blöcke. Der Code bleibt Zeichen für Zeichen, wie er ist — überarbeitet wird nur der Text drumherum.',
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -156,13 +322,18 @@ Woran du arbeitest:
 - Aktiv statt Substantivketten. Konkretes Wort statt Allerweltswort.
 - Die Stimme des Autors nicht gegen deine eigene tauschen.`
 
-const anfrage = (text, funde, ton, extra, runde) => [
+const anfrage = (text, funde, ton, extra, runde, nachtrag) => [
   { role: 'system', content: AUFTRAG },
   {
     role: 'user',
     content: [
-      runde > 1
-        ? `Das war schon ein Versuch, aber diese Schwächen sind geblieben. Geh sie diesmal wirklich an:`
+      FORMHINWEIS[textArt(text)],
+      '',
+      nachtrag
+        ? `Dein letzter Versuch war formal unbrauchbar: ${nachtrag}. Gib den Text diesmal in genau derselben Form zurück — gleiche Absätze, gleiche Überschriften, gleiche Listen, gleiche Sprache, vollständig bis zum letzten Satz.`
+        : '',
+      runde > 1 && !nachtrag
+        ? 'Das war schon ein Versuch, aber diese Schwächen sind geblieben. Geh sie diesmal wirklich an:'
         : 'Gemessene Schwächen dieses Textes:',
       funde.length ? `- ${funde.join('\n- ')}` : '(keine — fass den Text nur an, wo es wirklich besser wird)',
       ton ? `\nGewünschter Ton: ${ton}` : '',
@@ -194,21 +365,22 @@ export async function umschreiben(text, { ton, extra, signal, runden = 3, fragen
         'oder einen Gratis-Schlüssel in den Einstellungen eintragen. Das Messen läuft auch ohne.',
     )
 
-  const vorher = messen(roh)
+  const vorher = { ...messen(roh), art: textArt(roh) }
   const start = bewertung(vorher)
   const versuche = []
   let bester = null
   let aktuell = vorher
+  let nachtrag = null
 
   for (let runde = 1; runde <= Math.max(1, runden); runde++) {
     if (signal?.aborted) break
-    const nachrichten = anfrage(roh, aktuell.auffaellig, ton, extra, runde)
+    const nachrichten = anfrage(roh, aktuell.auffaellig, ton, extra, runde, nachtrag)
 
     let antwort = null
     const fehler = []
     for (const a of stelle) {
       try {
-        antwort = { text: saeubern(await a.fragen(nachrichten, signal)), anbieter: a.name }
+        antwort = { text: putzen(saeubern(await a.fragen(nachrichten, signal)), roh), anbieter: a.name }
         break
       } catch (err) {
         if (err?.name === 'AbortError') throw err
@@ -221,15 +393,27 @@ export async function umschreiben(text, { ton, extra, signal, runden = 3, fragen
     }
     if (!antwort.text) {
       versuche.push({ runde, verworfen: 'leere Antwort' })
+      nachtrag = 'die Antwort war leer'
       continue
     }
 
-    const neu = messen(antwort.text)
+    const neu = { ...messen(antwort.text), art: textArt(antwort.text) }
     const anteil = neu.woerter / Math.max(1, vorher.woerter)
     if (anteil < 0.67 || anteil > 1.4) {
       versuche.push({ runde, verworfen: `Länge ${Math.round(anteil * 100)} % — zusammengefasst statt lektoriert` })
+      nachtrag = `der Text hatte danach ${Math.round(anteil * 100)} % der ursprünglichen Länge`
       continue
     }
+
+    // Inhaltlich besser, formal kaputt zählt nicht als besser. Genau daran
+    // erkennt man eine Überarbeitung, die "komisch aussieht".
+    const formfehler = strukturPruefen(roh, antwort.text)
+    if (formfehler.length) {
+      versuche.push({ runde, verworfen: `Form: ${formfehler.join(', ')}` })
+      nachtrag = formfehler.join(', ')
+      continue
+    }
+    nachtrag = null
 
     const punkte = bewertung(neu)
     versuche.push({ runde, anbieter: antwort.anbieter, punkte, auffaellig: neu.auffaellig.length })
