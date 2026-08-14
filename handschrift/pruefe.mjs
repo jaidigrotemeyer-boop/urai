@@ -219,6 +219,37 @@ let f = 0
 const gerettet = await umschreiben(FLACH, { fragen: async () => (++f < 2 ? KAPUTT : GUT) })
 pruefe('saubere Fassung gewinnt danach', gerettet.text === GUT, `${gerettet.versuche.length} Runden`)
 
+console.log('\n  AUSDAUER')
+// Der Abbruch-Horcher hing früher bei jedem Zeichen neu am selben Signal und
+// wurde nie abgenommen — bei langem Text zehntausende Horcher plus Warnung.
+{
+  const ac2 = new AbortController()
+  const warte = (ms) =>
+    new Promise((fertig, schief) => {
+      if (ac2.signal.aborted) return schief(Object.assign(new Error('Gestoppt.'), { name: 'AbortError' }))
+      const abbrechen = () => { clearTimeout(t); schief(Object.assign(new Error('Gestoppt.'), { name: 'AbortError' })) }
+      const t = setTimeout(() => { ac2.signal.removeEventListener('abort', abbrechen); fertig() }, ms)
+      ac2.signal.addEventListener('abort', abbrechen, { once: true })
+    })
+  let warnung = null
+  const horcher = (w) => (warnung = w.name)
+  process.on('warning', horcher)
+  for (let i = 0; i < 3000; i++) await warte(0)
+  await new Promise((f) => setImmediate(f))
+  process.off('warning', horcher)
+  pruefe('3000 Wartevorgänge ohne Horcher-Stau', !warnung, warnung || 'keine Warnung')
+}
+
+{
+  let rufe = 0
+  const echt = globalThis.fetch
+  globalThis.fetch = (...a) => { rufe++; return echt(...a) }
+  const { ollamaDa } = await import('./server/gehirn.js')
+  await ollamaDa(); await ollamaDa(); await ollamaDa()
+  globalThis.fetch = echt
+  pruefe('Ollama wird gemerkt statt dreimal gefragt', rufe <= 1, `${rufe} Netzanfrage(n) bei 3 Abfragen`)
+}
+
 console.log('\n  SYSTEM')
 const b = await bereit()
 pruefe('Tipp-Weg geprüft', typeof b.ok === 'boolean', b.hinweis)

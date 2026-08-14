@@ -43,13 +43,21 @@ async function tippenStarten({ text, dauer, zeichenProMinute, vorlauf = 5 }) {
   // Anfang des Textes in Handschrift selbst statt im Dokument.
   ;(async () => {
     try {
+      // Der Horcher wird wieder abgenommen. warte() läuft einmal pro Zeichen —
+      // bei einem langen Text sammelten sich sonst zehntausende Horcher auf
+      // demselben Signal an, mitsamt Warnung und wachsendem Speicher.
       const warte = (ms) =>
         new Promise((fertig, schief) => {
-          const t = setTimeout(fertig, ms)
-          abbruch.signal.addEventListener('abort', () => {
+          if (abbruch.signal.aborted) return schief(Object.assign(new Error('Gestoppt.'), { name: 'AbortError' }))
+          const abbrechen = () => {
             clearTimeout(t)
             schief(Object.assign(new Error('Gestoppt.'), { name: 'AbortError' }))
-          })
+          }
+          const t = setTimeout(() => {
+            abbruch.signal.removeEventListener('abort', abbrechen)
+            fertig()
+          }, ms)
+          abbruch.signal.addEventListener('abort', abbrechen, { once: true })
         })
       await warte(vorlauf * 1000)
       lauf.phase = 'tippt'

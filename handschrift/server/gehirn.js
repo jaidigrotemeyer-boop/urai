@@ -68,17 +68,28 @@ async function ollama(nachrichten, signal) {
   return (await antwort.json()).message?.content || ''
 }
 
+// Die Oberfläche fragt den Stand alle 400 ms ab, solange getippt wird. Ohne
+// dieses kurze Gedächtnis klopfte jeder dieser Abrufe bei Ollama an — zweieinhalb
+// Netzanfragen pro Sekunde, nur um dieselbe Antwort zu bekommen.
+let ollamaMerker = { bis: 0, wert: null }
+
 /** Läuft daheim ein Ollama? Kurzer Anklopfer, damit die Oberfläche es weiß. */
 export async function ollamaDa() {
+  if (Date.now() < ollamaMerker.bis) return ollamaMerker.wert
+  let wert = null
   try {
-    const a = await AbortSignal.timeout(1200)
-    const r = await fetch(`${OLLAMA}/api/tags`, { signal: a })
-    if (!r.ok) return null
-    const modelle = (await r.json()).models || []
-    return { modelle: modelle.map((m) => m.name), url: OLLAMA }
+    const r = await fetch(`${OLLAMA}/api/tags`, { signal: AbortSignal.timeout(1200) })
+    if (r.ok) {
+      const modelle = (await r.json()).models || []
+      wert = { modelle: modelle.map((m) => m.name), url: OLLAMA }
+    }
   } catch {
-    return null
+    wert = null
   }
+  // Gefunden: fünf Sekunden glauben. Nicht gefunden: nur zwei, damit ein frisch
+  // gestartetes Ollama nicht lange unsichtbar bleibt.
+  ollamaMerker = { bis: Date.now() + (wert ? 5000 : 2000), wert }
+  return wert
 }
 
 /** Wer gerade antworten könnte, in der Reihenfolge, in der gefragt wird. */

@@ -138,6 +138,10 @@ export async function abspielen(plan, { tippe, warte, signal, melde } = {}) {
   let getippt = 0
   let verzug = 0
   let soll = start
+  // Etwa fünfzig Meldungen über den ganzen Lauf. Ein fester Abstand von 200
+  // Zeichen meldete bei kurzem Text gar nichts: der Balken stand bis zum Schluss
+  // auf null und sah aus, als hinge etwas.
+  const jedes = Math.max(1, Math.floor(plan.schritte.length / 50))
 
   for (const schritt of plan.schritte) {
     if (signal?.aborted) break
@@ -151,7 +155,8 @@ export async function abspielen(plan, { tippe, warte, signal, melde } = {}) {
     if (signal?.aborted) break
     await tippe(schritt.zeichen)
     getippt++
-    if (melde && getippt % 200 === 0) melde({ getippt, gesamt: plan.schritte.length })
+    if (melde && (getippt % jedes === 0 || getippt === plan.schritte.length))
+      melde({ getippt, gesamt: plan.schritte.length })
   }
 
   return { getippt, gesamt: plan.schritte.length, ms: Date.now() - start, verzugMs: Math.round(verzug) }
