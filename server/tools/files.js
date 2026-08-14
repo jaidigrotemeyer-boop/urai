@@ -16,7 +16,14 @@ function resolve(p) {
   const c = loadConfig()
   const abs = path.resolve(p.startsWith('~') ? p.replace(/^~/, process.env.HOME) : p)
   const root = path.resolve(c.workspace || process.env.HOME)
-  if (!abs.startsWith(root)) throw new Error(`Weg liegt außerhalb vom Revier (${root}): ${abs}`)
+  // path.relative statt Präfix-Vergleich: sonst käme entweder ein Nachbarordner
+  // mit gleichem Anfang durch (Revier "Kunde" hätte "KundeArchiv" erlaubt) oder,
+  // falls das Revier "/" selbst ist, der doppelte Trenner "//" würde fast alles
+  // aussperren.
+  const rel = path.relative(root, abs)
+  if (rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) {
+    throw new Error(`Weg liegt außerhalb vom Revier (${root}): ${abs}`)
+  }
   return abs
 }
 

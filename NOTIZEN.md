@@ -1,5 +1,60 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-14
+Erledigt: `resolve()` in `server/tools/files.js` und `server/tools/dokument.js`
+— die Revier-Grenze wurde bisher per reinem String-Präfix geprüft
+(`!abs.startsWith(root)`), ohne Pfadtrenner. Ein Nachbarordner mit gleichem
+Anfang wie das Revier (z.B. Revier `.../Kunde`, Zielordner `.../KundeArchiv`)
+bestand die Prüfung fälschlich — echter Sandbox-Ausbruch, betraf alle zehn
+Datei-/Dokument-Werkzeuge (`fs_list/read/write/edit/search/glob`,
+`dokument_word/powerpoint/excel/lesen`), inklusive der schreibenden. Erster
+Fix (`abs.startsWith(root + path.sep)`) hätte einen neuen Fehler eingeführt:
+ist das Revier die Dateisystem-Wurzel `/`, wird daraus `//`, was fast jeden
+Pfad fälschlich ausgesperrt hätte. Prüfer 2 fand das, nachgebessert auf
+`path.relative(root, abs)` (abgelehnt wenn `rel === '..'`, `rel` mit `..`+Trenner
+beginnt, oder `rel` absolut ist) — deckt beide Fälle sauber ab, ohne
+Sonderfall-Code für die Wurzel.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes). Oberfläche
+schlug vor, den Notch-Fenster-Knopf aus der Composer-Hinweiszeile
+(`web/src/App.jsx`) in die Einstellungen zu verschieben, analog zum
+Zeiger-Umschalter vom 08-08 — guter, isolierter Kandidat für eine kommende
+Nacht. Fehlendes bestätigte die i18n-Vollständigkeit selbst nachgezählt
+(weiterhin 155/155 Schlüssel in allen sieben Sprachen, keine neue Lücke) und
+schlug `.xlsx`-Lesen für `dokument_lesen` vor (ZIP+XML wie docx/pptx, ohne
+neue Abhängigkeit) — guter Kandidat, aber der Server-Fund hatte das bessere
+Nutzen/Risiko-Verhältnis, weil er ein echtes, bereits bestehendes
+Sicherheitsrisiko behebt statt eine neue Fähigkeit hinzuzufügen.
+
+Prüfer 1 (Funktioniert es) hat `node --check`, ein Testskript mit echtem
+Import von `resolve()` über `fs_list`/`dokument_lesen` (nicht nachgebaut,
+echte Module) mit mehreren Pfaden, `npm install && npm run build` und den
+Server-Modul-Ladetest selbst ausgeführt — alles sauber, keine Regression bei
+normalen Aufrufen innerhalb vom Revier. Prüfer 2 (Randfälle) fand den
+Wurzel-`/`-Fall (oben beschrieben) als echten, wenn auch überrestriktiven
+statt unsicheren Fehler; nach der Nachbesserung hat ein dritter,
+gezielter Prüflauf exakt diesen Fall plus die ursprünglichen sechs
+Kernfälle (Revier selbst, Unterordner, Nachbarordner-Ausbruch,
+`../`-Auflösung) nochmal selbst gegen den aktuellen Code getestet — hält.
+
+Build und Server-Modul-Ladetest liefen am Ende nochmal sauber durch,
+`git diff` enthielt nur die zwei erwarteten Dateien, keine Geheimnisse.
+
+Offen für kommende Nächte:
+- Notch-Fenster-Knopf aus der Composer-Hinweiszeile (`web/src/App.jsx`)
+  in die Einstellungen verschieben, analog zum Zeiger-Umschalter — klein,
+  isoliert, trifft den größten offenen Nutzerwunsch (ruhigere Oberfläche).
+- `dokument_lesen` deckt weiterhin nur .docx/.pptx ab, nicht .xlsx (Muster:
+  `unzip -Z1` für Blattliste, `xl/workbook.xml` für Blattnamen,
+  `xl/sharedStrings.xml` für den Text-Pool, `xl/worksheets/sheetN.xml` per
+  Regex auf `<c r="..." t="...">...<v>/<is>` — kein neues Paket nötig).
+- `POST /api/ausloeser` validiert den Body weiterhin nicht (siehe frühere
+  Nächte) — sinnvoll, sobald die Auslöser-Übersicht in der Oberfläche gebaut
+  wird, oder eigenständig davor.
+- Auslöser-Übersicht fehlt ganz in der Oberfläche (`server/ausloeser.js`,
+  `server/index.js` GET/POST `/api/ausloeser` sind fertig, UI fehlt).
+- `fs_search` meldet echte Fehler pauschal als "(nichts gefunden)".
+
 ## 2026-08-12
 Erledigt: `server/tools/files.js`, `resolve()` — dieselbe Typ-Wache wie in
 `server/tools/dokument.js` seit dem 2026-08-10-Fix, jetzt auch hier. War seit
