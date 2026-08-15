@@ -834,14 +834,6 @@ export default function App() {
                   Dauerlauschen {dauerAn ? t('on') : t('off')}
                 </button>
               )}
-              <button
-                className="linkish"
-                onClick={() =>
-                  window.open('/?hud=1', 'urai-hud', 'width=560,height=190,alwaysOnTop=yes,menubar=no,toolbar=no')
-                }
-              >
-                {t('hud')}
-              </button>
               {status && !status.config?.hasGemini && (
                 <button className="linkish" onClick={() => setShowSettings(true)}>
                   {t('keyMissing')}

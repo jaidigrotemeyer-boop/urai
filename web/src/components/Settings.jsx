@@ -278,6 +278,24 @@ export default function Settings({ onClose, onSaved }) {
           <div className="note">Auge mit weichem Nachlauf statt dem normalen Mauszeiger.</div>
         </div>
 
+        <div className="field">
+          <label>{t('hud')}</label>
+          <div className="chips">
+            <button
+              className="chip"
+              onClick={() =>
+                window.open('/?hud=1', 'urai-hud', 'width=560,height=190,alwaysOnTop=yes,menubar=no,toolbar=no')
+              }
+            >
+              Öffnen
+            </button>
+          </div>
+          <div className="note">
+            Eigenes kleines Fenster, das zeigt, was URAI gerade tut. Einmal einrichten und oben an den
+            Bildschirmrand schieben, dann arbeitest du nebenher weiter.
+          </div>
+        </div>
+
         </details>
 
         <details className="abschnitt">

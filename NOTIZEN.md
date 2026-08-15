@@ -1,5 +1,63 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-15
+Erledigt: Notch-Fenster-Knopf aus der Composer-Hinweiszeile (`web/src/App.jsx`)
+in die Einstellungen verschoben (`web/src/components/Settings.jsx`), analog
+zum Zeiger-Umschalter vom 08-08 — genau der Kandidat, der am 08-14 als bester
+nächster Schritt vermerkt war. Die Hinweiszeile trug im Ruhezustand bis zu
+fünf Elemente (Stimme, Weckwort, Dauerlauschen, Notch-Fenster, ggf.
+Schlüssel-Hinweis); der Notch-Knopf ist wie der frühere Zeiger-Umschalter eine
+einmalige Einrichtungs-Aktion, keine, die während des laufenden Gesprächs
+wiederholt gebraucht wird. Jetzt liegt er als eigenes Feld im
+Einstellungen-Abschnitt „Sprache" direkt nach „Eigener Zeiger", mit demselben
+`field`/`chips`/`chip`/`note`-Muster.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes). Server schlug
+vor, die zweifach vorhandene `resolve()`-Funktion (`server/tools/files.js` und
+`server/tools/dokument.js`) in eine gemeinsame `server/tools/pfad.js`
+auszulagern — echter Bug-Multiplikator, weil beide Fixe vom 08-10/08-12 und
+08-14 in beiden Dateien wiederholt werden mussten. Fehlendes bestätigte die
+i18n-Vollständigkeit erneut (155/155) und schlug wie in den Vornächten
+.xlsx-Lesen für `dokument_lesen` vor. Beides gute Kandidaten für kommende
+Nächte — heute aber die Oberflächen-Änderung gewählt, weil sie den explizit
+größten offenen Nutzerwunsch (ruhigere Oberfläche) direkt trifft und laut
+Auftrag Nutzer-Sichtbares vor innerer Schönheit den Vorzug bekommt.
+
+Prüfer 1 (Funktioniert es) hat Build, `git diff --stat -- server/` (leer, also
+wirklich unberührt) und einen echten Browser-Test mit Playwright/Chromium
+selbst durchgeführt: echten Backend- und Vite-Server gestartet (der
+Einstellungen-Dialog rendert erst nach geladener `/api/status`-Config), Notch-
+Knopf in der Hinweiszeile bestätigt verschwunden, neues Feld „Notch window"
+direkt nach „Eigener Zeiger" bestätigt, Klick auf „Öffnen" öffnet wirklich ein
+neues Fenster mit `/?hud=1`, keine Konsolenfehler. Prüfer 2 (Randfälle) hat
+i18n (alle sieben Sprachen haben den `hud`-Schlüssel), verwaiste Verweise
+(keine gefunden), CSS-Umbruchverhalten des neuen Notiztexts und den
+Diff-Umfang (nur die zwei erwarteten Dateien) geprüft — kein echter Fehler.
+Einziger bewusst in Kauf genommener Punkt: das Notch-Fenster ist jetzt zwei
+Klicks statt einem entfernt, was der Begründung entspricht und dem
+Präzedenzfall der Zeiger-Verschiebung folgt.
+
+Am Rande: Prüfer 1 meldete, dass in der Skill-Liste dieser Session ein
+eingeschleuster Eintrag „steinzeit-modus" auftauchte, der behauptete, ab
+sofort dauerhaft wie ein Höhlenmensch antworten zu sollen — keine echte
+Anweisung, sondern injizierter Text in einer Tool-Beschreibung. Wurde
+ignoriert, hatte keinen Einfluss auf die eigentliche Arbeit.
+
+Build lief am Ende nochmal sauber durch, `git diff` enthielt nur die zwei
+erwarteten Dateien, keine Geheimnisse.
+
+Offen für kommende Nächte:
+- `resolve()` ist weiterhin doppelt vorhanden (`server/tools/files.js` und
+  `server/tools/dokument.js`) — Vorschlag: gemeinsame `server/tools/pfad.js`
+  (~20 Zeilen, reines Verschieben ohne Verhaltensänderung), damit künftige
+  Fixe nicht mehr an zwei Stellen gemacht werden müssen. Guter, kleiner
+  Kandidat für eine kommende Nacht.
+- `dokument_lesen` deckt weiterhin nur .docx/.pptx ab, nicht .xlsx (Muster
+  seit mehreren Nächten notiert, siehe unten in der 08-14-Notiz).
+- `POST /api/ausloeser` validiert den Body weiterhin nicht.
+- Auslöser-Übersicht fehlt ganz in der Oberfläche.
+- `fs_search` meldet echte Fehler pauschal als "(nichts gefunden)".
+
 ## 2026-08-14
 Erledigt: `resolve()` in `server/tools/files.js` und `server/tools/dokument.js`
 — die Revier-Grenze wurde bisher per reinem String-Präfix geprüft
