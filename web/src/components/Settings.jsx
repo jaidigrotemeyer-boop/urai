@@ -5,6 +5,7 @@ import McpEinstellungen from './McpEinstellungen.jsx'
 import SkillEinstellungen from './SkillEinstellungen.jsx'
 import Persoenlichkeiten from './Persoenlichkeiten.jsx'
 import { hautLesen, hautSetzen } from '../theme.js'
+import { kannHoeren } from '../stimme.js'
 
 /** Kleines Formular, um einen eigenen OpenAI-kompatiblen Anbieter einzutragen. */
 function EigenerAnbieterFormular({ onHinzu }) {
@@ -96,7 +97,7 @@ function ZusatzSchluesselFormular({ onHinzu }) {
   )
 }
 
-export default function Settings({ onClose, onSaved }) {
+export default function Settings({ onClose, onSaved, weckAn, onToggleWeck, dauerAn, onToggleDauer }) {
   useSprache()
   const [cfg, setCfg] = useState(null)
   const [tools, setTools] = useState([])
@@ -277,6 +278,32 @@ export default function Settings({ onClose, onSaved }) {
           </div>
           <div className="note">Auge mit weichem Nachlauf statt dem normalen Mauszeiger.</div>
         </div>
+
+        {kannHoeren() && (
+          <div className="field">
+            <label>„Hey URAI"</label>
+            <div className="chips">
+              <button className={`chip ${weckAn ? 'on' : ''}`} onClick={onToggleWeck}>
+                {weckAn ? t('on') : t('off')}
+              </button>
+            </div>
+            <div className="note">Weckwort — URAI hört erst zu, wenn du "Hey URAI" sagst.</div>
+          </div>
+        )}
+
+        {kannHoeren() && (
+          <div className="field">
+            <label>Dauerlauschen</label>
+            <div className="chips">
+              <button className={`chip ${dauerAn ? 'on' : ''}`} onClick={onToggleDauer}>
+                {dauerAn ? t('on') : t('off')}
+              </button>
+            </div>
+            <div className="note">
+              Hört durchgehend mit. Ob ein Satz an URAI gerichtet war, entscheidet das lokale Modell.
+            </div>
+          </div>
+        )}
 
         <div className="field">
           <label>{t('hud')}</label>

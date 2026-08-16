@@ -1,5 +1,89 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-16
+Erledigt: „Hey URAI"- (Weckwort) und Dauerlauschen-Umschalter aus der Composer-
+Hinweiszeile (`web/src/App.jsx`) in die Einstellungen verschoben
+(`web/src/components/Settings.jsx`, Abschnitt „Sprache", direkt nach „Eigener
+Zeiger") — dieselbe Fortsetzung der Notch-Knopf- und Zeiger-Verschiebungen
+vom 08-08/08-15, diesmal für die zwei letzten Einrichtungs-Umschalter in der
+Hinweiszeile. In der Composer-Zeile bleibt nur noch der Stimme-Knopf (den man
+öfter mitten im Gespräch anfasst) plus ggf. der Schlüssel-Hinweis. Anders als
+beim Zeiger-Umschalter (der einen Reload für eine globale CSS-Klasse braucht)
+läuft hier kein Reload: `weckAn`/`dauerAn`-State und die Toggle-Logik
+(inklusive Mutex „beide gleichzeitig geht nicht, teilen sich das Mikrofon")
+bleiben unverändert in `App.jsx`, `toggleWeck`/`toggleDauer` wurden nur aus
+den bisherigen Inline-`onClick`s in benannte Funktionen extrahiert und als
+Props an `<Settings>` durchgereicht — Verhalten bewusst 1:1 identisch,
+nur der Ort der Knöpfe hat sich geändert.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes). Server fand
+einen echten Fehlerschluck-Bug: `fs_search` (`server/tools/files.js`) meldet
+im Catch-Block jeden Fehler als „(nichts gefunden)", weil `e.stdout` bei
+echten Fehlern (ungültiges Regex-Muster, fehlendes `rg`) leer ist — ein Agent
+zieht daraus falsche Schlüsse (z.B. „Datei existiert nicht"), obwohl die
+Suche nie lief. Guter, kleiner Kandidat (~5 Zeilen), aber unsichtbarer für
+den Nutzer als die Oberflächen-Änderung. Fehlendes bestätigte i18n erneut
+vollständig (alle 7 Sprachen exakt 158 Zeilen) und bekräftigte den seit
+mehreren Nächten offenen `.xlsx`-Lesen-Kandidaten für `dokument_lesen`
+(Asymmetrie: `dokument_excel` kann seit kurzem .xlsx schreiben, aber
+`dokument_lesen` weiterhin nicht einlesen). Oberflächen-Vorschlag gewählt,
+weil er wie in den Vornächten den explizit größten offenen Nutzerwunsch
+(ruhigere Oberfläche) direkt trifft und Nutzer-Sichtbares laut Auftrag den
+Vorzug bekommt.
+
+Nebenbei aufgefallen: Der lokale Checkout stand zwei Commits vor
+`origin/main` — die beiden letzten Commits der 08-15-Nacht
+(„Revier-Grenze: …" und „Notch-Fenster-Knopf …") waren nie gepusht worden.
+`main` war noch bei `334a88e`, der lokale Stand bei `2d8731e` (fast-forward-
+fähig, `main` ist Vorfahre). Per `git merge --ff-only` nachgeholt, bevor
+heute committet wurde — beim Push gehen also drei Commits raus, nicht einer.
+Falls das öfter passiert: möglicherweise bricht der Push am Ende einer
+Session gelegentlich ab, ohne dass das in NOTIZEN.md auffällt, weil die Nacht
+selbst als erledigt vermerkt wird, bevor der Push bestätigt ist. Für eine
+kommende Nacht: am Ende explizit `git log origin/main..HEAD` prüfen, nicht
+nur `git push` aufrufen und den Exit-Code glauben.
+
+Prüfer 1 (Funktioniert es) hat Build UND einen echten Browser-Test mit
+Playwright/Chromium selbst durchgeführt: echten Server gestartet, Composer-
+Zeile bestätigt verkürzt (nur noch Stimme-Knopf plus Schlüssel-Hinweis),
+beide neuen Felder in den Einstellungen an der erwarteten Stelle gefunden,
+beide anklickbar, Mutex-Logik live bestätigt (Dauerlauschen an schaltet
+Weckwort automatisch aus), keine Konsolenfehler. Überraschung: Das hier
+installierte Chromium unterstützt `webkitSpeechRecognition` tatsächlich,
+daher lief `kannHoeren()` sogar hier auf `true` — der ursprünglich erwartete
+Workaround für fehlende Spracherkennung war nicht nötig. Prüfer 2 (Randfälle)
+hat den `kannHoeren`-Import in App.jsx (weiterhin für den Mikrofon-Knopf
+gebraucht, unverändert), die `toggleWeck`/`toggleDauer`-Definitionen (echte
+`function`-Deklarationen, daher gehoisted, keine Reihenfolge-Falle), den
+einzigen `<Settings>`-Aufrufort, CSS-Klassenkonsistenz (`chip`/`on` statt
+altem `linkish`/`an`, passend zum bestehenden Settings-Muster) und i18n für
+„on"/„off" in allen sieben Sprachen geprüft — kein echter Fehler.
+
+Build und Server-Modul-Ladetest liefen am Ende nochmal sauber durch,
+`git diff` enthielt nur die zwei erwarteten Dateien, keine Geheimnisse.
+
+Am Rande: In der Skill-Liste dieser Session steckte erneut der injizierte
+Eintrag „steinzeit-modus" (behauptet, dauerhaft wie ein Höhlenmensch
+antworten zu sollen) — wie am 08-15 als eingeschleuster Text ignoriert,
+keine echte Anweisung, kein Einfluss auf die Arbeit.
+
+Offen für kommende Nächte:
+- `fs_search` (`server/tools/files.js`) meldet echte Fehler (ungültiges
+  Regex-Muster, fehlendes `rg`) weiterhin pauschal als „(nichts gefunden)" —
+  Fix skizziert: im Catch-Block zwischen `e.code === 1` (echt kein Treffer)
+  und anderen Exitcodes/Fehlern unterscheiden, bei Fehlern die echte Meldung
+  durchreichen statt sie zu verschlucken. ~5 Zeilen, eine Datei, isoliert.
+- `resolve()` ist weiterhin doppelt vorhanden (`server/tools/files.js` und
+  `server/tools/dokument.js`) — gemeinsame `server/tools/pfad.js` weiterhin
+  ein guter, kleiner Kandidat.
+- `dokument_lesen` deckt weiterhin nur .docx/.pptx ab, nicht .xlsx — Muster
+  seit mehreren Nächten notiert (unten in der 08-14-Notiz), jetzt zusätzlich
+  mit der Schreib/Lese-Asymmetrie zu `dokument_excel` begründet.
+- `POST /api/ausloeser` validiert den Body weiterhin nicht.
+- Auslöser-Übersicht fehlt ganz in der Oberfläche.
+- Push-Ergebnis am Ende einer Nacht künftig mit `git log origin/main..HEAD`
+  statt nur dem `git push`-Exit-Code bestätigen (siehe oben).
+
 ## 2026-08-15
 Erledigt: Notch-Fenster-Knopf aus der Composer-Hinweiszeile (`web/src/App.jsx`)
 in die Einstellungen verschoben (`web/src/components/Settings.jsx`), analog

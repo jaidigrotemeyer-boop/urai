@@ -560,6 +560,33 @@ export default function App() {
     })
   }
 
+  /** Weckwort an/aus — liegt in den Einstellungen, braucht aber den Erkenner-Griff von hier. */
+  function toggleWeck() {
+    const neu = !weckAn
+    setWeckAn(neu)
+    localStorage.setItem('urai-weckwort', neu ? 'an' : 'aus')
+    if (!neu) {
+      weck.current?.stop()
+      setGeweckt(false)
+    }
+  }
+
+  /** Dauerlauschen an/aus — teilt sich das Mikrofon mit dem Weckwort, siehe unten. */
+  function toggleDauer() {
+    const neu = !dauerAn
+    setDauerAn(neu)
+    localStorage.setItem('urai-dauerlauschen', neu ? 'an' : 'aus')
+    // Weckwort und Dauerlauschen teilen sich das Mikrofon.
+    // Beide gleichzeitig heißt zwei Erkenner auf einem Gerät,
+    // und dann funktioniert keiner von beiden.
+    if (neu && weckAn) {
+      setWeckAn(false)
+      localStorage.setItem('urai-weckwort', 'aus')
+      weck.current?.stop()
+      setGeweckt(false)
+    }
+  }
+
   /** Ein altes Gespräch zurückholen und im Chat wieder aufblättern. */
   async function gespraechOeffnen(id) {
     setVerlaufAuf(false)
@@ -796,44 +823,6 @@ export default function App() {
               >
                 {t('voice')} {stimmeAn ? t('on') : t('off')}
               </button>
-              {kannHoeren() && (
-                <button
-                  className={`linkish ${weckAn ? 'an' : ''}`}
-                  onClick={() => {
-                    const neu = !weckAn
-                    setWeckAn(neu)
-                    localStorage.setItem('urai-weckwort', neu ? 'an' : 'aus')
-                    if (!neu) {
-                      weck.current?.stop()
-                      setGeweckt(false)
-                    }
-                  }}
-                >
-                  „Hey URAI" {weckAn ? t('on') : t('off')}
-                </button>
-              )}
-              {kannHoeren() && (
-                <button
-                  className={`linkish ${dauerAn ? 'an' : ''}`}
-                  title="Hört durchgehend mit. Ob ein Satz an URAI gerichtet war, entscheidet das lokale Modell."
-                  onClick={() => {
-                    const neu = !dauerAn
-                    setDauerAn(neu)
-                    localStorage.setItem('urai-dauerlauschen', neu ? 'an' : 'aus')
-                    // Weckwort und Dauerlauschen teilen sich das Mikrofon.
-                    // Beide gleichzeitig heißt zwei Erkenner auf einem Gerät,
-                    // und dann funktioniert keiner von beiden.
-                    if (neu && weckAn) {
-                      setWeckAn(false)
-                      localStorage.setItem('urai-weckwort', 'aus')
-                      weck.current?.stop()
-                      setGeweckt(false)
-                    }
-                  }}
-                >
-                  Dauerlauschen {dauerAn ? t('on') : t('off')}
-                </button>
-              )}
               {status && !status.config?.hasGemini && (
                 <button className="linkish" onClick={() => setShowSettings(true)}>
                   {t('keyMissing')}
@@ -884,7 +873,14 @@ export default function App() {
       )}
 
       {showSettings && (
-        <Settings onClose={() => setShowSettings(false)} onSaved={(cfg) => setStatus((s) => ({ ...s, config: cfg }))} />
+        <Settings
+          onClose={() => setShowSettings(false)}
+          onSaved={(cfg) => setStatus((s) => ({ ...s, config: cfg }))}
+          weckAn={weckAn}
+          onToggleWeck={toggleWeck}
+          dauerAn={dauerAn}
+          onToggleDauer={toggleDauer}
+        />
       )}
     </div>
   )
