@@ -734,17 +734,22 @@ export default function App() {
           </div>
 
           <div className="composer">
-            <div className="chips">
-              {[
-                [t('quickRead'), t('promptRead')],
-                [t('quickHelp'), t('promptHelp')],
-                [t('quickOpen'), t('promptOpen')],
-              ].map(([label, prompt]) => (
-                <button key={label} className="chip" disabled={!connected} onClick={() => send(prompt)}>
-                  {label}
-                </button>
-              ))}
-            </div>
+            {/* Schnellwahl nur beim leeren Chat — mitten im Gespräch sind es
+                immer dieselben drei Einstiegs-Vorschläge, die nur Platz
+                zwischen Verlauf und Eingabe wegnehmen. */}
+            {items.length === 0 && (
+              <div className="chips">
+                {[
+                  [t('quickRead'), t('promptRead')],
+                  [t('quickHelp'), t('promptHelp')],
+                  [t('quickOpen'), t('promptOpen')],
+                ].map(([label, prompt]) => (
+                  <button key={label} className="chip" disabled={!connected} onClick={() => send(prompt)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="row">
               {kannHoeren() && (
                 <button
