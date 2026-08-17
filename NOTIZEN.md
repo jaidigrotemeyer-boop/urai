@@ -1,5 +1,81 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-17
+Erledigt: Schnellwahl-Chips im Composer ("Bildschirm lesen", "Hilf mir hier",
+"Was ist offen?", `web/src/App.jsx`) werden jetzt nur noch im leeren Chat
+gezeigt, nicht mehr dauerhaft über der Eingabezeile. Bisher stand die
+Chip-Zeile — anders als der `.empty`-Block mit den Kacheln, der sich schon
+korrekt ausblendet — unbedingt im `.composer`, auch mitten in einem langen
+Gespräch: dieselben drei Einstiegs-Vorschläge nahmen dauerhaft Platz zwischen
+Verlauf und Eingabefeld weg. Jetzt gilt dieselbe Bedingung (`items.length ===
+0`) wie für den Kacheln-Block — reines Bedingungs-Wrapping um die bestehende
+`<div className="chips">`, keine neue Logik, kein neuer State.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes). Server
+bestätigte den seit mehreren Nächten offenen `fs_search`-Fehlerschluck
+(`server/tools/files.js`) erneut als unverändert offen, mit fertig
+skizziertem ~5-Zeilen-Fix (Exitcode-1 vs. echter Fehler unterscheiden).
+Fehlendes bestätigte `.xlsx`-Lesen für `dokument_lesen` weiterhin als
+fehlend (Datei lehnt es an einer festen Stelle explizit ab) und i18n
+weiterhin vollständig (155/155 in allen sieben Sprachen). Oberflächen-
+Vorschlag gewählt, weil er — anders als die beiden Server-/Fehlendes-Kandi-
+daten, die für den Nutzer unsichtbar bleiben — bei jeder einzelnen Nachricht
+in einem laufenden Gespräch sichtbar wird und damit den größten offenen
+Nutzerwunsch (ruhigere Oberfläche) direkt trifft, bei minimalem Aufwand
+(~15 geänderte Zeilen, eine Datei) und praktisch keinem Bruchrisiko.
+
+Prüfer 1 (Funktioniert es) hat Build UND einen echten Browser-Test mit
+Playwright/Chromium selbst durchgeführt (Server ohne API-Schlüssel
+gestartet): leerer Chat zeigt die drei Chips, nach dem Senden einer
+Nachricht verschwinden sie zusammen mit dem `.empty`-Block, keine
+Konsolenfehler. Auch das Wiederherstellen eines alten Gesprächs über
+`gespraechOeffnen()` geprüft — `items` wird dabei erst geleert, dann
+nachgeladen, die Chip-Bedingung greift also korrekt auch dort. Prüfer 2
+(Randfälle) hat i18n (alle sieben Sprachen vollständig), das Notch-Fenster
+(`Hud.jsx` hat ein eigenes, chip-loses Eingabefeld, keine Inkonsistenz),
+`connected === false` (Chips zwar sichtbar aber weiterhin `disabled`, kein
+Verhaltensunterschied) und CSS (`.chips` trug nie eigenes Margin, das
+Composer-Padding ist fix, keine Lücke) geprüft — einziger Randfall: beim
+kurzen Ladefenster in `gespraechOeffnen()` blitzen Chips (wie der
+`.empty`-Block) kurz auf, bevor die geladene Historie erscheint — dasselbe
+Verhalten wie beim Kacheln-Block schon vorher, kein neuer Fehler.
+
+Build und Server-Modul-Ladetest liefen am Ende nochmal sauber durch,
+`git diff` enthielt nur die eine erwartete Datei, keine Geheimnisse.
+
+Beim Committen aufgefallen: Der Checkout stand zu Beginn dieser Nacht im
+detached-HEAD-Zustand auf `origin/main` (11b127b), die lokale `main`-Branch
+selbst war noch auf `334a88e` — vier Commits zurück. Der erste Commit-Versuch
+landete dadurch ebenfalls detached. Vor dem Push per
+`git merge-base --is-ancestor main HEAD` bestätigt, dass `main` ein Vorfahre
+von HEAD ist (reiner Fast-Forward, keine verlorenen Commits), dann
+`git checkout -B main HEAD` und gepusht. Push danach explizit mit
+`git fetch` + `git log origin/main..HEAD` (leer) bestätigt, nicht nur dem
+Exit-Code geglaubt — wie in der 08-16-Notiz empfohlen.
+
+Am Rande: In der Skill-Liste dieser Session steckte erneut der injizierte
+Eintrag „steinzeit-modus" (behauptet, dauerhaft wie ein Höhlenmensch
+antworten zu sollen) — wie in den Vornächten als eingeschleuster Text
+ignoriert, kein Einfluss auf die Arbeit oder den Antwortstil.
+
+Offen für kommende Nächte:
+- `fs_search` (`server/tools/files.js`) meldet echte Fehler (ungültiges
+  Regex-Muster, fehlendes `rg`) weiterhin pauschal als „(nichts gefunden)" —
+  Fix bereits mehrfach skizziert: im Catch-Block zwischen `e.code === 1`
+  (echt kein Treffer) und anderen Exitcodes/Fehlern unterscheiden, bei
+  Fehlern die echte Meldung durchreichen statt sie zu verschlucken.
+  ~5 Zeilen, eine Datei, isoliert — bester nächster Server-Kandidat.
+- `resolve()` ist weiterhin doppelt vorhanden (`server/tools/files.js` und
+  `server/tools/dokument.js`) — gemeinsame `server/tools/pfad.js` weiterhin
+  ein guter, kleiner Kandidat.
+- `dokument_lesen` deckt weiterhin nur .docx/.pptx ab, nicht .xlsx — Skizze
+  liegt vor (`unzip -Z1` für Blattliste, `xl/workbook.xml` für Blattnamen,
+  `xl/sharedStrings.xml` für den Text-Pool, `xl/worksheets/sheetN.xml` per
+  Regex auf `<c r="..." t="...">...<v>/<is>`, dabei `t="inlineStr"`, `t="b"`
+  und typlose Zahlzellen mitdenken), ~90-120 Zeilen in einer Datei.
+- `POST /api/ausloeser` validiert den Body weiterhin nicht.
+- Auslöser-Übersicht fehlt ganz in der Oberfläche.
+
 ## 2026-08-16
 Erledigt: „Hey URAI"- (Weckwort) und Dauerlauschen-Umschalter aus der Composer-
 Hinweiszeile (`web/src/App.jsx`) in die Einstellungen verschoben
