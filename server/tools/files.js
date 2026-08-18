@@ -131,7 +131,12 @@ export const fileTools = [
         const { stdout } = await pexec(bin, args, { maxBuffer: maxBytes() })
         return stdout.split('\n').slice(0, 200).join('\n') || '(nichts gefunden)'
       } catch (e) {
-        return e.stdout?.slice(0, maxBytes()) || '(nichts gefunden)'
+        // Exitcode 1 heißt bei rg/grep "kein Treffer" — jeder andere Fall (kaputtes
+        // Muster, fehlendes Programm) ist ein echter Fehler und darf nicht als
+        // "(nichts gefunden)" verschluckt werden, sonst zieht der Agent falsche Schlüsse.
+        if (e.code === 1) return '(nichts gefunden)'
+        if (e.code === 'ENOENT') throw new Error(`Das Programm "${bin}" fehlt auf diesem Rechner.`)
+        throw new Error(`Suche fehlgeschlagen: ${e.stderr?.trim() || e.message}`)
       }
     },
   },

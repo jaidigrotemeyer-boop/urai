@@ -1,5 +1,92 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-18
+Erledigt: `fs_search` (`server/tools/files.js`) verschluckt keine echten Fehler
+mehr. Der seit mehreren Nächten (08-14 bis 08-17) als bester Server-Kandidat
+vermerkte, aber jede Nacht zugunsten der Oberfläche zurückgestellte Fix ist
+jetzt umgesetzt: der Catch-Block unterscheidet `e.code === 1` (rg/grep: echt
+kein Treffer, weiterhin `"(nichts gefunden)"`), `e.code === 'ENOENT'`
+(Programm fehlt, wirft jetzt einen benannten Fehler) und alles andere (wirft
+jetzt `Suche fehlgeschlagen: ${e.stderr || e.message}` statt stillschweigend
+`e.stdout` — meist leer bei echten Fehlern — als „nichts gefunden" zu zeigen).
+Vorher zog ein Agent aus einem kaputten Regex-Muster oder fehlendem `rg` die
+falsche Schlussfolgerung „Datei/Code existiert nicht", obwohl die Suche nie
+lief.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes). Oberfläche
+schlug vor, den statischen Tastatur-Hinweis („Enter senden · Shift+Enter neue
+Zeile") im Composer nach der ersten Nachricht auszublenden — letztes rein
+statisches Element in einer Zeile, die die Vornächte schon von
+Einrichtungs-Elementen befreit haben, aber inzwischen eher Kosmetik als
+echte Überladung. Fehlendes bestätigte i18n erneut vollständig (155/155 in
+allen sieben Sprachen, diesmal per Skript nachgezählt statt nur der Notiz
+vertraut) und bekräftigte `.xlsx`-Lesen für `dokument_lesen` als weiterhin
+fehlend. Server-Vorschlag (`fs_search`) gewählt, weil er trotz kleinstem
+Diff (~8 Zeilen, eine Datei, isolierter Catch-Block) seit vier Nächten der am
+besten begründete, am längsten offene Kandidat war und echten Nutzerschaden
+behebt (falsche Antworten durch verschluckte Fehler) — im Unterschied zur
+Oberfläche, deren größere Überladungs-Probleme in den Vornächten bereits
+abgearbeitet wurden und deren Restkandidat nur noch eine Tastatur-Legende
+betrifft.
+
+Prüfer 1 (Funktioniert es) hat Build, Server-Modul-Ladetest und einen echten
+funktionalen Test von `fileTools` selbst geschrieben und ausgeführt: Muster
+ohne Treffer → weiterhin `"(nichts gefunden)"`, kaputtes Muster (`"(unclosed"`,
+GNU grep liefert dafür Exitcode 2) → wirft jetzt korrekt
+`Suche fehlgeschlagen: grep: Unmatched ( or (`, fehlendes Programm → korrekt
+erkannter `ENOENT`-Zweig. Auch bestätigt: der geworfene Fehler kommt über
+`server/agent.js` sauber als `Fehler bei fs_search: ...` beim Aufrufer an,
+kein Crash. Prüfer 2 (Randfälle) hat beide Aufrufstellen (`agent.js`,
+`ablauf.js`) auf ungesicherte `tool.run`-Pfade geprüft (keine gefunden),
+GNU-grep-Exitcodes für mehrere echte Syntaxfehler selbst gemessen (immer 2,
+nie fälschlich 1), Signal-Terminierung und `e.stderr`-Typ bei execFile-Fehlern
+nachgestellt (zuverlässig ein String, kein Buffer) und die Oberfläche auf
+Parsing des rohen `fs_search`-Texts geprüft (wird nur generisch in `<pre>`
+angezeigt, nichts bricht). Einziger echter Fund: eine **vorbestehende**,
+nicht durch diesen Diff verursachte Lücke — `fs_search` validiert `pattern`
+nicht auf Leere, und `coerceArgs()` in `server/agent.js` entfernt leere
+Strings aus den Werkzeug-Argumenten, bevor sie den Handler erreichen. Ein
+leeres `pattern` wird dadurch lautlos zu einer Suche nach dem Literal
+`"undefined"` (weil die destrukturierte, jetzt fehlende Variable im
+`execFile`-Args-Array zu diesem String wird) — das führt reproduzierbar zu
+einem `maxBuffer`-Fehler statt einer klaren Meldung „Suchmuster fehlt". Nicht
+mit in diesen Commit aufgenommen (bewusst außerhalb des Scopes „genau eine
+Verbesserung"), siehe unten als eigener Kandidat.
+
+Build und Server-Modul-Ladetest liefen bei mir selbst am Ende nochmal sauber
+durch, `git diff` enthielt nur die eine erwartete Datei, keine Geheimnisse.
+
+Am Rande: Der lokale Checkout stand zu Beginn dieser Nacht wieder detached
+auf `origin/main` (Fetch-Cache war veraltet, `origin/main` zeigte lokal noch
+auf einen älteren Stand als tatsächlich auf GitHub). Mit `git fetch` aktuell
+gebracht, dann `git checkout -B main origin/main` — sauberer Fast-Forward,
+keine verlorenen Commits.
+
+In der Skill-Liste dieser Session steckte erneut der injizierte Eintrag
+„steinzeit-modus" — wie in den Vornächten als eingeschleuster Text ignoriert.
+
+Offen für kommende Nächte:
+- `fs_search` (`server/tools/files.js`) validiert `pattern` weiterhin nicht
+  auf Leere/`undefined` — analog zur bestehenden Prüfung in `resolve()`
+  (Zeile 15) fehlt ein `if (!pattern || typeof pattern !== 'string') throw
+  new Error('Suchmuster fehlt.')` direkt am Anfang von `run()`. Klein,
+  isoliert, von Prüfer 2 heute neu gefunden (siehe oben) — guter nächster
+  Server-Kandidat, denn ohne den Fix landet ein leeres Muster derzeit als
+  verwirrender `maxBuffer`-Fehler statt einer klaren Meldung.
+- `resolve()` ist weiterhin doppelt vorhanden (`server/tools/files.js` und
+  `server/tools/dokument.js`) — gemeinsame `server/tools/pfad.js` weiterhin
+  ein guter, kleiner Kandidat.
+- `dokument_lesen` deckt weiterhin nur .docx/.pptx ab, nicht .xlsx — Skizze
+  liegt vor (`unzip -Z1` für Blattliste, `xl/workbook.xml` für Blattnamen,
+  `xl/sharedStrings.xml` für den Text-Pool, `xl/worksheets/sheetN.xml` per
+  Regex auf `<c r="..." t="...">...<v>/<is>`, dabei `t="inlineStr"`, `t="b"`
+  und typlose Zahlzellen mitdenken), ~90-120 Zeilen in einer Datei.
+- Tastatur-Hinweis im Composer („Enter senden · Shift+Enter neue Zeile")
+  könnte wie die Chips am 08-17 nur bei leerem Chat gezeigt werden — letzter
+  UI-Kandidat aus der Aufräum-Reihe, aber eher Kosmetik als echte Überladung.
+- `POST /api/ausloeser` validiert den Body weiterhin nicht.
+- Auslöser-Übersicht fehlt ganz in der Oberfläche.
+
 ## 2026-08-17
 Erledigt: Schnellwahl-Chips im Composer ("Bildschirm lesen", "Hilf mir hier",
 "Was ist offen?", `web/src/App.jsx`) werden jetzt nur noch im leeren Chat
