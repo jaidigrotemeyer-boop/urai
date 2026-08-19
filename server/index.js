@@ -17,7 +17,7 @@ import { LiveWatcher, watchers } from './live.js'
 import { raeumeAuf, bildschirmListe, IST_MAC } from './screen.js'
 import { elevenBereit, sprechen as elevenSprechen, stimmenListe } from './eleven.js'
 import { graphLesen } from './graph.js'
-import { Waechter, lesen as ausloeserLesen, schreiben as ausloeserSchreiben } from './ausloeser.js'
+import { Waechter, lesen as ausloeserLesen, schreiben as ausloeserSchreiben, pruefenListe as ausloeserPruefen } from './ausloeser.js'
 import { einloesen as gutscheinEinloesen, stand as gutscheinStand } from './gutschein.js'
 import { holen as briefingHolen, bereit as briefingBereit, heute as briefingHeute } from './briefing.js'
 import { TelegramTuer } from './telegram.js'
@@ -368,7 +368,7 @@ app.get('/api/ausloeser', (_req, res) => res.json(ausloeserLesen()))
 
 app.post('/api/ausloeser', (req, res) => {
   try {
-    const liste = ausloeserSchreiben(req.body)
+    const liste = ausloeserSchreiben(ausloeserPruefen(req.body))
     for (const w of waechterListe) w.neuLaden()
     res.json(liste)
   } catch (err) {

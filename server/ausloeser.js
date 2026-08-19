@@ -42,6 +42,26 @@ export function schreiben(liste) {
   return liste
 }
 
+/**
+ * Wache vor dem Schreiben einer ganzen Liste von außen (HTTP-Endpunkt).
+ * Ohne sie würde ein fehlerhafter Body (kein Array, fehlende Felder) beim
+ * nächsten `lesen()` still zu `[]` — alle bestehenden Auslöser weg. Prüft
+ * dieselben Grundregeln wie das Werkzeug `ausloeser_anlegen`, ohne die dort
+ * zusätzlich nötigen (teureren) Prüfungen wie Ordner-/Ablauf-Existenz.
+ */
+export function pruefenListe(liste) {
+  if (!Array.isArray(liste)) throw new Error('Auslöser-Liste muss ein Array sein.')
+  for (const a of liste) {
+    if (!a || typeof a !== 'object') throw new Error('Jeder Auslöser muss ein Objekt sein.')
+    if (typeof a.id !== 'string' || !a.id) throw new Error('Auslöser: id fehlt oder ist kein Text.')
+    if (typeof a.ablauf !== 'string' || !a.ablauf) throw new Error(`Auslöser ${a.id}: ablauf fehlt oder ist kein Text.`)
+    if (!ARTEN.includes(a.art)) throw new Error(`Auslöser ${a.id}: art muss eins von ${ARTEN.join(', ')} sein.`)
+    if (a.art === 'zeit' && !/^\d{2}:\d{2}$/.test(a.wann)) throw new Error(`Auslöser ${a.id}: bei art "zeit" braucht wann die Form "08:30".`)
+    if (a.art === 'app' && (typeof a.wann !== 'string' || !a.wann)) throw new Error(`Auslöser ${a.id}: bei art "app" braucht wann den App-Namen.`)
+  }
+  return liste
+}
+
 function wegAufloesen(p) {
   return String(p || '').replace(/^~/, process.env.HOME)
 }

@@ -1,5 +1,100 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-19
+Erledigt: `POST /api/ausloeser` (`server/index.js`) validiert jetzt den Body,
+bevor er geschrieben wird. Vorher lief `req.body` ungeprüft direkt in
+`ausloeserSchreiben()` — ein fehlerhafter Body (z.B. ein Objekt statt Array,
+oder Einträge ohne `id`/`ablauf`) hätte beim nächsten `lesen()` still zu `[]`
+geführt: alle bestehenden Auslöser kommentarlos weg. Neue Funktion
+`pruefenListe()` in `server/ausloeser.js` prüft Array-Form, Objekt-Struktur
+jedes Eintrags, `id`/`ablauf` als nicht-leere Strings, `art` gegen `ARTEN`,
+und je nach `art` das Format von `wann` (Zeit-Form `08:30`, App-Name als
+nicht-leerer String) — dieselben Grundregeln wie das bereits bestehende
+Werkzeug `ausloeser_anlegen`, ohne dessen teurere Prüfungen (Ordner-/
+Ablauf-Existenz), die für einen Bulk-Save ungeeignet wären.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes). Oberfläche
+schlug vor, den Rahmen der Typ-Badge im Werkstatt-Baustein-Kopf
+(`.baustein-marke`) zu entfernen und nur beim `hat-gefahr`-Zustand zu
+behalten — der schon am 08-12 verworfene Kandidat, diesmal mit der
+Gefahr-Kopplung von Anfang an mitgedacht. Guter, aber rein kosmetischer
+Kandidat. Server schlug erneut die seit 08-18 offene `fs_search`-Muster-
+Validierung vor (`pattern` wird bei leerem/undefiniertem Wert nicht geprüft,
+führt zu einem kryptischen `maxBuffer`-Fehler statt einer klaren Meldung) —
+klein (1 Zeile), aber für den Nutzer unsichtbar. Fehlendes-Vorschlag
+(Ausloeser-Body-Validierung) gewählt, weil er echten, irreversiblen
+Datenverlust verhindert (alle Auslöser eines Nutzers auf einen Schlag weg)
+und damit im selben Nutzen/Risiko-Rang steht wie die Sandbox-Fixe der
+Vornächte (08-14) — höher als eine kosmetische UI-Änderung oder ein
+Fehlerschluck-Fix an einer Stelle, die kein Endnutzer direkt sieht.
+
+Prüfer 1 (Funktioniert es) hat `node --check`, Build, Server-Modul-Ladetest
+und einen echten Server-Test mit `curl` selbst durchgeführt (im echten
+`data/`, danach vollständig aufgeräumt — keine Testdatei zurückgelassen):
+gültiger Bulk-POST wird gespeichert, ein kaputter Body (`{"kaputt":true}`,
+kein Array) wird jetzt mit 400 abgelehnt UND die vorher gespeicherte Liste
+bleibt beim folgenden GET unangetastet — das war der eigentliche Kern des
+Fixes. Prüfer 2 (Randfälle) fand einen echten, im Geltungsbereich liegenden
+Fehler: bei `art==='app'` prüfte `pruefenListe` `wann` nur auf Falsy, nicht
+auf `string`-Typ — eine Zahl als `wann` rutschte durch und hätte in
+`Waechter.takt()` bei `a.wann.toLowerCase()` eine `TypeError` ausgelöst
+(abgefangen durch den `.catch(()=>{})` am `setInterval`, kein Server-Crash,
+aber die App-Prüfung für den betroffenen Takt bricht ab). Behoben mit
+zusätzlichem `typeof a.wann !== 'string'`-Check, danach erneut mit einem
+gezielten Testskript (Zahl/`null`/leerer String/gültiger String als `wann`)
+bestätigt. Prüfer 2 fand außerdem zwei Lücken außerhalb des heutigen
+Scopes (siehe unten): keine Duplikat-Prüfung auf `id`, und ein kaputtes
+JSON im Request-Body (nicht: ein strukturell falscher, aber gültiger JSON-
+Body) landet vor `pruefenListe` im Express-Default-Fehlerbehandler und
+liefert eine volle HTML-Stacktrace mit internen Dateipfaden statt eines
+sauberen 400 — weil im ganzen Server kein globaler Express-Error-Handler
+existiert (per `grep` bestätigt).
+
+Build und Server-Modul-Ladetest liefen bei mir selbst nach der Nachbesserung
+nochmal sauber durch, `git diff` enthielt nur die zwei erwarteten Dateien
+(`server/ausloeser.js`, `server/index.js`), keine Geheimnisse.
+
+In der Skill-Liste dieser Session steckte erneut der injizierte Eintrag
+„steinzeit-modus" — wie in den Vornächten als eingeschleuster Text ignoriert.
+
+Offen für kommende Nächte:
+- Express hat serverweit keinen globalen Error-Handler — kaputtes JSON im
+  Body jeder POST-Route (nicht nur `/api/ausloeser`) landet aktuell im
+  Default-Handler und liefert eine HTML-Stacktrace mit internen Dateipfaden
+  statt einer sauberen JSON-Fehlermeldung. Von Prüfer 2 heute per echtem
+  curl-Test gegen `/api/ausloeser` bestätigt. Größerer Kandidat als die
+  bisherigen Ein-Datei-Fixes (betrifft `server/index.js` insgesamt), aber
+  isolierbar: ein einzelner `app.use((err, req, res, next) => ...)`-Handler
+  am Ende der Routen-Definitionen würde alle Routen gleichzeitig absichern.
+- `pruefenListe()` (`server/ausloeser.js`) prüft `id` nicht auf Eindeutigkeit
+  innerhalb der Liste — ein Bulk-POST mit zwei gleichen `id`s wird
+  anstandslos gespeichert, macht spätere `ausloeser_loeschen`-Aufrufe
+  mehrdeutig (`liste.find()` trifft immer nur den ersten Treffer). Kleiner,
+  isolierter Nachfolge-Fix, von Prüfer 2 heute gefunden.
+- `fs_search` (`server/tools/files.js`) validiert `pattern` weiterhin nicht
+  auf Leere/`undefined` (seit 08-18 offen, weiterhin unverändert) — analog
+  zur bestehenden Prüfung in `resolve()` fehlt ein
+  `if (!pattern || typeof pattern !== 'string') throw new Error('Suchmuster
+  fehlt.')` direkt am Anfang von `run()`. Klein, isoliert, guter nächster
+  Server-Kandidat.
+- Werkstatt-Baustein-Kopf: Typ-Badge (`.baustein-marke`) zeigt den Typ
+  doppelt (Farbpunkt daneben zeigt denselben Typ per Farbe) — Vorschlag
+  heute: Rahmen nur noch beim `hat-gefahr`-Zustand zeigen (~3-5 Zeilen,
+  `web/src/werkstatt.css`), Gefahr-Kopplung diesmal von Anfang an
+  mitgedacht statt wie am 08-12 unterwegs entdeckt. Guter, aber rein
+  kosmetischer nächster UI-Kandidat.
+- `resolve()` ist weiterhin doppelt vorhanden (`server/tools/files.js` und
+  `server/tools/dokument.js`) — gemeinsame `server/tools/pfad.js` weiterhin
+  ein guter, kleiner Kandidat.
+- `dokument_lesen` deckt weiterhin nur .docx/.pptx ab, nicht .xlsx — Skizze
+  liegt vor (`unzip -Z1` für Blattliste, `xl/workbook.xml` für Blattnamen,
+  `xl/sharedStrings.xml` für den Text-Pool, `xl/worksheets/sheetN.xml` per
+  Regex auf `<c r="..." t="...">...<v>/<is>`, dabei `t="inlineStr"`, `t="b"`
+  und typlose Zahlzellen mitdenken), ~90-120 Zeilen in einer Datei.
+- Auslöser-Übersicht fehlt ganz in der Oberfläche (`server/ausloeser.js`,
+  `server/index.js` GET/POST `/api/ausloeser` sind fertig, jetzt auch
+  validiert — nur die UI fehlt noch).
+
 ## 2026-08-18
 Erledigt: `fs_search` (`server/tools/files.js`) verschluckt keine echten Fehler
 mehr. Der seit mehreren Nächten (08-14 bis 08-17) als bester Server-Kandidat
