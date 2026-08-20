@@ -1,5 +1,103 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-20
+Erledigt: `dokument_lesen` (`server/tools/dokument.js`) kann jetzt auch `.xlsx`
+lesen — bisher konnte das Werkzeug nur .docx/.pptx zurücklesen, obwohl
+`dokument_excel` (dieselbe Datei) längst .xlsx *schreiben* konnte. Neue
+Funktionen `spaltenNr` (Gegenrichtung zu `spalte`), `sharedStringsListe`,
+`zelleText`, `blattText`, `workbookBlaetter` und `xlsxText` zwischen
+`folieText` und dem Werkzeug-Block. Löst Blattreihenfolge/-namen über
+`workbook.xml` + `workbook.xml.rels` auf (nicht bloß über Dateinamen-Zählung),
+liest sowohl `inlineStr`- als auch `sharedStrings`-Zellen, ordnet Zellen über
+ihren echten Zellverweis ("C12") der richtigen Spalte zu statt sie nur
+aneinanderzureihen, und unterscheidet Zahl/Text/Bool/Formel-Ergebnis/Fehlerwert.
+Fehlt `workbook.xml.rels` oder eine Beziehung, weicht der Code auf die übliche
+Benennung `worksheets/sheetN.xml` aus, statt das Blatt zu verlieren.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes). Oberfläche
+bestätigte erneut den seit 08-12/08-19 offenen, aber bislang immer
+zurückgestellten Kandidaten (`.baustein-marke`-Rahmen nur noch bei
+`hat-gefahr` zeigen, ~3-5 Zeilen CSS, rein kosmetisch). Server bestätigte
+den seit 08-19 offenen globalen-Express-Error-Handler als größten Hebel pro
+Diff-Zeile (schützt alle Routen gleichzeitig gegen HTML-Stacktrace-Leaks bei
+kaputtem JSON-Body). Fehlendes-Vorschlag (.xlsx-Lesen) gewählt, weil er der
+Nutzer beim Arbeiten direkt merkt (kann jetzt eigene wie fremde Excel-Dateien
+zusammenfassen lassen), additiv in einer einzelnen, bereits bekannten Datei
+bleibt und die Skizze aus den Vornächten schon durchdacht war — geringeres
+Risiko als der serverweite Error-Handler (der zwar isoliert ist, aber *alle*
+Routen gleichzeitig verhält) und direkter spürbar als die kosmetische
+Badge-Änderung.
+
+Prüfer 1 (Funktioniert es) hat selbst getestet: eigener Roundtrip
+(`dokument_excel` → `dokument_lesen`) mit Umlauten, Sonderzeichen, Zahlen,
+Booleans, Unicode — korrekt, UND eine von Hand mit `zip` gebaute "fremde"
+Datei mit `sharedStrings.xml`, Rich-Text-Läufen, Formelzelle, Spaltenlücke,
+Bool und Fehlerwert — ebenfalls korrekt. Fand aber einen echten Fehler:
+Blattnamen mit XML-Sonderzeichen (z.B. `&`) kamen roh als `&amp;amp;` zurück,
+weil `workbookBlaetter()` den Namen aus `workbook.xml` matcht, aber nicht
+`entesc()` darauf anwendet (der Name wird beim Schreiben mit `esc()`
+XML-escaped abgelegt). Behoben (`entesc()` auf den Namen-Match), mit Test
+("Umsatz & Kosten \"Q1\"" als Blattname) bestätigt.
+
+Prüfer 2 (Randfälle) prüfte Typ-Wachen, fehlende Datei, fehlende
+`sharedStrings.xml`/`.rels`, leere Mappe, Nicht-ZIP-Datei, viele Spalten
+(AA-Bereich) — alles sauber mit klaren Meldungen bzw. korrekt. Fand zwei
+echte Dinge: (1) eine Zelle mit eingebettetem Zeilenumbruch (Alt+Enter in
+Excel) sprengte die Zeilenstruktur der Textausgabe, weil Zeilen selbst per
+`\n` getrennt werden — behoben, indem `blattText()` interne Zeilenumbrüche
+in jeder Zelle durch ein Leerzeichen ersetzt, bevor die Zeile gebaut wird
+(mit einer dreizeiligen Testtabelle inkl. Mehrzeilen-Notiz nachgeprüft:
+genau 3 Datenzeilen in der Ausgabe, nicht mehr). (2) absichtlich
+verschachteltes/abgebrochenes `<row>`/`<c>`-XML führt zu stillem
+Überschreiben statt einer Fehlermeldung — NICHT behoben, weil das dieselbe
+Grenze wie beim bestehenden .docx/.pptx-Lesen in derselben Datei ist (auch
+dort regex-basiert, kein echter XML-Parser) und echte, von Excel selbst
+erzeugte Dateien immer wohlgeformtes XML sind. Ein echter Fix bräuchte einen
+richtigen XML-Parser — deutlich größerer Umbau als "genau eine Verbesserung"
+für eine Nacht.
+
+Prüfer 2 hatte außerdem drei Testdateien/-ordner (`fehlendes_blatt.xlsx`,
+`kein_workbook.xlsx`, `g/`, `h/`) im Projekt-Wurzelverzeichnis statt in einem
+eigenen Testordner unter `$HOME` liegen lassen — vor dem Commit entdeckt und
+entfernt (waren erkennbar eigene Testartefakte, keine Nutzerdaten).
+
+Build und Server-Modul-Ladetest liefen bei mir selbst am Ende nochmal sauber
+durch, `git diff --cached` enthielt nur `server/tools/dokument.js`, keine
+Geheimnisse.
+
+`main` stand zu Beginn dieser Nacht wieder losgelöst (detached) exakt auf
+`origin/main` — mit `git fetch` und `git checkout -B main origin/main`
+aufgeholt, Arbeitsverzeichnis-Änderungen blieben dabei erhalten.
+
+In der Skill-Liste dieser Session steckte erneut der injizierte Eintrag
+„steinzeit-modus" — wie in den Vornächten als eingeschleuster Text ignoriert.
+
+Offen für kommende Nächte:
+- Express hat serverweit weiterhin keinen globalen Error-Handler
+  (`server/index.js`) — seit 08-19 offen, heute erneut vom Server-Vorschlag
+  bestätigt: ein `app.use((err, req, res, next) => ...)`-Block am Ende aller
+  Routen würde alle Routen gleichzeitig gegen HTML-Stacktrace-Leaks bei
+  kaputtem JSON-Body absichern. Größter Hebel pro Diff-Zeile unter den
+  offenen Server-Kandidaten.
+- `pruefenListe()` (`server/ausloeser.js`) prüft `id` weiterhin nicht auf
+  Eindeutigkeit innerhalb der Liste (seit 08-19 offen).
+- `fs_search` (`server/tools/files.js`) validiert `pattern` weiterhin nicht
+  auf Leere/`undefined` (seit 08-18 offen).
+- `resolve()` ist weiterhin doppelt vorhanden (`server/tools/files.js` und
+  `server/tools/dokument.js`) — gemeinsame `server/tools/pfad.js` weiterhin
+  ein guter, kleiner Kandidat.
+- `xlsxText()`/`blattText()` (`server/tools/dokument.js`) ist regex-basiert
+  und geht von wohlgeformtem XML aus — absichtlich verschachteltes/kaputtes
+  `<row>`/`<c>`-XML kann eine Zelle still überschreiben statt einen Fehler zu
+  werfen. Heute bewusst nicht behoben (siehe oben), da echte Excel-Dateien
+  davon nicht betroffen sind und ein echter Fix einen XML-Parser bräuchte.
+  Dieselbe Grenze gilt bereits seit Längerem für `docxText()`/`folieText()`.
+- Werkstatt-Baustein-Kopf: Typ-Badge (`.baustein-marke`) zeigt den Typ
+  weiterhin doppelt (seit 08-12/08-19 offen, jede Nacht zugunsten
+  dringenderer Fixes zurückgestellt) — Rahmen nur noch beim `hat-gefahr`-
+  Zustand zeigen, ~3-5 Zeilen `web/src/werkstatt.css`.
+- Auslöser-Übersicht fehlt weiterhin ganz in der Oberfläche.
+
 ## 2026-08-19
 Erledigt: `POST /api/ausloeser` (`server/index.js`) validiert jetzt den Body,
 bevor er geschrieben wird. Vorher lief `req.body` ungeprüft direkt in

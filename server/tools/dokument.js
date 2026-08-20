@@ -549,6 +549,119 @@ function folieText(xml) {
   return teile.map((t) => entesc(t.replace(/^<a:t>/, '').replace(/<\/a:t>$/, ''))).join(' ')
 }
 
+// Gegenrichtung zu spalte(): "AA" → 27. Zellverweise wie "C12" brauchen das,
+// um Zellen an die richtige Spalte zu setzen statt sie nur aneinanderzureihen.
+function spaltenNr(buchstaben) {
+  let n = 0
+  for (let i = 0; i < buchstaben.length; i++) n = n * 26 + (buchstaben.charCodeAt(i) - 64)
+  return n
+}
+
+// Texte liegen bei Excel nicht in der Zelle selbst, sondern nummeriert in
+// einem gemeinsamen Pool (sharedStrings.xml) — Zellen verweisen nur per Index.
+function sharedStringsListe(xml) {
+  if (!xml) return []
+  const ergebnis = []
+  for (const m of xml.matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>|<si\b[^>]*\/>/g)) {
+    if (m[1] === undefined) {
+      ergebnis.push('')
+      continue
+    }
+    // Phonetische Lesehilfen (rPh, v.a. Japanisch) tragen eigene <t>-Läufe —
+    // ohne Entfernen käme der Text doppelt.
+    const bereinigt = m[1].replace(/<rPh[\s\S]*?<\/rPh>/g, '')
+    const laeufe = bereinigt.match(/<t[^>]*>[\s\S]*?<\/t>/g) || []
+    ergebnis.push(laeufe.map((t) => entesc(t.replace(/^<t[^>]*>/, '').replace(/<\/t>$/, ''))).join(''))
+  }
+  return ergebnis
+}
+
+// Der Zelltyp entscheidet, wo der eigentliche Wert steht: Text direkt drin,
+// ein Verweis in den String-Pool, eine Zahl/Formel-Ergebnis oder ein Wahrheitswert.
+function zelleText(attrTxt, inhalt, sst) {
+  const t = (attrTxt.match(/\bt="([^"]*)"/) || [])[1] || 'n'
+  if (t === 'inlineStr') {
+    const laeufe = inhalt.match(/<t[^>]*>[\s\S]*?<\/t>/g) || []
+    return laeufe.map((x) => entesc(x.replace(/^<t[^>]*>/, '').replace(/<\/t>$/, ''))).join('')
+  }
+  const wert = (inhalt.match(/<v>([\s\S]*?)<\/v>/) || [])[1]
+  if (wert === undefined) return ''
+  const roh = entesc(wert)
+  if (t === 's') return sst[Number(roh)] ?? ''
+  if (t === 'b') return roh === '1' ? 'WAHR' : 'FALSCH'
+  return roh
+}
+
+// Ein Blatt als Text: Zeilen mit Tabs getrennt, Zellen an ihrer echten Spalte
+// (aus dem Zellverweis "C12"), sonst würden Lücken die Tabelle verschieben.
+function blattText(xml, sst) {
+  const zeilen = []
+  for (const rm of xml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+    const reihe = []
+    let letzteSpalte = 0
+    for (const cm of rm[1].matchAll(/<c\b([^>]*)\/>|<c\b([^>]*)>([\s\S]*?)<\/c>/g)) {
+      const attrTxt = cm[1] ?? cm[2] ?? ''
+      const ref = attrTxt.match(/\br="([A-Z]+)\d+"/)
+      const idx = ref ? spaltenNr(ref[1]) : letzteSpalte + 1
+      letzteSpalte = idx
+      // Ein Zeilenumbruch INNERHALB einer Zelle (Alt+Enter in Excel) darf die
+      // Tabellenzeile nicht sprengen — Zeilen werden ja selbst per \n getrennt.
+      reihe[idx - 1] = zelleText(attrTxt, cm[3] ?? '', sst).replace(/\r?\n/g, ' ')
+    }
+    let ende = reihe.length
+    while (ende > 0 && !reihe[ende - 1]) ende--
+    zeilen.push(Array.from({ length: ende }, (_, i) => reihe[i] || '').join('\t'))
+  }
+  return zeilen.join('\n')
+}
+
+// Welche Blätter gibt es, in welcher Reihenfolge, und welche Datei im Archiv
+// gehört zu welchem? workbook.xml nennt nur die r:id, erst workbook.xml.rels
+// verrät den Dateinamen.
+function workbookBlaetter(workbookXml, relsXml) {
+  const ziele = new Map()
+  for (const m of relsXml.matchAll(/<Relationship\b[^>]*\/>/g)) {
+    const id = m[0].match(/Id="([^"]+)"/)
+    const ziel = m[0].match(/Target="([^"]+)"/)
+    if (id && ziel) ziele.set(id[1], ziel[1].replace(/^\//, ''))
+  }
+  const blaetter = []
+  let i = 0
+  for (const m of workbookXml.matchAll(/<sheet\b[^>]*\/>/g)) {
+    // Der Blattname steht XML-escaped im Attribut (esc() beim Schreiben) —
+    // ohne entesc() käme z.B. "Umsatz &amp; Kosten" roh statt "Umsatz & Kosten" zurück.
+    const name = entesc((m[0].match(/name="([^"]*)"/) || [])[1] || '') || `Tabelle${i + 1}`
+    const rid = (m[0].match(/r:id="([^"]+)"/) || [])[1]
+    // Ohne passende Beziehung (kaputte oder fehlende .rels) auf die übliche
+    // Benennung ausweichen, statt das ganze Blatt zu verlieren.
+    const ziel = (rid && ziele.get(rid)) || `worksheets/sheet${i + 1}.xml`
+    blaetter.push({ name, teil: `xl/${ziel}` })
+    i++
+  }
+  return blaetter
+}
+
+async function xlsxText(abs) {
+  const inhalt = await unzipListe(abs)
+  if (!inhalt.includes('xl/workbook.xml'))
+    throw new Error('Kein Arbeitsblatt gefunden — ist es wirklich eine .xlsx-Datei?')
+  const workbookXml = await unzipTeil(abs, 'xl/workbook.xml')
+  const relsXml = inhalt.includes('xl/_rels/workbook.xml.rels')
+    ? await unzipTeil(abs, 'xl/_rels/workbook.xml.rels')
+    : ''
+  const sst = inhalt.includes('xl/sharedStrings.xml')
+    ? sharedStringsListe(await unzipTeil(abs, 'xl/sharedStrings.xml'))
+    : []
+  const blaetter = workbookBlaetter(workbookXml, relsXml).filter((b) => inhalt.includes(b.teil))
+  if (!blaetter.length) throw new Error('Keine Arbeitsblätter gefunden — ist es wirklich eine .xlsx-Datei?')
+  const stuecke = []
+  for (const b of blaetter) {
+    const xml = await unzipTeil(abs, b.teil)
+    stuecke.push(`── Blatt ${b.name} ──\n${blattText(xml, sst) || '(leer)'}`)
+  }
+  return stuecke.join('\n\n')
+}
+
 // ── Werkzeuge ───────────────────────────────────────────────────────────
 
 export const dokumentTools = [
@@ -664,7 +777,7 @@ export const dokumentTools = [
   {
     name: 'dokument_lesen',
     description:
-      'Bestehende Word- (.docx) oder PowerPoint-Datei (.pptx) lesen und ihren Text zurückgeben, z.B. zum Zusammenfassen.',
+      'Bestehende Word- (.docx), PowerPoint- (.pptx) oder Excel-Datei (.xlsx) lesen und ihren Text zurückgeben, z.B. zum Zusammenfassen.',
     parameters: {
       type: 'object',
       properties: { pfad: { type: 'string', description: 'Welche Datei, z.B. ~/Schreibtisch/bericht.docx' } },
@@ -691,8 +804,10 @@ export const dokumentTools = [
         const xml = await unzipTeil(abs, 'word/document.xml')
         text = docxText(xml)
         if (!text) throw new Error('Kein Text gefunden — ist es wirklich eine .docx-Datei?')
+      } else if (tief.endsWith('.xlsx')) {
+        text = await xlsxText(abs)
       } else {
-        throw new Error('dokument_lesen versteht nur .docx und .pptx.')
+        throw new Error('dokument_lesen versteht nur .docx, .pptx und .xlsx.')
       }
       return text.length > max ? text.slice(0, max) + '\n…(gekürzt)' : text
     },
