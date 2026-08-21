@@ -15,8 +15,10 @@ export default function Cursor({ busy }) {
     // Auf Geräten ohne echte Maus bleibt alles wie immer
     if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
 
-    // Ausgeschaltet? Dann bleibt alles wie immer.
-    if (localStorage.getItem('urai-zeiger') === 'aus') return
+    // Nicht ausdrücklich eingeschaltet? Dann bleibt alles wie immer.
+    // Die ruhige Standard-Haut soll ruhig bleiben — wie die anderen HUD-
+    // Verzierungen zeigt sich auch der eigene Zeiger nur, wer ihn will.
+    if (localStorage.getItem('urai-zeiger') !== 'an') return
 
     // Wer weniger Bewegung will, bekommt den Zeiger trotzdem — nur ohne Nachlauf
     const ruhig = window.matchMedia('(prefers-reduced-motion: reduce)').matches

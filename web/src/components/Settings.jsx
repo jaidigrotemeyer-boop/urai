@@ -111,7 +111,7 @@ export default function Settings({ onClose, onSaved, weckAn, onToggleWeck, dauer
   const [onboardingErneut, setOnboardingErneut] = useState(false)
   const [bildschirme, setBildschirme] = useState([])
   const [haut, setHaut] = useState(hautLesen)
-  const [zeigerAn, setZeigerAn] = useState(() => localStorage.getItem('urai-zeiger') !== 'aus')
+  const [zeigerAn, setZeigerAn] = useState(() => localStorage.getItem('urai-zeiger') === 'an')
 
   useEffect(() => {
     fetch('/api/status').then((r) => r.json()).then((s) => {

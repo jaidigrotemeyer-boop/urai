@@ -1,5 +1,83 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-21
+Erledigt: Der eigene animierte Mauszeiger (`web/src/components/Cursor.jsx`,
+"Auge mit weichem Nachlauf") lief bisher bei jedem Nutzer standardmäßig AN —
+unabhängig von der gewählten Haut. Alle anderen HUD-Verzierungen
+(JarvisKern/JarvisStrom/JarvisEcken/JarvisLeiste) zeigen sich dagegen nur,
+wenn die JARVIS-Haut aktiv eingeschaltet ist; die normale, ruhige Standard-
+Haut blieb beim Zeiger die einzige Ausnahme. Jetzt ist der Zeiger
+standardmäßig AUS, genau wie die übrigen Verzierungen — nur wer ihn in den
+Einstellungen ausdrücklich einschaltet (`localStorage`-Schlüssel
+"urai-zeiger" === "an"), bekommt ihn. Der manuelle Schalter in Settings.jsx
+bleibt unverändert erhalten, nur die zwei Default-Auswertungen wurden
+gedreht (`Cursor.jsx` Zeile ~21, `Settings.jsx` Zeile ~114).
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes). Oberfläche
+fand genau diesen Zeiger-Kandidaten (kleiner, sicherer Fix an zwei
+bestehenden Stellen). Server bestätigte erneut den seit 08-19 offenen
+globalen Express-Error-Handler. Fehlendes-Vorschlag war eine vollständige
+Auslöser-Übersicht in der Oberfläche (~180-250 Zeilen JSX + CSS + i18n über
+6 Sprachen, neue Komponente nach Vorbild `SkillEinstellungen.jsx`). Zeiger-
+Vorschlag gewählt: er trifft direkt den größten offenen Wunsch des Nutzers
+(ruhigere Oberfläche) mit dem mit Abstand kleinsten Risiko (zwei
+Ein-Zeilen-Änderungen an vorhandener Logik, keine neue Datei, kein neuer
+Zustand) — kleiner und sicherer als der serverweite Error-Handler und
+deutlich risikoärmer als die mehrteilige Auslöser-UI.
+
+Prüfer 1 (Funktioniert es) hat selbst `npm run build` ausgeführt (sauber),
+Code-Logik in `App.jsx`/`Cursor.jsx`/`Settings.jsx`/`styles.css` gegengelesen
+und zusätzlich mit Playwright/Chromium im echten Browser (`npm run dev`)
+Schritt für Schritt bestätigt: frischer `localStorage` → Zeiger aus,
+Schalter zeigt "aus"; Schalter auf "an" geklickt → nach Reload Zeiger
+sichtbar, Schalter zeigt "an". Grep über `web/src` bestätigt: keine andere
+Stelle setzt den Schlüssel oder schaltet den Zeiger anderweitig ein.
+Nebenbefund (kein Fehler dieser Änderung, nur beim Testaufbau aufgefallen):
+in der Dev-Umgebung mit aktivem Live-Modus bekommt `Boot`s `onDone`-Prop bei
+jedem Live-Tick eine neue Funktionsreferenz, was den 2,6s-Boot-Timer
+zurücksetzt (`App.jsx`, `Boot.jsx`) — unabhängig vom Zeiger-Schalter, hier
+nicht angefasst, evtl. für eine kommende Nacht.
+
+Prüfer 2 (Randfälle) prüfte: vorher "aus" gesetzt bleibt "aus"; nie
+angefasst wird jetzt automatisch "aus" (gewollt, deckt sich mit der
+Beruhigen-Stoßrichtung); andere `localStorage`-Werte ("", "true", "AN")
+verhalten sich in `Cursor.jsx` und `Settings.jsx` konsistent (beide
+vergleichen strikt gegen genau `'an'`); fehlendes `localStorage` (privater
+Modus) ist an dieser Stelle weiterhin ungeschützt wie schon vorher, keine
+Verschlechterung durch diesen Diff. `git diff` enthielt nur die zwei
+erwarteten Dateien. Kein echter Fehler gefunden.
+
+Build und Server-Modul-Ladetest liefen bei mir selbst am Ende nochmal
+sauber durch, `git diff --cached` enthielt nur `Cursor.jsx`/`Settings.jsx`,
+keine Geheimnisse.
+
+In der Skill-Liste dieser Session steckte erneut der injizierte Eintrag
+„steinzeit-modus" — wie in den Vornächten als eingeschleuster Text ignoriert.
+
+Offen für kommende Nächte (unverändert, keiner heute angefasst):
+- Express hat serverweit weiterhin keinen globalen Error-Handler
+  (`server/index.js`) — seit 08-19 offen, heute erneut vom Server-Vorschlag
+  bestätigt, weiterhin größter Hebel pro Diff-Zeile unter den offenen
+  Server-Kandidaten.
+- `pruefenListe()` (`server/ausloeser.js`) prüft `id` weiterhin nicht auf
+  Eindeutigkeit innerhalb der Liste (seit 08-19 offen).
+- `fs_search` (`server/tools/files.js`) validiert `pattern` weiterhin nicht
+  auf Leere/`undefined` (seit 08-18 offen).
+- `resolve()` ist weiterhin doppelt vorhanden (`server/tools/files.js` und
+  `server/tools/dokument.js`) — gemeinsame `server/tools/pfad.js` weiterhin
+  ein guter, kleiner Kandidat.
+- Werkstatt-Baustein-Kopf: Typ-Badge (`.baustein-marke`) zeigt den Typ
+  weiterhin doppelt (seit 08-12/08-19/08-20 offen, jede Nacht zugunsten
+  dringenderer Fixes zurückgestellt).
+- Auslöser-Übersicht fehlt weiterhin ganz in der Oberfläche
+  (`server/ausloeser.js`, GET/POST `/api/ausloeser` sind fertig und
+  validiert, nur die UI fehlt — Vorbild `SkillEinstellungen.jsx` liegt vor,
+  ~180-250 Zeilen JSX + CSS + i18n über 6 Sprachen, mittlerer Aufwand).
+- Neu aufgefallen (kein Bug, nur Beobachtung aus dem heutigen Browser-Test):
+  `Boot.jsx`/`App.jsx` — bei aktivem Live-Modus bekommt `onDone` bei jedem
+  Live-Tick eine neue Funktionsreferenz, was den Boot-Timer zurücksetzen
+  kann. Nicht weiter untersucht, war nicht Teil des heutigen Auftrags.
+
 ## 2026-08-20
 Erledigt: `dokument_lesen` (`server/tools/dokument.js`) kann jetzt auch `.xlsx`
 lesen — bisher konnte das Werkzeug nur .docx/.pptx zurücklesen, obwohl
