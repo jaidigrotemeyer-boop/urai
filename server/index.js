@@ -407,6 +407,18 @@ if (fs.existsSync(dist)) {
   app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')))
 }
 
+// Fängt Fehler, die synchron geworfen oder per next(err) durchgereicht werden —
+// vor allem express.json() bei kaputtem Body. Ohne ihn landet sowas bei
+// Express' Standard-Handler, der eine volle HTML-Seite mit Stacktrace und
+// echten Server-Dateipfaden zurückschickt statt einer sauberen Meldung wie
+// der Rest hier. Rettet NICHT vor unbehandelten Promise-Fehlern in eigenen
+// async-Routen ohne eigenes try/catch (Express 4 reicht die nicht hierher
+// durch) — das ist eine andere, größere Baustelle, siehe NOTIZEN.md.
+app.use((err, _req, res, _next) => {
+  console.error(err)
+  res.status(err.status || err.statusCode || 400).json({ fehler: err.message || 'Fehler' })
+})
+
 const server = http.createServer(app)
 const wss = new WebSocketServer({ server, path: '/ws' })
 

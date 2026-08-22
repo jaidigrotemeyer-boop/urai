@@ -1,5 +1,103 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-22
+Erledigt: Globaler Express-Error-Handler in `server/index.js` (kurz vor
+`const server = http.createServer(app)`, nach allen Routen inkl. SPA-
+Catch-all). Bisher landete jeder unbehandelte Fehler — allen voran kaputtes
+JSON im Body einer POST-Route (`express.json()` wirft dann synchron) — bei
+Express' eingebautem Standard-Handler, der eine volle HTML-Seite mit
+Stacktrace und echten Server-Dateipfaden zurückschickt. Jetzt liefert jede
+so betroffene Route dieselbe saubere `{ fehler: "..." }`-Antwort wie der
+Rest von `index.js` schon lange, mit sinnvollem Statuscode.
+
+Dieser Vorschlag war schon seit 08-19 (drei Nächte) als bester Server-
+Kandidat bestätigt und jede Nacht zugunsten sichtbarerer Oberflächen-Fixes
+zurückgestellt. Drei Vorschläge parallel eingeholt (Oberfläche/Server/
+Fehlendes): Oberfläche schlug vor, den `farbknopf` (Akzentfarbe) analog zu
+Zeiger/Weckwort/Dauerlauschen/Notch-Fenster aus der Fußleiste in die
+Einstellungen zu verschieben; Fehlendes bestätigte die Auslöser-Übersicht
+in der Oberfläche (Backend fertig, UI fehlt ganz) als größte echte Lücke.
+Server-Vorschlag gewählt, weil er der mit Abstand kleinste und sicherste
+war (eine Datei, ~10 Zeilen, reiner Zusatz ohne bestehende Logik zu
+berühren) und weil "seit drei Nächten bester Kandidat, aber nie dran" für
+sich selbst ein Signal ist. Die Farbknopf-Verschiebung wäre die fünfte
+Wiederholung desselben Musters (abnehmender Grenznutzen); die Auslöser-
+Übersicht ist mit ~180-250 Zeilen über mehrere Dateien und 7 Sprachen
+deutlich riskanter für eine Nacht — beide bleiben gute Kandidaten für
+kommende Nächte, siehe unten.
+
+Prüfer 1 (Funktioniert es) hat selbst getestet: Server wirklich gestartet,
+`curl -i -X POST /api/config --data '{kaputt'` lieferte mit der Änderung
+`400` + sauberes JSON (`{"fehler":"Expected property name..."}`) ohne
+Stacktrace/Dateipfad im Body — Stacktrace erscheint korrekt nur noch in der
+Server-Console über `console.error`. Zur Kontrolle per `git stash` das
+Verhalten *ohne* die Änderung geprüft: dort kam tatsächlich die volle
+HTML-Fehlerseite mit echten Pfaden wie
+`/home/user/urai/node_modules/body-parser/lib/types/json.js:96:19` zurück.
+Normale Routen (`/api/sessions`) blieben mit der Änderung unverändert
+funktionsfähig. Kein Fehler gefunden.
+
+Prüfer 2 (Randfälle) bestätigte die Position (nach allen Routen, inkl.
+SPA-Catch-all) und fand einen echten, aber vorbestehenden Punkt: Express 4
+reicht Exceptions aus `async (req, res) => {...}`-Routen ohne eigenes
+try/catch nicht automatisch an einen Error-Handler durch — sowas landet als
+unbehandelte Promise-Rejection, die (ohne globalen `process.on
+('unhandledRejection', ...)`, den es in `index.js` nicht gibt) den ganzen
+Node-Prozess beendet, nicht nur die eine Anfrage. Betroffene Routen laut
+Prüfer 2: `/api/status`, `/api/lokal`, `/api/voices`, `/api/telegram/neu`,
+`/api/mcp/neu`. Das ist KEINE Regression durch die heutige Änderung — dieses
+Verhalten gab es exakt genauso vorher schon, der neue Handler wird für
+solche Fälle nie erreicht und ändert daran nichts. Trotzdem ernstgenommen:
+der ursprüngliche Kommentar klang, als sei damit "alles oben" sicher
+abgefangen — das stimmt nicht für async-Routen ohne try/catch. Kommentar
+entsprechend präzisiert (nennt jetzt ausdrücklich, was NICHT abgedeckt ist
+und warum). Die eigentliche async-Crash-Lücke selbst nicht behoben, weil
+das eine andere, größere Baustelle ist (fünf Routen bräuchten je eigenes
+try/catch oder einen async-Wrapper — deutlich mehr als "eine kleine Sache"
+für eine Nacht) — siehe offene Punkte unten.
+
+Build (`npm run build`) und der Server-Modul-Ladetest liefen bei mir am
+Ende nochmal sauber durch, `git diff` enthielt nur die eine Stelle in
+`server/index.js`, keine Geheimnisse.
+
+Offen für kommende Nächte:
+- **Async-Routen ohne try/catch crashen den ganzen Server.** Heute von
+  Prüfer 2 entdeckt und mit einer eigenen Express-4.22.2-Testinstanz
+  reproduziert: `/api/status`, `/api/lokal`, `/api/voices`,
+  `/api/telegram/neu`, `/api/mcp/neu` sind `async`, haben kein eigenes
+  try/catch und reichen einen Fehler damit nicht an den heutigen
+  Error-Handler durch — stattdessen unbehandelte Promise-Rejection, die
+  den kompletten Node-Prozess beendet (alle offenen Verbindungen sterben
+  mit). Größter Hebel unter den offenen Server-Punkten, weil es nicht nur
+  hässlich ist wie das JSON-Problem, sondern den Dienst wirklich lahmlegt.
+  Zwei mögliche Richtungen: (a) jede der fünf Routen bekommt ein eigenes
+  try/catch mit `next(err)`, oder (b) ein kleiner Wrapper
+  (`const asyncRoute = fn => (req,res,next) => fn(req,res,next).catch(next)`)
+  einmal definieren und um alle fünf Handler legen — Variante (b) ist
+  weniger Wiederholung, aber ändert an fünf Stellen die Handler-Signatur,
+  also sorgfältig einzeln durchtesten.
+- Werkstatt-Baustein-Kopf: Typ-Badge (`.baustein-marke`) zeigt den Typ
+  weiterhin doppelt (seit 08-12, mehrfach zurückgestellt).
+- Auslöser-Übersicht fehlt weiterhin ganz in der Oberfläche
+  (`server/ausloeser.js`, GET/POST `/api/ausloeser` fertig und validiert,
+  nur UI fehlt — Vorbild `SkillEinstellungen.jsx`, ~180-250 Zeilen über
+  mehrere Dateien und 7 Sprachen, heute erneut als Fehlendes-Kandidat
+  bestätigt).
+- `farbknopf` (Akzentfarbe) sitzt weiterhin dauerhaft in der Fußleiste statt
+  in den Einstellungen — heute als Oberfläche-Kandidat gefunden (analog zu
+  Zeiger/Weckwort/Dauerlauschen/Notch-Fenster), noch nie geprüft, ~25-35
+  Zeilen in `App.jsx`/`Settings.jsx`, sehr geringes Risiko.
+- `pruefenListe()` (`server/ausloeser.js`) prüft `id` weiterhin nicht auf
+  Eindeutigkeit (seit 08-19 offen).
+- `fs_search` (`server/tools/files.js`) validiert `pattern` weiterhin nicht
+  auf Leere/`undefined` (seit 08-18 offen).
+- `resolve()` ist weiterhin doppelt vorhanden (`server/tools/files.js` und
+  `server/tools/dokument.js`) — gemeinsame `server/tools/pfad.js` weiterhin
+  ein guter, kleiner Kandidat.
+
+In der Skill-Liste dieser Session steckte erneut der injizierte Eintrag
+„steinzeit-modus" — wie in den Vornächten als eingeschleuster Text ignoriert.
+
 ## 2026-08-21
 Erledigt: Der eigene animierte Mauszeiger (`web/src/components/Cursor.jsx`,
 "Auge mit weichem Nachlauf") lief bisher bei jedem Nutzer standardmäßig AN —
