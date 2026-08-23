@@ -5,14 +5,13 @@ import Boot from './components/Boot.jsx'
 import Notch from './components/Notch.jsx'
 import Cursor from './components/Cursor.jsx'
 import Aktivitaet from './components/Aktivitaet.jsx'
-import Farbrad from './components/Farbrad.jsx'
 import Graph3D from './components/Graph3D.jsx'
 import Bereiche from './components/Bereiche.jsx'
 import Verlauf from './components/Verlauf.jsx'
 import Werkstatt from './components/Werkstatt.jsx'
 import Onboarding from './components/Onboarding.jsx'
 import Briefing from './components/Briefing.jsx'
-import { farbeLesen, useFarbe } from './theme.js'
+import { useFarbe } from './theme.js'
 import { t, useSprache, sprache } from './i18n.js'
 import { hoeren, sprechen, sprechenUnterbrechbar, still, kannHoeren, weckwortHoeren, dauerhaftHoeren } from './stimme.js'
 import JarvisLeiste, { JarvisEcken, useJarvisHaut } from './components/JarvisLeiste.jsx'
@@ -57,7 +56,6 @@ export default function App() {
   const [geweckt, setGeweckt] = useState(false) // Weckwort gehört, wartet auf den Befehl
   const [ansicht, setAnsicht] = useState('chat') // chat | bereiche | werkstatt | graph
   const [ablaufEreignisse, setAblaufEreignisse] = useState([])
-  const [farbradAuf, setFarbradAuf] = useState(false)
   const [verlaufAuf, setVerlaufAuf] = useState(false)
   const [sitzung, setSitzung] = useState(SESSION)
   const [onboardingZeigen, setOnboardingZeigen] = useState(false)
@@ -858,7 +856,6 @@ export default function App() {
         setAnsicht={setAnsicht}
         status={status}
         brain={brain}
-        onFarbe={() => setFarbradAuf(true)}
         onVerlauf={() => setVerlaufAuf(true)}
         onModell={(patch) =>
           fetch('/api/config', {
@@ -870,8 +867,6 @@ export default function App() {
             .then((cfg) => setStatus((s) => ({ ...s, config: cfg })))
         }
       />
-
-      {farbradAuf && <Farbrad onClose={() => setFarbradAuf(false)} />}
 
       {verlaufAuf && (
         <Verlauf jetzige={sitzung} onOeffnen={gespraechOeffnen} onClose={() => setVerlaufAuf(false)} />
@@ -915,9 +910,8 @@ function Ampel({ kontingent }) {
   )
 }
 
-function Fussleiste({ ansicht, setAnsicht, status, brain, onFarbe, onModell, onVerlauf }) {
+function Fussleiste({ ansicht, setAnsicht, status, brain, onModell, onVerlauf }) {
   const [modellAuf, setModellAuf] = useState(false)
-  const f = farbeLesen()
   const kette = status?.brain?.chain || []
   const modelle = status?.brain?.models || {}
   const erstes = kette[0]
@@ -959,12 +953,6 @@ function Fussleiste({ ansicht, setAnsicht, status, brain, onFarbe, onModell, onV
           <button className="fuss-verlauf" onClick={onVerlauf} title={t('navVerlauf')}>
             {t('navVerlauf')}
           </button>
-          <button
-            className="farbknopf"
-            onClick={onFarbe}
-            title="Akzentfarbe"
-            style={{ background: `hsl(${f.h} ${f.s}% ${f.l}%)` }}
-          />
         </div>
       </div>
 

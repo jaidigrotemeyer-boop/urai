@@ -4,8 +4,9 @@ import LokalRegler from './LokalRegler.jsx'
 import McpEinstellungen from './McpEinstellungen.jsx'
 import SkillEinstellungen from './SkillEinstellungen.jsx'
 import Persoenlichkeiten from './Persoenlichkeiten.jsx'
-import { hautLesen, hautSetzen } from '../theme.js'
+import { hautLesen, hautSetzen, farbeLesen } from '../theme.js'
 import { kannHoeren } from '../stimme.js'
+import Farbrad from './Farbrad.jsx'
 
 /** Kleines Formular, um einen eigenen OpenAI-kompatiblen Anbieter einzutragen. */
 function EigenerAnbieterFormular({ onHinzu }) {
@@ -112,6 +113,8 @@ export default function Settings({ onClose, onSaved, weckAn, onToggleWeck, dauer
   const [bildschirme, setBildschirme] = useState([])
   const [haut, setHaut] = useState(hautLesen)
   const [zeigerAn, setZeigerAn] = useState(() => localStorage.getItem('urai-zeiger') === 'an')
+  const [farbradAuf, setFarbradAuf] = useState(false)
+  const f = farbeLesen()
 
   useEffect(() => {
     fetch('/api/status').then((r) => r.json()).then((s) => {
@@ -231,6 +234,7 @@ export default function Settings({ onClose, onSaved, weckAn, onToggleWeck, dauer
   }
 
   return (
+    <>
     <div className="sheet" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="sheet-card">
         <h3>{t('settings')}</h3>
@@ -963,6 +967,19 @@ export default function Settings({ onClose, onSaved, weckAn, onToggleWeck, dauer
           </div>
         </div>
 
+        <div className="field" style={{ marginBottom: 14 }}>
+          <label>Akzentfarbe</label>
+          <div className="chips">
+            <button
+              className="farbknopf"
+              onClick={() => setFarbradAuf(true)}
+              title="Akzentfarbe ändern"
+              style={{ background: `hsl(${f.h} ${f.s}% ${f.l}%)` }}
+            />
+          </div>
+          <div className="note">Ton, Sättigung und Helligkeit frei wählen, oder eine fertige Farbe nehmen.</div>
+        </div>
+
         <details className="abschnitt">
           <summary>Lokales Gehirn</summary>
           <div className="note" style={{ marginBottom: 12 }}>
@@ -1097,5 +1114,8 @@ export default function Settings({ onClose, onSaved, weckAn, onToggleWeck, dauer
         </div>
       </div>
     </div>
+
+    {farbradAuf && <Farbrad onClose={() => setFarbradAuf(false)} />}
+    </>
   )
 }
