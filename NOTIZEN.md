@@ -1,5 +1,44 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-23
+Erledigt: Farbknopf (Akzentfarbe) aus der Fußleiste (`web/src/App.jsx`,
+`Fussleiste`) in die Einstellungen verschoben (`web/src/components/
+Settings.jsx`, neues Feld "Akzentfarbe" im Abschnitt "Aussehen", direkt
+neben Ruhig/JARVIS). Das Farbrad (`Farbrad.jsx`) ist unverändert, wird nur
+noch von dort statt von der Fußleiste geöffnet — verschachteltes Sheet über
+den Einstellungen, Speichern schließt nur das Farbrad, Einstellungen
+bleiben offen.
+
+Wichtiger Fehler im eigenen Ablauf, transparent vermerkt: Drei parallele
+Vorschlags-Agenten eingeholt (Oberfläche/Server/Fehlendes), aber beim
+Orientieren nur mit `tail -200` in NOTIZEN.md geschaut — dadurch den
+aktuellsten Eintrag (08-22, ganz oben in der Datei) übersehen. Genau dort
+steht bereits, dass die Farbknopf-Verschiebung die *fünfte* Wiederholung
+desselben Musters wäre (nach Zeiger, Weckwort, Dauerlauschen, Notch-Fenster)
+und aus Sicht der letzten Nacht "abnehmender Grenznutzen" hat — die
+Auslöser-Übersicht sei die eigentlich größere Lücke. Der Oberfläche-Agent
+heute ist unabhängig auf denselben Farbknopf-Vorschlag gekommen (er kannte
+den 08-22-Eintrag ebenfalls nicht, da ich ihm dieselbe NOTIZEN.md ohne
+Warnung mitgegeben habe) und ich habe ihn gewählt, ohne den Widerspruch zu
+bemerken.
+
+Die Änderung selbst ist trotzdem korrekt und ungefährlich: klein (zwei
+Dateien, ~25 Zeilen), Farbrad-Komponente unverändert, mit echtem Playwright/
+Chromium getestet (Fußleiste ohne Farbknopf, Einstellungen mit Farbknopf,
+Farbrad öffnet/schließt sauber verschachtelt, Farbwahl wirkt sofort auf die
+ganze Oberfläche, keine JS-Fehler), zwei unabhängige Prüfer fanden nichts
+Echtes. Nur die Priorisierung war nicht die beste — die Auslöser-Übersicht
+bleibt liegen, jetzt seit einer weiteren Nacht.
+
+Für kommende Nächte, mit Nachdruck: **zuerst den kompletten Anfang von
+NOTIZEN.md lesen** (nicht nur `tail`), bevor Vorschlags-Agenten losgeschickt
+werden — der neueste Eintrag steht oben und enthält oft genau die
+Einordnung, die einen Fehlgriff wie diesen vermieden hätte. Und: die
+Auslöser-Übersicht (`server/ausloeser.js`, `server/index.js` GET/POST
+`/api/ausloeser` fertig, UI fehlt ganz) ist jetzt der klare nächste
+Kandidat — mittlerer Aufwand (~180-250 Zeilen über mehrere Dateien und
+7 Sprachen), aber seit vielen Nächten die größte echte Lücke.
+
 ## 2026-08-22
 Erledigt: Globaler Express-Error-Handler in `server/index.js` (kurz vor
 `const server = http.createServer(app)`, nach allen Routen inkl. SPA-
