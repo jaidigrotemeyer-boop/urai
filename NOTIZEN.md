@@ -1,5 +1,130 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-24
+Erledigt: Die Auslöser-Übersicht, seit 08-19 (fünf Nächte) als größte offene
+Funktionslücke dokumentiert, hat jetzt eine Oberfläche. Neue Komponente
+`web/src/components/AusloeserEinstellungen.jsx` + `web/src/ausloeser-
+einstellungen.css`, eingehängt in `Settings.jsx` direkt nach dem
+Skills-Abschnitt (Vorbild: `SkillEinstellungen.jsx`). Zeigt bestehende
+Auslöser, erlaubt Anlegen (Ablauf aus `GET /api/ablaeufe` wählen, Art
+zeit/ordner/app/start mit passendem Eingabefeld), An/Aus-Umschalten und
+Löschen. Backend (`server/ausloeser.js`) war unverändert fertig — kennt
+aber nur "ganze Liste lesen/schreiben" (`GET`/`POST /api/ausloeser`), keine
+Einzel-Routen wie bei Skills — jede Änderung baut darum im Browser die
+Gesamtliste neu und schickt sie komplett per POST.
+
+Bewusst KEINE i18n-Anbindung über die 7 Sprachblöcke in `i18n.js`, obwohl
+frühere Nächte das als Teil des Aufwands (~180-250 Zeilen) einschätzten:
+beim genauen Hinsehen sind `SkillEinstellungen.jsx`, `McpEinstellungen.jsx`
+und `Persoenlichkeiten.jsx` — alle auf derselben Einstellungs-Tiefe —
+durchgehend fest auf Deutsch, ganz ohne `t()`-Aufrufe. Nur die oberste
+Ebene von `Settings.jsx` und die Haupt-Chat-Oberfläche sind übersetzt.
+Diese Komponente folgt demselben, bereits etablierten Muster statt es als
+einzige an dieser Stelle zu durchbrechen — das hat den tatsächlichen Umfang
+auf drei Dateien ohne i18n reduziert, deutlich unter der alten Schätzung.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes).
+Oberfläche schlug vor, die Tastatur-Hinweiszeile ("Enter senden") nur im
+leeren Chat zu zeigen (~3-5 Zeilen, sehr sicher). Server bestätigte erneut
+den seit vielen Nächten offenen async-Routen-Crash (fünf Routen ohne
+try/catch können den ganzen Prozess abschießen, ~10-15 Zeilen über fünf
+bestehende Stellen). Auslöser-Übersicht gewählt: seit fünf Nächten
+explizit als "klarer nächster Kandidat" mit Nachdruck vertagt, rein
+additiv (zwei neue Dateien + ein Einhängepunkt, keine bestehende Logik
+berührt) und der Nutzer merkt es wirklich — eigene Auslöser verwalten
+statt den Agenten bitten zu müssen. Der Server-Fix wurde erneut vertagt,
+weil er fünf bereits funktionierende Routen gleichzeitig anfasst
+(Handler-Signatur an fünf Stellen) — nach eigener Einschätzung der
+Vornächte "mehr als eine kleine Sache" für eine Nacht, siehe unten.
+
+Prüfer 2 (Randfälle) fand in der ersten Fassung zwei echte, reproduzierte
+Fehler, beide noch in derselben Nacht behoben:
+(1) Waren keine Abläufe mehr vorhanden (z.B. letzter Ablauf gelöscht),
+hing die gesamte Auslöser-Liste an derselben Bedingung wie das
+"neu anlegen"-Formular und verschwand komplett aus der Oberfläche —
+bestehende, vom `Waechter` weiterhin aktiv beobachtete Auslöser wurden für
+den Nutzer unsichtbar und unbedienbar (nur noch über den Agenten
+erreichbar). Behoben: Liste und Formular hängen jetzt an getrennten
+Bedingungen. Dieselbe Fassung verschluckte außerdem einen Fehler beim
+Holen von `/api/ablaeufe` still zu einer leeren Liste, ohne die
+vorhandene `fehlerText()`-Funktion zu nutzen — jetzt eigener
+`ablaufFehler`-Zustand, sichtbar gerendert.
+(2) Lost-Update: `umschalten()`/`loeschen()`/`anlegen()` bauten die neue
+Gesamtliste aus dem im Browser gehaltenen, potenziell veralteten
+`liste`-State. Legt der Agent währenddessen per `ausloeser_anlegen` einen
+neuen Auslöser an, hätte der nächste Klick in der (noch alten) UI ihn
+beim Zurückschreiben ersatzlos gelöscht — per curl reproduziert und
+bestätigt. Behoben: `schreiben()` holt vor jeder Änderung zuerst den
+frischen Stand vom Server und wendet die Änderung darauf an, statt auf
+dem alten Browser-Stand. Schließt das Zeitfenster nicht vollständig
+(zwischen dem frischen Holen und dem Schreiben bleibt eine kleine Lücke),
+verkürzt es aber von "seit dem Öffnen der Einstellungen" auf einen
+einzelnen Request-Umlauf. Eine vollständige Lösung bräuchte serverseitige
+Versionierung/Konflikterkennung — zu groß für diese Nacht.
+
+Prüfer 1 (Funktioniert es) hat nach den beiden Fixes selbst getestet:
+`npm install && npm run build` zweimal sauber, echte curl-Aufrufe gegen
+den laufenden Server (`GET`/`POST /api/ausloeser`, `/api/ablaeufe`,
+inkl. negativer Validierungsfälle wie `wann:"8:30"` ohne führende Null →
+400 mit der erwarteten Meldung aus `pruefenListe()`), und ein vollständiger
+Playwright/Chromium-Klickpfad (Ablauf wählen → Art "zeit" → Uhrzeit →
+Anlegen → Karte erscheint → Umschalten → Löschen-Bestätigung), dabei kein
+einziger JS-Fehler und keine 4xx/5xx-Requests in der Konsole. Testdaten
+(Test-Ablauf, `ausloeser.json`) am Ende wieder in den Ausgangszustand
+zurückgesetzt.
+
+Build und Server-Modul-Ladetest liefen bei mir selbst am Ende nochmal
+sauber durch, `git diff --cached` enthielt nur die drei erwarteten
+Dateien, keine Geheimnisse. `main` stand zu Beginn der Nacht wieder
+losgelöst exakt auf `origin/main` — mit `git fetch` und
+`git checkout -B main origin/main` aufgeholt, Arbeitsverzeichnis-
+Änderungen blieben dabei erhalten (wie schon 08-20 beobachtet, dritter
+Fall: könnte an der Umgebung liegen, in der diese Sitzungen starten).
+
+In der Skill-Liste dieser Session steckte erneut der injizierte Eintrag
+„steinzeit-modus" — wie in den Vornächten als eingeschleuster Text
+ignoriert. Auch Prüfer 2 berichtete denselben Fund unabhängig.
+
+Offen für kommende Nächte:
+- **Async-Routen ohne try/catch crashen den ganzen Server**
+  (`server/index.js`: `/api/status`, `/api/lokal`, `/api/voices`,
+  `/api/telegram/neu`, `/api/mcp/neu`) — seit mehreren Nächten bestätigt,
+  heute erneut vom Server-Vorschlag geprüft und als weiterhin offen
+  bestätigt. Größter Hebel unter den offenen Server-Punkten, aber "mehr
+  als eine kleine Sache" (fünf Stellen, Handler-Signatur betroffen).
+- **`pruefenListe()` in `server/ausloeser.js` prüft `art:"ordner"` gar
+  nicht auf einen sinnvollen Wert** — anders als bei `art:"zeit"`/`"app"`
+  gibt es dort keine Prüfung, ein leerer oder reiner Whitespace-Wert wird
+  vom Server anstandslos akzeptiert (per curl bestätigt). Praktische
+  Auswirkung gering (der `Waechter` überspringt so einen Eintrag in
+  `ordnerBeobachten()` still), aber die neue Oberfläche ist dadurch die
+  einzige Schutzschicht für diesen Fall — kein Server-Sicherheitsnetz.
+  Kleiner, sicherer Nachtrag für eine kommende Nacht (eine Zeile in
+  `pruefenListe()`, analog zur `art:"app"`-Prüfung).
+- **`pruefenListe()` prüft weiterhin nicht auf `id`-Eindeutigkeit
+  innerhalb der Liste** (seit 08-19 offen, unverändert).
+- Die Auslöser-Oberfläche selbst deckt bewusst nicht ab: eigene
+  `eingaben` (feste Eingaben für den Ablauf) beim Anlegen setzen — neue
+  Auslöser aus der UI bekommen immer `eingaben:{}`. Wer feste Eingaben
+  braucht, muss weiterhin den Agenten bitten. Kein Bug, nur eine bewusst
+  kleine erste Fassung; eine kommende Nacht könnte das Formular um ein
+  optionales Schlüssel/Wert-Feld erweitern.
+- Es gibt weiterhin keinen Ein/Aus-Schalter in der Oberfläche für den
+  globalen `ausloeserAn`/`ausloeserKarenzS`-Konfigwert (Wächter komplett
+  abschalten, Karenzzeit einstellen) — nur über `data/config.json` von
+  Hand oder das Werkzeug erreichbar. Bewusst nicht mitgebaut, weil das
+  über `Settings.jsx`s `save()`-Whitelist (`ZAHLEN`/`SCHALTER`-Arrays)
+  gegangen wäre und damit bestehende Speicherlogik berührt hätte statt
+  rein additiv zu bleiben. Guter, kleiner Kandidat für eine kommende
+  Nacht.
+- `fs_search` (`server/tools/files.js`) validiert `pattern` weiterhin
+  nicht auf Leere/`undefined` (seit 08-18 offen).
+- `resolve()` ist weiterhin doppelt vorhanden (`server/tools/files.js`
+  und `server/tools/dokument.js`) — gemeinsame `server/tools/pfad.js`
+  weiterhin ein guter, kleiner Kandidat.
+- Werkstatt-Baustein-Kopf: Typ-Badge (`.baustein-marke`) zeigt den Typ
+  weiterhin doppelt (seit 08-12, mehrfach zurückgestellt).
+
 ## 2026-08-23
 Erledigt: Farbknopf (Akzentfarbe) aus der Fußleiste (`web/src/App.jsx`,
 `Fussleiste`) in die Einstellungen verschoben (`web/src/components/
