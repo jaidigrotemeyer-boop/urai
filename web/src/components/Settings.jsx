@@ -3,6 +3,7 @@ import { t, SPRACHEN, sprache, setzeSprache, useSprache } from '../i18n.js'
 import LokalRegler from './LokalRegler.jsx'
 import McpEinstellungen from './McpEinstellungen.jsx'
 import SkillEinstellungen from './SkillEinstellungen.jsx'
+import AusloeserEinstellungen from './AusloeserEinstellungen.jsx'
 import Persoenlichkeiten from './Persoenlichkeiten.jsx'
 import { hautLesen, hautSetzen, farbeLesen } from '../theme.js'
 import { kannHoeren } from '../stimme.js'
@@ -471,6 +472,11 @@ export default function Settings({ onClose, onSaved, weckAn, onToggleWeck, dauer
         <details className="abschnitt">
           <summary>Skills</summary>
           <SkillEinstellungen />
+        </details>
+
+        <details className="abschnitt">
+          <summary>Auslöser</summary>
+          <AusloeserEinstellungen />
         </details>
 
         {/* Etwas, das ungefragt redet, muss man abschalten können — sonst ist

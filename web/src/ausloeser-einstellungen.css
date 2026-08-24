@@ -1,0 +1,184 @@
+/* ── Auslöser in den Einstellungen ─────────────────────────────────────
+   Gehört zu components/AusloeserEinstellungen.jsx und wird von dort importiert.
+
+   Wie bei skill-einstellungen.css: kein fester Farbwert, nur Variablen, damit
+   Farbrad und JARVIS-Haut automatisch greifen. Getönte Flächen per color-mix
+   mit schlichter Ersatzangabe davor. */
+
+.asl {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.asl-erklaerung {
+  padding: 9px 12px;
+  border-left: 2px solid var(--accent-line);
+  background: var(--accent-soft);
+  border-radius: 0 var(--r-sm, 6px) var(--r-sm, 6px) 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--dim);
+}
+
+.asl-leer {
+  padding: 14px 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-sm, 6px);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--dimmer);
+}
+
+/* ── Neu anlegen ─────────────────────────────────────────────────────── */
+.asl-neu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.asl-neu select,
+.asl-neu input {
+  min-width: 0;
+}
+
+/* ── Zustandszeile ───────────────────────────────────────────────────── */
+.asl-stand {
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm, 6px);
+  background: var(--panel);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--dim);
+  overflow-wrap: anywhere;
+}
+
+.asl-stand-gut {
+  color: var(--accent);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.asl-stand-fehler {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+/* ── Die Karten ──────────────────────────────────────────────────────── */
+.asl-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.asl-karte {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm, 6px);
+  background: var(--panel);
+}
+
+/* Ausgeschaltete Auslöser treten optisch zurück — sie sind nicht weg, nur ruhig. */
+.asl-karte-aus {
+  opacity: 0.55;
+}
+
+.asl-kopf {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.asl-name {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asl-wann {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.asl-wann-marke {
+  display: inline-block;
+  margin-right: 7px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  vertical-align: 1px;
+}
+
+.asl-fuss {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+.asl-id {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--dimmer);
+  overflow-wrap: anywhere;
+}
+
+.asl-karte-knoepfe {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.asl-karte-knoepfe button,
+.asl-fuss button {
+  font-size: 11.5px;
+  padding: 5px 11px;
+}
+
+.asl-mini {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--dimmer);
+}
+
+/* ── Unter der JARVIS-Haut ───────────────────────────────────────────
+   Wie skill-einstellungen.css: jarvis.css kennt diesen Abschnitt nicht,
+   darum meldet er sich selbst an statt in fremder Datei nachzutragen. */
+:root[data-haut='jarvis'] .asl-karte,
+:root[data-haut='jarvis'] .asl-leer,
+:root[data-haut='jarvis'] .asl-stand {
+  border-radius: 5px;
+}
+
+:root[data-haut='jarvis'] .asl-erklaerung {
+  border-radius: 0 5px 5px 0;
+}
+
+:root[data-haut='jarvis'] .asl-name {
+  font-family: var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 10.5px;
+}
