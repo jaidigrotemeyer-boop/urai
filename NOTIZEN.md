@@ -1,5 +1,68 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-25
+Erledigt: `fs_search` (`server/tools/files.js`) prüfte `pattern` bisher nicht.
+Ruft der Agent das Werkzeug mit leerem Suchmuster auf, entfernt `coerceArgs()`
+in `server/agent.js` den leeren String komplett aus den Argumenten — `pattern`
+kam dann als `undefined` in `run()` an, landete roh im `execFile`-Aufruf
+(Node macht daraus den Literal-String `"undefined"`) und durchsuchte wirklich
+das ganze Revier nach dem Wort "undefined", was in einem kryptischen
+maxBuffer-Fehler endete statt einer verständlichen Meldung. Jetzt wirft eine
+Wache am Anfang von `run()` — genau das Muster von `resolve()` in derselben
+Datei (Zeile 15) — `Suchmuster fehlt oder ist kein Text.`, sobald `pattern`
+kein nichtleerer String ist.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes). Oberfläche
+schlug vor, den Rahmen der Typ-Badge (`.baustein-marke` in werkstatt.css)
+nur noch im Gefahr-Zustand zu zeigen (seit 08-12 wiederholt vorgeschlagen,
+diesmal zugunsten des Server-Fundes vertagt). Fehlendes bestätigte, dass
+.xlsx-Lesen, alle sieben i18n-Sprachen und die Auslöser-Oberfläche bereits
+vollständig sind, und schlug stattdessen echte Formeln/Formatierung für
+`dokument_excel` vor (mittlerer Aufwand, ~60-100 Zeilen, XML-Kernlogik
+betroffen — mehr Bruchrisiko als der gewählte Server-Fund). Server fand die
+oben behobene Lücke — gewählt, weil kleinstes Risiko (eine Zeile, exakt
+etabliertes Muster) bei echtem, reproduzierbarem Fehlerbild.
+
+Prüfer 1 (Funktioniert es) führte Build, Server-Ladetest und ein eigenes
+Testskript selbst aus: `run({pattern: undefined})` und `run({pattern: ''})`
+werfen jetzt sauber `Suchmuster fehlt oder ist kein Text.`, ein normaler
+Aufruf mit engem Muster/Pfad liefert weiterhin korrekte Treffer. Dabei einen
+unabhängigen, vorbestehenden Fund gemacht (siehe unten). Prüfer 2 (Randfälle)
+fand keinen echten Fehler: kein Aufrufer verlässt sich auf leeres Pattern,
+`coerceArgs()` entfernt Whitespace-only-Strings ohnehin schon vorher, beide
+Aufrufstellen von `tool.run` liegen in try/catch. Fand aber eine kleine
+Textabweichung — die erste Fassung der Meldung ("Suchmuster fehlt.") passte
+nicht zur Formel "… fehlt oder ist kein Text." aus Zeile 15 derselben Datei
+und aus `dokument.js`/`ausloeser.js` — angepasst, bevor committet wurde.
+
+Build (`npm run build`) und Server-Modul-Ladetest liefen sauber durch,
+`git diff` enthielt nur die fünf neuen Zeilen in `files.js`. Nebenbei: `main`
+war zu Beginn dieser Nacht wieder als losgelöster `HEAD` 5 Commits hinter
+`origin/main` (Auslöser-Übersicht fehlte lokal) — mit `git fetch` und
+Fast-Forward aufgeholt, bevor committet wurde.
+
+Unabhängiger Fund von Prüfer 1, NICHT behoben (außerhalb vom heutigen
+Auftrag, kein Regressionsproblem der obigen Änderung): im `grep`-Fallback-
+Zweig von `fs_search` (`files.js`, wenn `/opt/homebrew/bin/rg` fehlt, z.B.
+hier in der Cloud-Umgebung) fehlt anders als im `rg`-Zweig ein
+Treffer-Limit (`--max-count`). Ein breites Suchmuster über ein großes Revier
+kann `fsMaxBytes` (`server/config.js`, Standard 200000 Bytes) sprengen und
+bricht mit `ERR_CHILD_PROCESS_STDIO_MAXBUFFER` ab; die Fehlermeldung im
+Catch-Block zeigt dabei irreführend eine stderr-Notiz ("binary file
+matches") statt der echten Ursache. Kleiner, isolierter Fix für eine
+kommende Nacht (grep-Aufruf um ein Treffer-Limit ergänzen, z.B. `| head`
+oder ein `-m`-Äquivalent für den grep-Zweig).
+
+Offen für kommende Nächte, unverändert:
+- `.baustein-marke`-Rahmen (`web/src/werkstatt.css`) nur im Gefahr-Zustand
+  zeigen — kleiner, sicherer Oberflächen-Vorschlag, seit 08-12 wiederholt
+  bestätigt und vertagt.
+- `dokument_excel` (`server/tools/dokument.js`): kann nur rohe Werte
+  schreiben, keine echten Formeln (`<f>`-Element) und keine Formatierung
+  (Währung/Datum/Prozent, Zellfarben). Mittlerer Aufwand, isoliert auf
+  diese eine Datei.
+- `fs_search`-grep-Fallback: fehlendes Treffer-Limit, siehe oben.
+
 ## 2026-08-24
 Erledigt: Die Auslöser-Übersicht, seit 08-19 (fünf Nächte) als größte offene
 Funktionslücke dokumentiert, hat jetzt eine Oberfläche. Neue Komponente

@@ -121,6 +121,11 @@ export const fileTools = [
       required: ['pattern'],
     },
     async run({ pattern, path: p = '.', glob }) {
+      // Ein leeres Suchmuster wird von coerceArgs() in agent.js aus den Argumenten
+      // entfernt, pattern ist dann undefined — ohne diese Wache landet das rohe
+      // "undefined" im execFile-Aufruf und durchsucht wirklich das ganze Revier
+      // nach dem Wort "undefined", was in einem kryptischen maxBuffer-Fehler endet.
+      if (typeof pattern !== 'string' || !pattern.trim()) throw new Error('Suchmuster fehlt oder ist kein Text.')
       const abs = resolve(p)
       const bin = fssync.existsSync('/opt/homebrew/bin/rg') ? '/opt/homebrew/bin/rg' : 'grep'
       const args =
