@@ -9,7 +9,7 @@ import { loadConfig } from '../config.js'
 const pexec = promisify(execFile)
 const maxBytes = () => loadConfig().fsMaxBytes
 
-function resolve(p) {
+export function resolve(p) {
   // Ohne diese Prüfung stürzt ein fehlerhafter Werkzeug-Aufruf (leerer, fehlender
   // oder falsch typisierter pfad) mit einer rohen TypeError ab statt einer Meldung.
   if (typeof p !== 'string' || !p.trim()) throw new Error('pfad fehlt oder ist kein Text.')

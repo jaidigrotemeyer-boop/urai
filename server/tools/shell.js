@@ -1,6 +1,7 @@
 // Terminal-Kraft. Immer mit Rückfrage — außer die Liste sagt anders.
 import { spawn } from 'node:child_process'
 import { loadConfig } from '../config.js'
+import { resolve as pfadImRevier } from './files.js'
 
 const HARD_NO = [
   /rm\s+-rf?\s+[~/]\s*$/,
@@ -18,8 +19,16 @@ export function runCommand(cmd, { cwd, timeout, onData } = {}) {
   for (const re of HARD_NO) {
     if (re.test(cmd)) return Promise.reject(new Error(`Befehl gesperrt: ${cmd}`))
   }
+  // Anders als alle fs_*-Werkzeuge nahm shell_run jeden cwd ungeprüft — ein
+  // Befehl mit relativen Pfaden lief damit klaglos außerhalb vom Revier.
+  let arbeitsordner
+  try {
+    arbeitsordner = cwd ? pfadImRevier(cwd) : loadConfig().workspace
+  } catch (e) {
+    return Promise.reject(e)
+  }
   return new Promise((resolve, reject) => {
-    const child = spawn('/bin/zsh', ['-lc', cmd], { cwd: cwd || loadConfig().workspace })
+    const child = spawn('/bin/zsh', ['-lc', cmd], { cwd: arbeitsordner })
     let out = ''
     const push = (s) => {
       out += s

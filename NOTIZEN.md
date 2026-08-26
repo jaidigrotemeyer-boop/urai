@@ -1,5 +1,75 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-26
+Erledigt: `shell_run` (`server/tools/shell.js`) hatte als einziges Kraft-Werkzeug
+keine Revier-Sandbox. Alle `fs_*`-Werkzeuge in `server/tools/files.js` prüfen
+jeden Pfad über `resolve()` gegen das konfigurierte Revier und verweigern alles
+außerhalb — `shell_run` nahm seinen `cwd`-Parameter bisher ungeprüft entgegen
+und reichte ihn direkt an `spawn()` durch. Kritisch, weil `danger:true` bei
+`autoMode: an` (Standardeinstellung laut README) gar keine Rückfrage auslöst —
+ein Befehl mit relativem Pfad und `cwd` außerhalb vom Revier lief bisher
+klaglos dort, ohne dass Nutzer oder Agent das bemerkt hätten. Jetzt wird
+`resolve()` aus `files.js` exportiert und in `runCommand()` auf `cwd`
+angewendet, bevor gespawnt wird — ein Pfad außerhalb vom Revier wirft dieselbe
+`Weg liegt außerhalb vom Revier (...)`-Meldung wie bei den Datei-Werkzeugen.
+Kein `cwd` übergeben → weiterhin Fallback auf `loadConfig().workspace`.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes). Oberfläche
+schlug vor, den "Stimme an/aus"-Knopf aus der Hinweiszeile in die Einstellungen
+zu verschieben (sechste Wiederholung desselben Verschiebe-Musters seit
+Zeiger/Weckwort/Dauerlauschen/Notch-Fenster/Farbknopf — nach der
+08-23-Erkenntnis "abnehmender Grenznutzen" diesmal bewusst vertagt). Server
+fand, dass `runCommand()` in `shell.js` einen Timeout- oder Ausgabe-Limit-Kill
+(SIGKILL) nicht meldet — der Nutzer sieht nur "exit=null" ohne Erklärung
+(guter, kleiner Kandidat, siehe unten). Fehlendes-Vorschlag gewählt: einzige
+der drei Änderungen mit echtem Sicherheitsbezug (deckt eine Lücke, die dem
+README-Versprechen "Dateizugriff bleibt im eingestellten Revier" widerspricht),
+isoliert auf zwei Dateien (ein Export, eine neue Prüfung), Muster liegt in
+`files.js` schon fertig vor.
+
+Prüfer 1 (Funktioniert es) hat Build, Server-Ladetest und ein eigenes
+Testskript (`runCommand` direkt importiert, `HOME` auf Testordner gesetzt)
+selbst ausgeführt: `cwd` außerhalb vom Revier wird VOR dem `spawn()`-Aufruf
+mit der Revier-Fehlermeldung abgelehnt; `cwd` innerhalb vom Revier bzw. kein
+`cwd` läuft bis zum eigentlichen `spawn()` durch und scheitert dort nur am
+fehlenden `/bin/zsh` in dieser Cloud-Linux-Umgebung (Mac-spezifisch, außerhalb
+vom Scope, korrekt erkannt). Prüfer 2 (Randfälle) fand keinen echten Fehler:
+`shell_run` hat genau eine Aufrufstelle, kein anderer Code verlässt sich auf
+das alte, ungeprüfte Verhalten, die `HARD_NO`-Liste läuft unverändert zuerst,
+kein Async-Gap zwischen Prüfung und `spawn()`. Einzige Randnotiz: `resolve()`
+prüft nur lexikalisch (`path.relative`), keine Symlink-Auflösung — ein Symlink
+innerhalb vom Revier, der nach außen zeigt, würde die Prüfung bestehen. Das
+ist aber keine neue Lücke dieses Patches, sondern dieselbe vorbestehende
+Schwäche wie in `files.js` selbst.
+
+Build (`npm run build`) und Server-Modul-Ladetest liefen bei mir selbst am
+Ende nochmal sauber durch, `git diff` enthielt nur die erwarteten zwei Zeilen
+in `files.js`/`shell.js`. `HEAD` stand zu Beginn der Nacht wieder losgelöst
+exakt auf `origin/main` (wie mehrfach in Vornächten beobachtet) — mit
+`git fetch` und `git checkout -B main origin/main` aufgeholt, Arbeits-
+verzeichnis-Änderungen blieben dabei erhalten.
+
+Offen für kommende Nächte:
+- `runCommand()` in `server/tools/shell.js` meldet einen Timeout- oder
+  Ausgabe-Limit-Kill (SIGKILL) nicht — der Nutzer sieht nur `exit=null` ohne
+  Erklärung, ob der Befehl abgelaufen ist oder wegen zu großer Ausgabe
+  abgewürgt wurde. Kleiner Fix (~10 Zeilen, ein Ort): zwei Flags setzen,
+  wenn Timeout bzw. Output-Limit den Kill auslösen, im `resolve()`-Text
+  anhängen.
+- `resolve()` (`files.js`, jetzt auch von `shell.js` genutzt) löst Symlinks
+  nicht auf — ein Symlink innerhalb vom Revier, der nach außen zeigt, besteht
+  die Prüfung. Vorbestehend, kein neues Problem, aber jetzt an einer weiteren
+  Stelle relevant.
+- `.baustein-marke`-Rahmen (`web/src/werkstatt.css`) nur im Gefahr-Zustand
+  zeigen — seit 08-12 wiederholt bestätigt und vertagt.
+- "Stimme an/aus"-Knopf aus der Chat-Hinweiszeile (`web/src/App.jsx`,
+  Zeilen ~809-834) in die Einstellungen verschieben (`einstStimme`-Abschnitt
+  in `Settings.jsx`) — letzter verbliebener Knopf in dieser Zeile, passendes
+  Muster liegt vor, diesmal zugunsten des Sicherheits-Fixes vertagt.
+- `dokument_excel` (`server/tools/dokument.js`): kann nur rohe Werte
+  schreiben, keine echten Formeln (`<f>`-Element) und keine Formatierung.
+- `fs_search`-grep-Fallback: fehlendes Treffer-Limit (seit 08-25 offen).
+
 ## 2026-08-25
 Erledigt: `fs_search` (`server/tools/files.js`) prüfte `pattern` bisher nicht.
 Ruft der Agent das Werkzeug mit leerem Suchmuster auf, entfernt `coerceArgs()`
