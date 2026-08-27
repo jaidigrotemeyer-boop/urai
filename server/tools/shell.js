@@ -30,21 +30,42 @@ export function runCommand(cmd, { cwd, timeout, onData } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn('/bin/zsh', ['-lc', cmd], { cwd: arbeitsordner })
     let out = ''
+    // Ohne diese Flags sah der Nutzer bei einem SIGKILL nur "exit=null" —
+    // keine Unterscheidung, ob der Befehl hing oder zu viel ausgegeben hat.
+    let killedByTimeout = false
+    let killedByLimit = false
     const push = (s) => {
       out += s
       onData?.(s)
-      if (out.length > maxAus) child.kill('SIGKILL')
+      if (out.length > maxAus) {
+        killedByLimit = true
+        child.kill('SIGKILL')
+      }
     }
     child.stdout.on('data', (d) => push(d.toString()))
     child.stderr.on('data', (d) => push(d.toString()))
-    const t = setTimeout(() => child.kill('SIGKILL'), timeout)
+    const t = setTimeout(() => {
+      killedByTimeout = true
+      child.kill('SIGKILL')
+    }, timeout)
     child.on('error', (e) => {
       clearTimeout(t)
       reject(e)
     })
     child.on('close', (code) => {
       clearTimeout(t)
-      resolve(`exit=${code}\n${out.slice(0, maxAus) || '(keine Ausgabe)'}`)
+      // code ist nur dann null, wenn der Prozess wirklich per Signal endete —
+      // lief er kurz vor dem Kill schon regulär aus, trägt code den echten
+      // Exit-Code, und die Flag (durch die Race zwischen Timer und Prozessende
+      // trotzdem gesetzt) darf dann keinen falschen Abbruchgrund vortäuschen.
+      const grund = code !== null
+        ? ''
+        : killedByTimeout
+          ? `Befehl abgebrochen: Zeitlimit (${timeout}ms) überschritten.\n`
+          : killedByLimit
+            ? `Befehl abgebrochen: Ausgabe-Limit (${maxAus} Zeichen) überschritten.\n`
+            : ''
+      resolve(`exit=${code}\n${grund}${out.slice(0, maxAus) || '(keine Ausgabe)'}`)
     })
   })
 }
