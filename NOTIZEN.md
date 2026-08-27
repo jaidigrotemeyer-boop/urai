@@ -1,5 +1,65 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-27
+Erledigt: `runCommand()` (`server/tools/shell.js`) meldete einen SIGKILL durch
+Zeitlimit oder Ausgabe-Limit bisher nicht — der Nutzer sah nur `exit=null`
+ohne jede Erklärung, ob der Befehl hing, zu viel Ausgabe erzeugt hat oder aus
+einem anderen Grund starb. Genau der Fund, den die 08-26-Nacht bereits als
+nächsten Kandidaten vorgemerkt hatte. Jetzt setzen die beiden Kill-Stellen
+(Zeile ~47 Timeout, ~40 Ausgabe-Limit) je eine Flag (`killedByTimeout`,
+`killedByLimit`), und der `close`-Handler hängt bei gesetzter Flag einen
+Klartext-Grund an ("Befehl abgebrochen: Zeitlimit (Xms) überschritten." bzw.
+"...Ausgabe-Limit (X Zeichen) überschritten.").
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes). Oberfläche
+schlug vor, den Dauerrahmen von `.baustein-marke` (`web/src/werkstatt.css`)
+nur noch im Gefahr-Zustand zu zeigen (derselbe seit 08-12 wiederholt
+vertagte Vorschlag, weiterhin nicht umgesetzt — echt minimal, ~2 Zeilen).
+Fehlendes verifizierte im Code, dass i18n (alle 7 Sprachen exakt 155
+Schlüssel), `dokument_lesen` (.docx/.pptx/.xlsx) und die Auslöser-UI entgegen
+älterer Notizen bereits vollständig fertig sind, und bestätigte erneut
+`dokument_excel` ohne echte Formeln/Formatierung als verbleibende Lücke
+(~60-100 Zeilen, Kernlogik betroffen). Server-Vorschlag gewählt: kleinster
+Aufwand (~10 Zeilen, eine Funktion), größter direkter Nutzen (Nutzer steht
+nicht mehr ratlos vor "exit=null"), passend zum Auftrag "wo würde ein Nutzer
+im Regen stehen, weil ihm niemand sagt was schiefging".
+
+Prüfer 2 (Randfälle) fand in der ersten Fassung eine echte, aber seltene
+Race: setzte der Timeout-Timer die Flag und rief `child.kill('SIGKILL')`,
+kurz nachdem der Kindprozess schon von selbst regulär durchgelaufen war,
+zeigte der `close`-Handler trotzdem den Zeitlimit-Text an — obwohl `code`
+den echten (nicht-null) Exit-Code trug. Behoben: der Grund-Text erscheint
+jetzt nur noch, wenn `code === null` ist (nur dann endete der Prozess
+wirklich per Signal, ein bereits beendeter Prozess ignoriert `kill()`
+wirkungslos). Danach nochmal beide Prüfer angesetzt: Prüfer 1 bestätigte
+mit einem gezielten Testfall (`sleep 0.05 && echo fertig` bei `timeout:3000`)
+genau diesen Race-Fall als jetzt korrekt (kein falscher Abbruchgrund mehr).
+Prüfer 2 fand keinen weiteren echten Fehler — einzige Randnotiz: kollidiert
+ein *externes* Signal (OOM-Killer, manuelles `kill -9`) zeitlich mit Ablauf
+unserer Schwelle, zeigt die Meldung einen nicht ganz zutreffenden Grund
+("Zeitlimit überschritten" statt "von außen getötet") — sehr eng, außerhalb
+vom Scope dieses Fixes, kein Blocker.
+
+Da `/bin/zsh` in dieser Cloud-Linux-Umgebung fehlt (Mac-spezifisch), liefen
+alle echten Testläufe (durch mich selbst und beide Prüfer, in zwei Runden)
+gegen eine temporäre Kopie der Datei mit `/bin/bash` statt `/bin/zsh`,
+danach jeweils wieder gelöscht. `npm run build` und der Server-Ladetest
+liefen am Ende sauber durch, `git diff` enthielt nur die erwarteten Zeilen
+in `shell.js`. `HEAD` stand zu Beginn der Nacht wieder losgelöst exakt auf
+`origin/main` (wie mehrfach in Vornächten) — mit `git checkout -B main
+origin/main` aufgeholt, Arbeitsverzeichnis-Änderung blieb dabei erhalten.
+
+Offen für kommende Nächte, unverändert bzw. neu bestätigt:
+- `.baustein-marke`-Rahmen (`web/src/werkstatt.css`) nur im Gefahr-Zustand
+  zeigen — seit 08-12 wiederholt bestätigt und vertagt, weiterhin minimal
+  (~2 Zeilen), klarer nächster Oberflächen-Kandidat.
+- `dokument_excel` (`server/tools/dokument.js`): kann nur rohe Werte
+  schreiben, keine echten Formeln (`<f>`-Element) und keine Formatierung
+  (Währung/Datum/Prozent, Zellfarben). ~60-100 Zeilen, nur eine Datei,
+  moderates Risiko (bestehende Funktionen erweitern, nicht neu schreiben).
+- `resolve()` (`files.js`, auch von `shell.js` genutzt) löst weiterhin keine
+  Symlinks auf — vorbestehend, mehrfach vermerkt, noch nicht angefasst.
+
 ## 2026-08-26
 Erledigt: `shell_run` (`server/tools/shell.js`) hatte als einziges Kraft-Werkzeug
 keine Revier-Sandbox. Alle `fs_*`-Werkzeuge in `server/tools/files.js` prüfen
