@@ -1,5 +1,82 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-28
+Erledigt: `.baustein-marke` (`web/src/werkstatt.css`) zeigte bisher, wie seit
+2026-08-12 wiederholt bestätigt und immer wieder vertagt, in JEDEM Zustand
+einen 1px-Rahmen um die kleine Typ-Beschriftung eines Werkzeug-Bausteins
+("shell_run", "fs_lesen" usw.) im Chat. Jetzt ist der Rahmen im Normalfall
+unsichtbar (`border: 1px solid transparent` statt `var(--line-soft)`) und
+wird nur noch im Gefahr-Zustand (`.baustein.hat-gefahr .baustein-marke`)
+sichtbar, weiterhin allein über `border-color`. Genau der Vorschlag, den der
+Nutzer im heutigen Auftrag als größten offenen Wunsch nannte: eine ruhigere
+Oberfläche, weniger Kästchen-in-Kästchen-Optik, näher an ChatGPT/Gemini.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes), jedem
+Agenten die komplette NOTIZEN.md mitgegeben (nicht nur `tail`, siehe die
+08-23-Lehre). Server fand das seit 08-25 offene fehlende Treffer-Limit im
+`grep`-Fallback von `fs_search` (`files.js`, ~1 Zeile). Fehlendes fand, dass
+`pruefenListe()` (`server/ausloeser.js`) `art:"ordner"` weiterhin nicht auf
+einen sinnvollen Wert prüft und `id` nirgends auf Eindeutigkeit (~2 Zeilen,
+seit 08-19/08-24 offen). Oberfläche-Vorschlag gewählt: einziger der drei
+Funde mit direktem Bezug zum im Auftrag genannten größten Nutzerwunsch,
+seit vier Nächten als "klarer nächster Kandidat" benannt, minimales Risiko
+(eine CSS-Zeile).
+
+Prüfer 2 (Randfälle) fand in der ersten Fassung einen echten Fehler: der
+Gefahr-Zustand eines Bausteins kann zur Laufzeit umschalten (Werkzeug-
+Auswahlfeld in `Werkstatt.jsx`, ändert `b.einstellungen.werkzeug` und damit
+`gefahr` ohne Remount). Da `.baustein-marke` keine feste Breite hat, schützt
+`box-sizing: border-box` nicht davor, dass ein neu hinzukommender Rahmen die
+Box um 2px vergrößert — beim Umschalten wäre ein sichtbarer Sprung
+entstanden (die erste Fassung hatte den Rahmen im Normalfall komplett
+entfernt statt nur unsichtbar gemacht). Behoben: Rahmen bleibt immer
+vorhanden (`1px solid`), nur `transparent` im Normalfall statt `var(
+--line-soft)` — Breite ändert sich beim Umschalten nie, nur die Farbe. Die
+`hat-gefahr`-Regel blieb dadurch unverändert (nur `border-color`, wie schon
+vorher). Prüfer 2 fand sonst nichts Echtes: keine kollidierenden Regeln,
+`border-radius` bleibt ohne sichtbare Wirkung im Normalfall (kein Problem,
+rein kosmetisch folgenlos), kein Code/Test verlässt sich auf die Randbreite.
+
+Prüfer 1 (Funktioniert es) hat die KORRIGIERTE Fassung selbst geprüft (der
+Diff hatte sich während seiner Prüfung durch die Nachbesserung geändert,
+das im Bericht selbst bemerkt und sauber gegen den neuen Stand nachgeprüft):
+`npm run build` fehlerfrei, `grep` über die Kaskade zeigt keine störende
+Zwischenregel, `Werkstatt.jsx` ist die einzige weitere Referenz auf die
+Klasse. Mit Playwright/Chromium `getComputedStyle` bestätigt:
+`borderColor: rgba(0,0,0,0)` im Normalfall (unsichtbar), `rgba(255,192,
+107,.34)` im Gefahr-Zustand (sichtbar) — Screenshot zeigt beide Zustände
+korrekt.
+
+Build (`npm run build`) lief bei mir selbst am Ende nochmal sauber durch,
+`git status`/`git diff` enthielten nur die eine erwartete Zeile in
+`werkstatt.css`, keine Geheimnisse. `HEAD` stand zu Beginn der Nacht wieder
+losgelöst (detached) exakt auf `origin/main` — mit `git fetch` und `git
+checkout main` aufgeholt (kein Fast-Forward-Rückstand diesmal, lokaler
+`main` war nur veraltet gefetcht).
+
+Offen für kommende Nächte:
+- **Async-Routen ohne try/catch crashen den ganzen Server** (`server/
+  index.js`: `/api/status`, `/api/lokal`, `/api/voices`, `/api/telegram/
+  neu`, `/api/mcp/neu`) — seit 08-19 offen, weiterhin größter Hebel unter
+  den offenen Server-Punkten, aber "mehr als eine kleine Sache" (5 Stellen).
+- `fs_search`-grep-Fallback (`server/tools/files.js`): fehlendes Treffer-
+  Limit im `grep`-Zweig (anders als im `rg`-Zweig mit `--max-count`) — seit
+  08-25 offen, heute erneut vom Server-Vorschlag bestätigt und im Code
+  verifiziert. Kleiner, isolierter Fix (`-m 5`/`--max-count=5` ergänzen).
+- `pruefenListe()` (`server/ausloeser.js`) prüft `art:"ordner"` weiterhin
+  nicht auf einen sinnvollen Wert und `id` nirgends auf Eindeutigkeit
+  innerhalb der Liste — seit 08-19/08-24 offen, heute erneut vom Fehlendes-
+  Vorschlag bestätigt und im Code verifiziert (Zeile ~58 fehlt weiterhin).
+  ~2 Zeilen, analog zur bestehenden `art:"app"`-Prüfung plus ein Set-Check.
+- `dokument_excel` (`server/tools/dokument.js`): kann nur rohe Werte
+  schreiben, keine echten Formeln (`<f>`-Element) und keine Formatierung.
+  ~60-100 Zeilen, moderates Risiko.
+- `resolve()` ist weiterhin doppelt vorhanden (`server/tools/files.js` und
+  `server/tools/dokument.js`) — gemeinsame `server/tools/pfad.js` weiterhin
+  ein guter, kleiner Kandidat.
+- `resolve()` löst weiterhin keine Symlinks auf (vorbestehend, mehrfach
+  vermerkt).
+
 ## 2026-08-27
 Erledigt: `runCommand()` (`server/tools/shell.js`) meldete einen SIGKILL durch
 Zeitlimit oder Ausgabe-Limit bisher nicht — der Nutzer sah nur `exit=null`

@@ -203,7 +203,7 @@
   text-transform: uppercase;
   color: var(--dimmer);
   border-radius: 4px;                     /* die Groq-Seite: harte Kante */
-  border: 1px solid var(--line-soft);
+  border: 1px solid transparent;          /* reserviert die Breite, damit der Gefahr-Rahmen keinen Sprung macht */
   padding: 2px 5px;
   white-space: nowrap;
 }
