@@ -1,5 +1,80 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-29
+Erledigt: Composer-Hinweiszeile (`web/src/App.jsx`) zeigte den statischen Text
+"Enter senden · Shift+Enter neue Zeile" (`t('hintSend')`) bisher dauerhaft
+unter dem Eingabefeld — auch mitten in einem langen Gespräch, wo niemand mehr
+erklärt bekommen muss, wie Enter funktioniert. Genau die Art Dauer-Chrome, die
+ChatGPT/Gemini nicht zeigen, und der letzte rein statische Dauer-Text in
+dieser Zeile (Zeiger/Weckwort/Dauerlauschen/Notch-Knopf sind schon länger in
+die Einstellungen ausgelagert). Jetzt erscheint der Hinweis nur noch, solange
+`items.length === 0` ist, exakt nach demselben Muster wie die Schnellwahl-
+Chips seit der 08-17-Nacht. "Stimme an/aus" und ein ggf. sichtbarer
+"Schlüssel fehlt"-Link bleiben unverändert dauerhaft in der Zeile.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes), jedem
+Agenten die komplette NOTIZEN.md mitgegeben. Server fand `web_search`
+(`server/tools/web.js`) liefert bei blockierter/leerer DuckDuckGo-Antwort
+(HTTP 200, aber Rate-Limit-Seite) ununterscheidbar dasselbe `(keine Treffer)`
+wie bei einer echten Nullsuche — nicht gewählt, weil die Heuristik "sieht wie
+eine Blockseite aus" selbst unsicher ist und im schlechtesten Fall echte
+Nulltreffer fälschlich als Fehler meldet, also ein neues Risiko durch das
+Fixen eines alten einführen könnte. Fehlendes fand: es gibt gar kein
+`memory_forget`-Werkzeug, um falsch gespeicherte Erinnerungen wieder loszuwerden
+(nur `memory_save`/`memory_search` in `server/memory.js`) — echter Fund, aber
+zu groß für eine Nacht (Embedding-Matching gegen Fehltreffer, mehrdeutige
+Kandidaten behandeln, neues Werkzeug registrieren). Oberfläche-Vorschlag
+gewählt: kleinster Eingriff (~4 Zeilen, eine Datei), nutzt ein bereits
+bewährtes Muster, trifft direkt den im Auftrag genannten größten
+Nutzerwunsch (ruhigere Oberfläche).
+
+Beide Prüfer fanden unabhängig voneinander denselben Randfall: `gespraechOeffnen()`
+(Zeile ~589) setzt `items` beim Öffnen eines alten Gesprächs kurz auf `[]`,
+bevor die History nachgeladen wird — in diesem Zeitfenster (und dauerhaft,
+falls die History keine user/assistant-Nachrichten enthält) blitzt der
+Hinweistext in einem eigentlich nicht-leeren Chat wieder auf. Kein Absturz,
+rein kosmetisch, kein TypeError (`items` ist immer ein Array, `useState([])`).
+Bewusst NICHT behoben: exakt derselbe Effekt besteht bereits seit der
+08-17-Nacht für die Schnellwahl-Chips am selben `items.length === 0`-Muster
+und wurde nie als Fehler eingestuft — eine Ausweitung auf `gespraechOeffnen()`
+hätte den Scope über die eine geplante Änderung hinaus vergrößert. Prüfer 1
+hat die Grundfunktion zusätzlich real im Browser getestet (echter Server auf
+Port 3018, Playwright/Chromium): Hinweis sichtbar im leeren Chat, verschwindet
+nach dem Senden einer Nachricht, `.hint`-Zeile bleibt sauber (Stimme-Knopf und
+Schlüssel-fehlt-Link stehen weiterhin da, kein Layoutsprung).
+
+`npm run build` lief bei mir am Ende sauber durch, `git status`/`git diff`
+enthielten nur die eine erwartete Stelle in `App.jsx`, keine Geheimnisse.
+
+Offen für kommende Nächte (aus den drei heutigen Vorschlägen, keiner davon
+umgesetzt):
+- `web_search` (`server/tools/web.js`, ~Zeile 77-84): blockierte/rate-
+  limitierte DuckDuckGo-Antworten (HTTP 200) sehen für den Code wie eine echte
+  Nullsuche aus, Nutzer/Agent bekommen keinen Hinweis, dass die Suche selbst
+  fehlgeschlagen ist. Eine zuverlässige Heuristik "ist das eine Blockseite"
+  müsste sorgfältig gegen echte Nulltreffer abgegrenzt werden, sonst tauscht
+  man ein stilles Problem gegen ein neues falsches Fehlersignal.
+- `memory_forget` fehlt komplett (`server/memory.js`) — Gedächtnis kann nur
+  wachsen, nie eine falsche/veraltete Erinnerung wieder verlassen (außer per
+  Hand in der SQLite-Datei). Kleinster sinnvoller Schritt: ein Werkzeug nach
+  dem Muster von `recall()`, das bei eindeutigem Treffer löscht und bei
+  mehreren ähnlich guten Treffern die Kandidaten auflistet statt blind zu
+  löschen. ~20-30 Zeilen, eine Datei, aber Embedding-Matching-Logik verdient
+  eine eigene Nacht mit eigener Prüfung.
+- `gespraechOeffnen()` (`web/src/App.jsx`, ~Zeile 589) leert `items` kurz vor
+  dem Nachladen der History — teilt sich das bereits akzeptierte Verhalten
+  der Schnellwahl-Chips (kurzes Aufblitzen bei `items.length === 0`-Prüfungen
+  während eines Ladevorgangs). Kein Bug, aber falls diese Stelle mal aus
+  anderem Grund angefasst wird: dran denken, dass mehrere UI-Elemente an
+  `items.length === 0` hängen, nicht nur die Chips.
+
+Unverändert offen aus früheren Nächten (siehe 2026-08-28 unten):
+- Async-Routen ohne try/catch in server/index.js (5 Stellen).
+- `fs_search`-grep-Fallback: fehlendes Treffer-Limit im grep-Zweig.
+- `pruefenListe()` (server/ausloeser.js): `art:"ordner"` und `id`-Eindeutigkeit.
+- `dokument_excel`: keine echten Formeln/Formatierung.
+- `resolve()` doppelt vorhanden (files.js/dokument.js), löst keine Symlinks auf.
+
 ## 2026-08-28
 Erledigt: `.baustein-marke` (`web/src/werkstatt.css`) zeigte bisher, wie seit
 2026-08-12 wiederholt bestätigt und immer wieder vertagt, in JEDEM Zustand

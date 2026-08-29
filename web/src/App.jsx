@@ -807,7 +807,10 @@ export default function App() {
               </button>
             </div>
             <div className="hint">
-              <span>{t('hintSend')}</span>
+              {/* Nur beim leeren Chat: mitten im Gespräch braucht niemand mehr
+                  die Erklärung, wie Enter funktioniert — Dauer-Chrome, die
+                  ChatGPT/Gemini so nicht zeigen. */}
+              {items.length === 0 && <span>{t('hintSend')}</span>}
               <button
                 className="linkish"
                 onClick={() => {
