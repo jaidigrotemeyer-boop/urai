@@ -53,7 +53,14 @@ const PORT = Number(process.env.PORT || 3017)
 const app = express()
 app.use(express.json({ limit: '10mb' }))
 
-app.get('/api/status', async (_req, res) => {
+// Express 4 reicht eine geworfene Exception aus einer async-Route nicht an
+// next(err) durch — ohne diesen Einpacker würde ein Fehler hier den ganzen
+// Prozess per unbehandelter Promise-Rejection mitreißen, samt aller offenen
+// WebSocket-Verbindungen. Erfolgsfall bleibt unverändert, nur der Fehlerfall
+// landet jetzt im Error-Handler weiter unten.
+const asyncRoute = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next)
+
+app.get('/api/status', asyncRoute(async (_req, res) => {
   res.json({
     ok: true,
     brain: await brainStatus(),
@@ -62,7 +69,7 @@ app.get('/api/status', async (_req, res) => {
     rollen: Object.keys(ROLLEN),
     unterstuetzer: gutscheinStand(),
   })
-})
+}))
 
 // Erststart: Profil, Herkunft und Nutzungsbedingungen in einem Zug speichern
 app.post('/api/onboarding', (req, res) => {
@@ -181,15 +188,15 @@ app.get('/api/telegram', (_req, res) => {
 })
 
 // Nach dem Speichern neuer Zugangsdaten neu aufsetzen
-app.post('/api/telegram/neu', async (_req, res) => {
+app.post('/api/telegram/neu', asyncRoute(async (_req, res) => {
   telegram.stop()
   res.json(await telegram.start())
-})
+}))
 
 // Lokales Gehirn: Stand, RAM-Druck, Schlange — die Oberfläche fragt im Takt nach
-app.get('/api/lokal', async (_req, res) => {
+app.get('/api/lokal', asyncRoute(async (_req, res) => {
   res.json({ ...(await lokalStand()), modelle: await ollamaModelle() })
-})
+}))
 
 app.get('/api/tools', (_req, res) => {
   res.json({
@@ -202,10 +209,10 @@ app.get('/api/tools', (_req, res) => {
 app.get('/api/mcp', (_req, res) => res.json(mcpStand()))
 
 // Nach dem Speichern neu anbinden — sonst gälte ein neuer Server erst nach Neustart
-app.post('/api/mcp/neu', async (_req, res) => {
+app.post('/api/mcp/neu', asyncRoute(async (_req, res) => {
   const ergebnis = await mcpVerbinden()
   res.json({ ergebnis, stand: mcpStand() })
-})
+}))
 
 // ── Skills: Anleitungen, die das Gehirn nur bei Bedarf holt ──
 // Die Liste kommt bewusst ohne den Anleitungstext. Wer den will, holt den einzelnen Skill —
@@ -309,7 +316,7 @@ app.post('/api/speak', async (req, res) => {
   }
 })
 
-app.get('/api/voices', async (_req, res) => res.json(await stimmenListe()))
+app.get('/api/voices', asyncRoute(async (_req, res) => res.json(await stimmenListe())))
 
 // Waitboard: Bild rein, Text raus — geschrieben wird im Browser.
 waitboardRouten(app)
@@ -407,13 +414,11 @@ if (fs.existsSync(dist)) {
   app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')))
 }
 
-// Fängt Fehler, die synchron geworfen oder per next(err) durchgereicht werden —
-// vor allem express.json() bei kaputtem Body. Ohne ihn landet sowas bei
-// Express' Standard-Handler, der eine volle HTML-Seite mit Stacktrace und
-// echten Server-Dateipfaden zurückschickt statt einer sauberen Meldung wie
-// der Rest hier. Rettet NICHT vor unbehandelten Promise-Fehlern in eigenen
-// async-Routen ohne eigenes try/catch (Express 4 reicht die nicht hierher
-// durch) — das ist eine andere, größere Baustelle, siehe NOTIZEN.md.
+// Fängt Fehler, die synchron geworfen, per next(err) durchgereicht oder von
+// asyncRoute() aufgefangen werden — vor allem express.json() bei kaputtem
+// Body. Ohne ihn landet sowas bei Express' Standard-Handler, der eine volle
+// HTML-Seite mit Stacktrace und echten Server-Dateipfaden zurückschickt
+// statt einer sauberen Meldung wie der Rest hier.
 app.use((err, _req, res, _next) => {
   console.error(err)
   res.status(err.status || err.statusCode || 400).json({ fehler: err.message || 'Fehler' })

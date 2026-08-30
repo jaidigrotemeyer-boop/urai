@@ -1,5 +1,75 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-30
+Erledigt: die 5 seit 08-19 als "größter Hebel, aber mehr als eine kleine Sache"
+vertagten ungeschützten async-Routen in `server/index.js` (`/api/status`,
+`/api/telegram/neu`, `/api/lokal`, `/api/mcp/neu`, `/api/voices`) — eine
+Exception darin (z.B. `brainStatus()` oder `lokalStand()` wirft) riss bisher
+per unbehandelter Promise-Rejection den kompletten Node-Prozess mit, samt
+aller offenen WebSocket-Verbindungen. Express 4 reicht Fehler aus async-
+Handlern nicht automatisch an den bestehenden Error-Handler durch — das
+stand sogar schon als Warnkommentar direkt über diesem Handler. Statt die 5
+Stellen einzeln mit try/catch zu versehen, ein einziger Einpacker direkt
+nach `const app = express()`:
+`const asyncRoute = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next)`,
+alle 5 Routen damit umschlossen (`asyncRoute(async (...) => {...})`). Löst
+den seit elf Nächten aufgeschobenen Punkt in ~10 Zeilen, einer Datei, ohne
+die 5 Stellen einzeln anzufassen — genau der elegantere Weg, den der Blocker
+("5 Stellen statt einer") bisher verhindert hatte.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes), jedem
+Agenten die komplette NOTIZEN.md mitgegeben. Oberfläche fand die Kontingent-
+Ampel in der Fußleiste (`web/src/App.jsx`, ~Zeile 900), die entgegen dem im
+Code selbst mehrfach festgehaltenen Prinzip ("ohne Auftrag unsichtbar")
+permanent sichtbar ist, auch wenn alles im grünen Bereich liegt — guter,
+kleiner Kandidat (~2-3 Zeilen), noch nie notiert. Fehlendes bestätigte
+`pruefenListe()` (`server/ausloeser.js`) prüft `art:"ordner"` weiterhin
+nicht und `id` nicht auf Eindeutigkeit — seit 08-19 bekannt, weiterhin
+offen. Server-Vorschlag gewählt: behebt einen echten, seit vielen Nächten
+als "größter Hebel" eingestuften Absturzgrund, nicht nur kosmetische Ruhe —
+ein Server, der ganz abstürzt, ist etwas, das der Nutzer sehr wohl merkt.
+
+Beide Prüfer haben alles selbst ausgeführt, nicht nur meinen Bericht
+geglaubt. Prüfer 1: `node --check`, `npm install && npm run build`, den
+Server-Modul-Ladetest, einen eigenen Express-Testaufbau (wortgleicher
+Wrapper, kaputte Route wirft, `unhandledRejection`-Listener — feuert nicht,
+saubere 400-JSON-Antwort statt Absturz) UND einen echten Serverstart
+(`PORT=3999`, `curl /api/status` → HTTP 200 mit vollem JSON, danach sauber
+beendet). Prüfer 2 (Randfälle) prüfte Klammerung an allen 5 Stellen, `this`/
+Closures/Argumentreihenfolge, synchronen `throw` vor dem ersten `await`
+(wird von der `async`-Funktion automatisch zu einer rejected Promise, vom
+Wrapper korrekt gefangen — selbst getestet) und den Extremfall "Fehler nach
+bereits gesendetem `res.json()`" (kommt in den echten 5 Routen nicht vor,
+im Konstruiert-Test landet es bei Express' eigenem `finalhandler`, kein
+Prozessabsturz). Zusätzlich einen Baseline-Test ohne Wrapper gegen denselben
+Fehlerfall gefahren: dort stürzt der Prozess nachweislich ab (`EXIT_CODE=1`)
+— die Änderung ist damit belegt eine echte Verbesserung. Beide fanden
+nichts Echtes zu bemängeln.
+
+`npm run build` und der Server-Modul-Ladetest liefen bei mir am Ende
+nochmal sauber durch, `git status`/`git diff` enthielten nur die eine
+erwartete Datei (`server/index.js`), keine Geheimnisse.
+
+Offen für kommende Nächte:
+- Kontingent-Ampel (`web/src/App.jsx`, ~Zeile 900-914) ist permanent
+  sichtbar, auch wenn kein Wert knapp/auffällig ist — widerspricht dem in
+  `Aktivitaet.jsx`/`Auftraege.jsx` festgehaltenen Prinzip "ohne Auftrag
+  unsichtbar". Vorschlag: `if (!kontingent.some(k => k.eng || k.anteil > 0.9)) return null`
+  direkt nach der bestehenden `eng`-Filterung. ~2-3 Zeilen, eine Datei,
+  kein Risiko, noch nie zuvor notiert — guter Kandidat, trifft den größten
+  Nutzerwunsch (ruhigere Oberfläche) direkt.
+- `pruefenListe()` (`server/ausloeser.js`, Zeile ~52-63) prüft `art:"ordner"`
+  weiterhin nicht auf einen sinnvollen Wert (leerer/Whitespace-Pfad wird
+  durchgelassen) und `id` nirgends auf Eindeutigkeit innerhalb der Liste —
+  seit 08-19 offen. ~4-5 Zeilen, analog zur bestehenden `art:"app"`-Zeile.
+
+Unverändert offen aus früheren Nächten (siehe 2026-08-29 unten):
+- `web_search` erkennt blockierte/rate-limitierte DuckDuckGo-Antworten nicht.
+- `memory_forget` fehlt komplett (server/memory.js).
+- `fs_search`-grep-Fallback: fehlendes Treffer-Limit im grep-Zweig.
+- `dokument_excel`: keine echten Formeln/Formatierung.
+- `resolve()` doppelt vorhanden (files.js/dokument.js), löst keine Symlinks auf.
+
 ## 2026-08-29
 Erledigt: Composer-Hinweiszeile (`web/src/App.jsx`) zeigte den statischen Text
 "Enter senden · Shift+Enter neue Zeile" (`t('hintSend')`) bisher dauerhaft
