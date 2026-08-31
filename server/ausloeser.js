@@ -51,13 +51,21 @@ export function schreiben(liste) {
  */
 export function pruefenListe(liste) {
   if (!Array.isArray(liste)) throw new Error('Auslöser-Liste muss ein Array sein.')
+  const idsGesehen = new Set()
   for (const a of liste) {
     if (!a || typeof a !== 'object') throw new Error('Jeder Auslöser muss ein Objekt sein.')
     if (typeof a.id !== 'string' || !a.id) throw new Error('Auslöser: id fehlt oder ist kein Text.')
+    // Ohne diese Prüfung überschreiben sich zwei Einträge mit derselben id
+    // gegenseitig bei ausloeser_loeschen/Umschalten (liste.find trifft immer nur den ersten).
+    if (idsGesehen.has(a.id)) throw new Error(`Auslöser-Liste: id "${a.id}" kommt mehrfach vor.`)
+    idsGesehen.add(a.id)
     if (typeof a.ablauf !== 'string' || !a.ablauf) throw new Error(`Auslöser ${a.id}: ablauf fehlt oder ist kein Text.`)
     if (!ARTEN.includes(a.art)) throw new Error(`Auslöser ${a.id}: art muss eins von ${ARTEN.join(', ')} sein.`)
     if (a.art === 'zeit' && !/^\d{2}:\d{2}$/.test(a.wann)) throw new Error(`Auslöser ${a.id}: bei art "zeit" braucht wann die Form "08:30".`)
     if (a.art === 'app' && (typeof a.wann !== 'string' || !a.wann)) throw new Error(`Auslöser ${a.id}: bei art "app" braucht wann den App-Namen.`)
+    // Ein leerer/Whitespace-Pfad würde ordnerBeobachten() bisher still überspringen
+    // (fs.existsSync scheitert lautlos) — der Auslöser stünde in der Liste, feuert aber nie.
+    if (a.art === 'ordner' && (typeof a.wann !== 'string' || !a.wann.trim())) throw new Error(`Auslöser ${a.id}: bei art "ordner" braucht wann einen Pfad.`)
   }
   return liste
 }
@@ -246,7 +254,11 @@ export const ausloeserTools = [
       if (art === 'app' && !wann) throw new Error('Bei art "app" braucht wann den App-Namen.')
 
       const liste = lesen()
-      const id = `${ablauf}-${art}-${Date.now().toString(36).slice(-4)}`
+      // Zusatzbuchstaben gegen Kollisionen: zwei Auslöser für denselben Ablauf+Art,
+      // in derselben Millisekunde angelegt, hätten sonst dieselbe id — pruefenListe()
+      // lehnt so einen Doppelgänger jetzt ab und würde ohne den Zufallsteil jede
+      // spätere Änderung über die Einstellungen blockieren, bis er von Hand entfernt wird.
+      const id = `${ablauf}-${art}-${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 5)}`
       liste.push({ id, ablauf, art, wann, eingaben, an: true })
       schreiben(liste)
 
