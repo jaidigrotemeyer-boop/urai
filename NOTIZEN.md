@@ -1,5 +1,89 @@
 # Notizen für die nächste Nacht
 
+## 2026-08-31
+Erledigt: `pruefenListe()` (`server/ausloeser.js`) prüfte bisher `art:"zeit"`
+und `art:"app"`, aber `art:"ordner"` gar nicht — seit der 08-19-Nacht
+wiederholt bestätigt und nie behoben. Ein leerer/Whitespace-Pfad kam
+anstandslos durch `POST /api/ausloeser` durch; `ordnerBeobachten()`
+scheitert dort lautlos an `fs.existsSync()` und überspringt den Eintrag
+für immer, ohne dass Nutzer oder Agent je eine Fehlermeldung sehen — der
+Auslöser steht sichtbar in der Liste, feuert aber nie. Außerdem prüfte
+die Funktion `id` nirgends auf Eindeutigkeit; zwei Einträge mit gleicher
+`id` ließen `ausloeser_loeschen`/Umschalten unbestimmt auf mehrere
+Einträge zugleich wirken (`liste.find`/`filter` matcht nur den ersten
+Treffer). Jetzt zwei neue Zeilen in `pruefenListe()`, analog zur
+bestehenden `art:"app"`-Prüfung, plus ein `Set`-Check über alle `id`s.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes), jedem
+Agenten die komplette NOTIZEN.md mitgegeben. Server und Fehlendes sind
+unabhängig voneinander auf genau denselben Fund gestoßen (ohne
+voneinander zu wissen) — starkes Signal, dass es der richtige nächste
+Schritt war. Oberfläche fand erneut die seit 08-30 bekannte, permanent
+sichtbare Kontingent-Ampel (`web/src/App.jsx`, `Ampel`-Funktion,
+~Zeile 900) — guter, noch offener Kandidat für eine kommende Nacht
+(Vorschlag: `if (!kontingent.some(k => k.eng || k.anteil > 0.9)) return
+null` direkt nach der bestehenden `eng`-Filterung), diesmal zugunsten
+des Server-Fundes vertagt, weil der einen echten stillen Fehlerfall
+behebt statt nur kosmetisch zu beruhigen.
+
+Prüfer 2 (Randfälle) fand in der ersten Fassung einen echten, aber
+subtilen Folgefehler: die neue `id`-Eindeutigkeitsprüfung trifft auf eine
+seit jeher schwache `id`-Generierung in `ausloeser_anlegen()` (nur ein
+4-Zeichen-Millisekunden-Suffix aus `Date.now().toString(36)`). Zwei
+Auslöser für denselben Ablauf, in derselben Millisekunde angelegt, hätten
+bisher dieselbe `id` bekommen — das war vorher harmlos (nur später beim
+Anzeigen/Löschen ambig), wird durch die neue strikte Prüfung aber zu
+einem echten Blocker: `POST /api/ausloeser` prüft immer die gesamte
+Liste, ein einziger Alt-Doppelgänger hätte ab sofort JEDE künftige
+Änderung über die Einstellungen-Oberfläche abgelehnt, bis er von Hand aus
+`data/ausloeser.json` entfernt wird. Per Konstruiert-Test bestätigt
+(zwei `ausloeser_anlegen`-Aufrufe mit eingefrorener Millisekunde erzeugen
+identische `id`). Behoben: `ausloeser_anlegen` hängt jetzt zusätzlich
+`Math.random().toString(36).slice(2,5)` (3 Zeichen Zufall) an die `id`
+an — senkt die Kollisionswahrscheinlichkeit bei zwei Anlagen in derselben
+Millisekunde von 100% auf rund 0,002% (36³ Kombinationen), ohne das
+lesbare `ablauf-art-XXXX`-Format zu ändern oder bestehenden Code zu
+berühren, der `id` nur per Gleichheit vergleicht (per `grep` bestätigt:
+keine Stelle zerlegt/parst `id`).
+
+Danach beide Prüfer nochmal auf die nachgebesserte Fassung angesetzt.
+Prüfer 1 hat 500 `ausloeser_anlegen`-Aufrufe parallel gegen einen
+Test-Ablauf gefeuert (maximiert die Chance auf gleiche Millisekunde):
+500 von 500 IDs eindeutig, `pruefenListe()` akzeptiert die daraus
+entstandene reale Liste anstandslos (keine falschen Positiven), Testdaten
+danach vollständig wieder entfernt. Prüfer 2 rechnete die
+Kollisionswahrscheinlichkeit selbst nach (n=2: ≈0,0021%, n=10: ≈0,096%,
+nur bei massenhafter Anlage binnen einer Millisekunde relevant — kein
+realer Nutzungsfall) und bestätigte per `grep`, dass kein Code die `id`
+zerlegt oder ihre Länge/Struktur voraussetzt. Beide fanden in der
+nachgebesserten Fassung nichts Echtes mehr.
+
+`node --check`, `npm run build` und der Server-Modul-Ladetest liefen bei
+mir am Ende nochmal sauber durch, `git status`/`git diff --cached`
+enthielten nur die eine erwartete Datei (`server/ausloeser.js`), keine
+Geheimnisse. `HEAD` stand zu Beginn der Nacht wieder losgelöst exakt auf
+`origin/main` — mit `git checkout -B main origin/main` aufgeholt.
+
+Offen für kommende Nächte:
+- Kontingent-Ampel (`web/src/App.jsx`, `Ampel`-Funktion, ~Zeile 900) ist
+  permanent sichtbar, auch wenn kein Wert knapp/auffällig ist —
+  widerspricht dem Prinzip "ohne Auftrag unsichtbar". Vorschlag:
+  `if (!kontingent.some(k => k.eng || k.anteil > 0.9)) return null`
+  direkt nach der bestehenden `eng`-Filterung. ~1-2 Zeilen, eine Datei,
+  kein Risiko, seit 08-30 bekannt, weiterhin nicht umgesetzt.
+- `ausloeser_anlegen()` validiert beim Anlegen selbst weiterhin nicht
+  gegen die bestehende Liste (nur `pruefenListe()` beim `POST
+  /api/ausloeser` aus den Einstellungen tut das) — identisch zum
+  generellen Muster im Code, kein neues Problem, aber falls diese Stelle
+  mal aus anderem Grund angefasst wird: dran denken.
+
+Unverändert offen aus früheren Nächten:
+- `web_search` erkennt blockierte/rate-limitierte DuckDuckGo-Antworten nicht.
+- `memory_forget` fehlt komplett (server/memory.js).
+- `fs_search`-grep-Fallback: fehlendes Treffer-Limit im grep-Zweig.
+- `dokument_excel`: keine echten Formeln/Formatierung.
+- `resolve()` doppelt vorhanden (files.js/dokument.js), löst keine Symlinks auf.
+
 ## 2026-08-30
 Erledigt: die 5 seit 08-19 als "größter Hebel, aber mehr als eine kleine Sache"
 vertagten ungeschützten async-Routen in `server/index.js` (`/api/status`,
