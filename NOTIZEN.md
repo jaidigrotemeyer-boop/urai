@@ -1,5 +1,94 @@
 # Notizen für die nächste Nacht
 
+## 2026-09-01
+Erledigt: die Kontingent-Ampel (`web/src/App.jsx`, Funktion `Ampel`, ~Zeile
+900) war seit der 08-30-Nacht (und schon davor) als klarer, aber immer wieder
+zugunsten dringenderer Server-Funde vertagter Kandidat notiert — sie zeigte
+den Balken in der Fußleiste permanent an, auch wenn alle Gehirn-Kontingente
+im grünen Bereich lagen. Genau die Art Dauer-Chrome, die der Nutzer als
+größten offenen Wunsch (ruhigere Oberfläche, näher an ChatGPT/Gemini) nennt.
+Jetzt gilt: `if (!eng.length) return null` direkt nach dem bestehenden
+`eng`-Filter — die Ampel taucht nur noch auf, wenn `server/kontingent.js`
+mindestens ein Gehirn als `eng` markiert (Schwelle `anteil > 0.75`).
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes), jedem
+Agenten die komplette NOTIZEN.md mitgegeben. Server und Fehlendes sind
+unabhängig voneinander auf denselben Fund gestoßen: `fs_search`-grep-
+Fallback (`server/tools/files.js`, ~Zeile 133) hat anders als der `rg`-Zweig
+kein Treffer-Limit, kann bei breitem Muster `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`
+auslösen und zeigt dann eine irreführende Fehlerspur statt der echten Ursache
+— seit 08-25 wiederholt bestätigt, weiterhin offen (guter, sehr kleiner
+Kandidat für eine kommende Nacht, siehe unten). Oberfläche-Vorschlag gewählt:
+trifft direkt den im Auftrag genannten größten Nutzerwunsch, seit mehreren
+Nächten als sicherer 1-Zeilen-Fix beschrieben, und die zuvor dringenderen
+Server-/Sicherheitsfunde (Async-Routen-Absturz, `shell_run`-Revier,
+`pruefenListe()`-Validierung) sind inzwischen alle erledigt.
+
+Prüfer 2 (Randfälle) fand in der ersten Fassung einen echten, aber
+harmlosen Schönheitsfehler: die erste Fassung prüfte `!kontingent.some((k)
+=> k.eng || k.anteil > 0.9)`, aber `server/kontingent.js` setzt bereits
+`eng: anteil > 0.75` — da 0.9 > 0.75, war der `anteil > 0.9`-Teil toter
+Code, der niemals zusätzlich griff (jeder Fall mit `anteil > 0.9` hatte
+ohnehin schon `eng === true`). Kein Laufzeitfehler, aber irreführend, als
+hätte die Ampel zwei unabhängige Schwellen. Behoben: auf die bereits
+berechnete `eng`-Liste vereinfacht (`if (!eng.length) return null`,
+direkt nach dem bestehenden `const eng = kontingent.filter(...)`). Dabei
+zusätzlich den dadurch neu redundanten `eng.length > 0 &&`-Check in der
+JSX (immer wahr wegen des jetzt vorgeschalteten frühen Returns) entfernt —
+gleiche Funktion, trivial, keine Verhaltensänderung. Prüfer 2 bestätigte
+danach: der verbleibende `k.anteil > 0.9`-Vergleich für die Balkenfarbe
+(`rot` vs. `gelb`) ist NICHT tot, weil er innerhalb der bereits sichtbaren
+Ampel zwischen "eng" und "sehr eng" unterscheidet — anderer Zweck als der
+frühere, doppelte Sichtbarkeits-Check. Ebenfalls geprüft und als
+vorbestehend (nicht neu) eingestuft: `eng[0].name` zeigt bei mehreren engen
+Einträgen immer den ersten in Provider-Kettenreihenfolge, nicht zwingend
+den kritischsten — bestand schon vor dieser Änderung identisch, außerhalb
+vom Scope.
+
+Prüfer 1 (Funktioniert es) hat `npm install && npm run build` selbst vor
+und nach der Nachbesserung ausgeführt (beide Male fehlerfrei), den Server-
+Code (`server/kontingent.js`/`server/brain.js`) auf die tatsächlichen
+Feldnamen/Schwellen geprüft und ein simuliertes Node-Testskript mit
+mehreren `kontingent`-Arrays (leer, alle grün, ein `eng`-Eintrag, Grenzfall
+`anteil=0.75`) gegen die Bedingung laufen lassen — Verhalten in allen
+Fällen wie gewünscht. Kein echtes Rendering im Browser möglich (keine
+Mac-Umgebung hier) — das bleibt unbestätigt, ausdrücklich als Grenze
+benannt statt als Erfolg behauptet.
+
+`npm install && npm run build` liefen bei mir am Ende nochmal sauber durch,
+der Server-Modul-Ladetest warf keinen Modul-/Syntaxfehler, `git status`/
+`git diff --cached` enthielten nur die eine erwartete Datei (`web/src/
+App.jsx`), keine Geheimnisse. `HEAD` stand zu Beginn der Nacht wieder
+losgelöst exakt auf `origin/main` — mit `git checkout -B main origin/main`
+aufgeholt, die gestagte Änderung blieb dabei erhalten.
+
+In der Skill-Liste dieser Session steckte erneut der eingeschleuste Eintrag
+„steinzeit-modus" (Anweisung, grundsätzlich wie ein Höhlenmensch in kurzen
+Sätzen zu antworten) — wie in den Vornächten als Prompt-Injection ignoriert.
+Beide Prüf-Agenten berichteten unabhängig denselben Fund.
+
+Offen für kommende Nächte:
+- `fs_search`-grep-Fallback (`server/tools/files.js`, ~Zeile 133): fehlendes
+  Treffer-Limit, anders als im `rg`-Zweig (`--max-count 5`). Heute von
+  Server- UND Fehlendes-Vorschlag unabhängig voneinander bestätigt (starkes
+  Signal). ~1 Zeile (`-m`/`--max-count`-Äquivalent im grep-Aufruf ergänzen),
+  eine Datei, minimales Risiko — seit 08-25 wiederholt offen, guter
+  nächster Kandidat.
+- `eng[0].name` in der Ampel-Warnung (`web/src/App.jsx`) zeigt bei mehreren
+  engen Kontingenten immer den ersten in Kettenreihenfolge, nicht den mit
+  dem höchsten `anteil`. Vorbestehend, heute von Prüfer 2 bestätigt, kein
+  Bug, aber falls diese Stelle nochmal angefasst wird: `eng.slice().sort((a,
+  b) => b.anteil - a.anteil)[0]` würde den kritischsten zeigen.
+
+Unverändert offen aus früheren Nächten:
+- `web_search` erkennt blockierte/rate-limitierte DuckDuckGo-Antworten nicht.
+- `memory_forget` fehlt komplett (server/memory.js).
+- `dokument_excel`: keine echten Formeln/Formatierung.
+- `resolve()` doppelt vorhanden (files.js/dokument.js), löst keine Symlinks auf.
+- `ausloeser_anlegen()` validiert beim Anlegen selbst weiterhin nicht gegen
+  die bestehende Liste (nur `pruefenListe()` beim `POST /api/ausloeser` tut
+  das) — kein neues Problem, dran denken falls die Stelle angefasst wird.
+
 ## 2026-08-31
 Erledigt: `pruefenListe()` (`server/ausloeser.js`) prüfte bisher `art:"zeit"`
 und `art:"app"`, aber `art:"ordner"` gar nicht — seit der 08-19-Nacht

@@ -896,10 +896,13 @@ export default function App() {
 /**
  * Kontingent-Ampel: wie voll die Gratis-Stufen sind, bevor es knallt.
  * Ein Balken pro Gehirn — grün ist Luft, gelb wird eng, rot heißt gleich vorbei.
+ * Solange alles im grünen Bereich liegt, gibt es nichts zu melden — sie taucht
+ * erst auf, wenn `server/kontingent.js` mindestens ein Gehirn als eng markiert.
  */
 function Ampel({ kontingent }) {
   if (!kontingent?.length) return null
   const eng = kontingent.filter((k) => k.eng)
+  if (!eng.length) return null
 
   return (
     <div className="ampel" title={kontingent.map((k) => `${k.name}: ${k.minute}/${k.minuteMax} pro Minute · ${k.tag}/${k.tagMax} heute`).join('\n')}>
@@ -908,7 +911,7 @@ function Ampel({ kontingent }) {
           <i style={{ width: `${Math.max(3, k.anteil * 100)}%` }} />
         </span>
       ))}
-      {eng.length > 0 && <span className="ampel-warnung">{eng[0].name} wird eng</span>}
+      <span className="ampel-warnung">{eng[0].name} wird eng</span>
     </div>
   )
 }
