@@ -159,7 +159,7 @@ function eindampfen(messages, frisch, altMax) {
 
 // Diese Werkzeuge dürfen nie nebeneinander laufen: sie verändern etwas,
 // oder die Reihenfolge entscheidet (erst schauen, dann klicken).
-const NUR_NACHEINANDER = /^(fs_write|fs_edit|shell_run|mac_|self_|web_browse|agent_)/
+const NUR_NACHEINANDER = /^(fs_write|fs_edit|fs_delete|fs_move|shell_run|mac_|self_|web_browse|agent_)/
 
 /**
  * Werkzeug-Aufrufe in Gruppen schneiden, die gefahrlos gleichzeitig laufen.

@@ -20,7 +20,7 @@ export const ROLLEN = {
   },
   programmierer: {
     hint: 'Liest und schreibt Code, führt Befehle aus, prüft das Ergebnis.',
-    extra: ['fs_write', 'fs_edit', 'shell_run'],
+    extra: ['fs_write', 'fs_edit', 'fs_delete', 'fs_move', 'shell_run'],
   },
   bildschirm: {
     hint: 'Liest den Bildschirm, klickt und tippt, bedient Apps.',

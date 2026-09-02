@@ -46,6 +46,9 @@ await pruefe('fs_edit', { path: datei, old_string: 'welt', new_string: 'erde' })
 await pruefe('fs_list', { path: tmp }, { erwarte: /test\.txt/ })
 await pruefe('fs_search', { pattern: 'erde', path: tmp })
 await pruefe('fs_glob', { pattern: '*.txt', path: tmp })
+const verschoben = path.join(tmp, 'verschoben.txt')
+await pruefe('fs_move', { path: datei, to: verschoben }, { erwarte: /Verschoben/ })
+await pruefe('fs_delete', { path: verschoben }, { erwarte: /Gelöscht/ })
 
 // ── Terminal ──
 await pruefe('shell_run', { command: 'echo urai-test' }, { erwarte: /urai-test/ })

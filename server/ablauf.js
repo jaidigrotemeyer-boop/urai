@@ -43,7 +43,7 @@ export const ARTEN = ['eingabe', 'text', 'werkzeug', 'agent', 'gruppe', 'bedingu
 
 // Diese Werkzeuge verändern etwas oder steuern den Mac: nie nebeneinander, immer der Reihe nach.
 // ablauf_ steht mit drin, damit ein geschachtelter Ablauf nie nebenläufig startet.
-const HEIKEL = /^(fs_write|fs_edit|shell_run|mac_|self_|ablauf_)/
+const HEIKEL = /^(fs_write|fs_edit|fs_delete|fs_move|shell_run|mac_|self_|ablauf_)/
 
 // Rollennamen nur zum Prüfen — crew.js wird bewusst nicht statisch geladen (Import-Kreis).
 const ROLLEN_NAMEN = ['rechercheur', 'programmierer', 'bildschirm', 'schreiber', 'pruefer', 'allrounder']

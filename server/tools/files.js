@@ -109,6 +109,57 @@ export const fileTools = [
     },
   },
   {
+    name: 'fs_delete',
+    description: 'Datei löschen. Nur einzelne Dateien, keine Ordner.',
+    parameters: {
+      type: 'object',
+      properties: { path: { type: 'string' } },
+      required: ['path'],
+    },
+    danger: true,
+    async run({ path: p }) {
+      const abs = resolve(p)
+      const stat = await fs.stat(abs).catch(() => null)
+      if (!stat) throw new Error(`Nicht gefunden: ${abs}`)
+      // Ganze Ordner löschen ist die Art Befehl, die README/shell.js als HARD_NO
+      // sperrt ("rm -rf") — dasselbe Prinzip gilt hier: fs_delete räumt gezielt
+      // eine Datei weg, nie rekursiv einen ganzen Baum.
+      if (stat.isDirectory()) throw new Error('Das ist ein Ordner. fs_delete löscht nur einzelne Dateien.')
+      // Zwischen dem stat() oben und hier kann die Datei verschwinden (z.B. ein
+      // zweiter, gleichzeitiger fs_delete-Aufruf) — ohne dieses catch käme dann
+      // die rohe "ENOENT"-Meldung statt der gewohnten, verständlichen Form durch.
+      await fs.unlink(abs).catch((e) => {
+        if (e.code === 'ENOENT') throw new Error(`Nicht gefunden: ${abs}`)
+        throw e
+      })
+      return `Gelöscht: ${abs}`
+    },
+  },
+  {
+    name: 'fs_move',
+    description: 'Datei oder Ordner verschieben oder umbenennen.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Woher' },
+        to: { type: 'string', description: 'Wohin' },
+        overwrite: { type: 'boolean', description: 'Vorhandenes Ziel überschreiben' },
+      },
+      required: ['path', 'to'],
+    },
+    danger: true,
+    async run({ path: p, to, overwrite = false }) {
+      const von = resolve(p)
+      const nach = resolve(to)
+      if (!overwrite && fssync.existsSync(nach)) {
+        throw new Error(`Ziel gibt es schon: ${nach} (overwrite:true zum Ersetzen)`)
+      }
+      await fs.mkdir(path.dirname(nach), { recursive: true })
+      await fs.rename(von, nach)
+      return `Verschoben: ${von} → ${nach}`
+    },
+  },
+  {
     name: 'fs_search',
     description: 'Nach Text in Dateien suchen (ripgrep, sonst grep).',
     parameters: {
