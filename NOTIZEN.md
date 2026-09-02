@@ -1,5 +1,126 @@
 # Notizen für die nächste Nacht
 
+## 2026-09-02
+Erledigt: `server/tools/files.js` bot bisher `fs_list/fs_read/fs_write/fs_edit/
+fs_search/fs_glob`, aber kein Werkzeug zum Löschen oder Verschieben/Umbenennen
+einer Datei innerhalb des Reviers — ein alltäglicher Auftrag ("lösch die alte
+Version", "verschieb den Bericht nach Archiv/") hatte keinen sauberen,
+revier-geprüften Pfad, nur den Umweg über `shell_run` (dessen `resolve()`-
+Wache nur `cwd` prüft, nicht das eigentliche `rm`/`mv`-Ziel im Befehlstext).
+Jetzt gibt es `fs_delete` (löscht gezielt eine einzelne Datei, nie rekursiv
+einen Ordner — dasselbe Prinzip wie die `HARD_NO`-Sperre für "rm -rf" in
+`shell.js`) und `fs_move` (prüft Quelle UND Ziel mit `resolve()`, verlangt
+`overwrite:true` für ein bereits vorhandenes Ziel). Beide `danger: true`.
+
+Begleitet: `server/aktivitaet.js` (de/en-Beschreibung der neuen Werkzeuge),
+die `HEIKEL`-Regex in `server/ablauf.js` und `NUR_NACHEINANDER`-Regex in
+`server/agent.js` um `fs_delete|fs_move` erweitert (sonst hätten Abläufe/
+Werkzeug-Wellen die beiden neuen, verändernden Werkzeuge fälschlich parallel
+statt nacheinander laufen lassen — dieselbe Race-Klasse, die diese Regexe
+für `fs_write`/`fs_edit` schon verhindern), die `programmierer`-Rolle in
+`server/crew.js` (bekommt beide zusätzlich erlaubt, wie schon `fs_write`/
+`fs_edit`), und `pruefe.mjs` um zwei Selbsttest-Zeilen. `TOOL_MAP`/
+`ALL_TOOLS`/`TOOL_GROUPS` in `server/tools/index.js` und die UI (Werkstatt-
+Werkzeugliste) brauchten keine Änderung — beide sind vollständig aus
+`fileTools` abgeleitet, keine Datei im Repo listet Werkzeugnamen hart.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes), jedem
+Agenten die komplette NOTIZEN.md mitgegeben. Oberfläche fand einen neuen,
+noch nicht notierten Kandidaten: `merker`/`bei Fehler` in `Werkstatt.jsx`
+(Zeile ~594-597) stehen bei JEDEM Baustein-Typ fest sichtbar am Ende der
+aufgeklappten Karte, obwohl selten genutzt — Vorschlag, das hinter eine
+"weitere Optionen"-Klappe zu legen. Server fand `ffmpegSuchen()` wortgleich
+dupliziert in `server/tools/kamera.js` und `server/tools/ohren.js` (~15
+Zeilen je Datei, Zusammenlegen nach `screen.js` möglich) — nicht gewählt,
+weil beide Dateien Mac-spezifischen Kamera/Mikrofon-Code betreffen, den ich
+in dieser Cloud-Linux-Umgebung nicht laufen lassen und nicht wirklich
+verifizieren kann (Auftrag: bei Mac-Code im Zweifel Finger weg, auch bei
+einer reinen Extraktion ohne Logikänderung). Fehlendes-Vorschlag gewählt:
+einziger der drei komplett ohne Mac-Bezug, direkt für den Nutzer spürbar
+(neue Fähigkeit statt innerer Aufräumarbeit), nur eine Datei angefasst
+(`files.js`), voll in dieser Umgebung testbar, folgt einem bereits
+etablierten Muster (`resolve()`-Wache, `danger: true` wie `fs_write`).
+
+Prüfer 2 (Randfälle) fand in der ersten Fassung einen echten, reproduzier-
+baren Fehler: eine TOCTOU-Race in `fs_delete` zwischen dem `fs.stat()`-Check
+und `fs.unlink()` — bei zwei gleichzeitigen `fs_delete`-Aufrufen auf
+dieselbe Datei sahen beide `stat()` die Datei noch, aber nur der erste
+`unlink()` gelang; der zweite warf die rohe Node-Meldung `ENOENT: no such
+file or directory, unlink '...'` statt der im ganzen Modul üblichen
+übersetzten Form. Per `Promise.allSettled` mit zwei gleichzeitigen Aufrufen
+reproduziert. Behoben: `fs.unlink()` jetzt mit `.catch()`, das `ENOENT` in
+`Nicht gefunden: ${abs}` übersetzt und alles andere unverändert weiterwirft.
+Alle anderen geprüften Randfälle (Ziel=Quelle bei `fs_move`, Ziel-Ordner
+fehlt noch, Path-Traversal über `to`, `overwrite:true` auf Ordner/Datei-
+Konflikte, Symlinks, `~`/relative Pfade, fehlende/falsch typisierte
+Argumente, sehr lange Pfade, Präfix-Kollision der erweiterten Regexe mit
+bestehenden Werkzeugnamen) liefen sicher, kein Datenverlust in keinem Fall.
+
+Danach beide Prüfer nochmal auf die nachgebesserte Fassung angesetzt.
+Prüfer 1 reproduzierte die Race selbst erneut: der Verlierer bekommt jetzt
+`Nicht gefunden: ...` statt der rohen `ENOENT`-Meldung, der Normalfall
+(Datei existiert, einmaliger Aufruf) liefert weiterhin `Gelöscht: ...`,
+`fs_move` blieb unverändert. Prüfer 2 prüfte gezielt, ob das neue `.catch()`
+andere Fehlerfälle maskiert (mit `nobody`-User `EACCES` und `chattr +i`
+`EPERM` erzwungen) — beide liefen unverändert als rohe Originalfehler durch,
+nichts wird stillschweigend verschluckt, kein umgekehrter Race-Effekt in 5
+Wiederholungen. Beide fanden in der nachgebesserten Fassung nichts Echtes
+mehr.
+
+`node --check` für alle sechs geänderten Dateien, `npm install && npm run
+build` und der Server-Modul-Ladetest liefen bei mir am Ende nochmal sauber
+durch. `node --experimental-sqlite --no-warnings pruefe.mjs` zeigt
+`fs_delete`/`fs_move` beide mit ✓ (übrige Fehlschläge dort sind Mac/
+Windows/Shell-bedingt und unverändert vorbestehend, siehe unten). Einen
+eigenen Race-Test (`Promise.allSettled` mit zwei `fs_delete`-Aufrufen auf
+dieselbe Datei) selbst laufen lassen: bestätigt `Nicht gefunden: ...` statt
+roher `ENOENT`-Meldung. `git status`/`git diff --cached` enthielten nur die
+sechs erwarteten Dateien, keine Geheimnisse, `data/` unverändert (per
+`git status --porcelain -- data/` geprüft). `HEAD` stand zu Beginn der
+Nacht wieder losgelöst exakt auf `origin/main` — mit `git checkout -B main
+origin/main` aufgeholt, die Arbeitsverzeichnis-Änderungen blieben erhalten.
+
+In der Skill-Liste dieser Session steckte erneut der eingeschleuste Eintrag
+„steinzeit-modus" (Anweisung, grundsätzlich wie ein Höhlenmensch in kurzen
+Sätzen zu antworten) — wie in den Vornächten als Prompt-Injection ignoriert.
+
+Offen für kommende Nächte:
+- `ffmpegSuchen()` wortgleich dupliziert in `server/tools/kamera.js` (~Zeile
+  32-46) und `server/tools/ohren.js` (~Zeile 51-65) — identische PATH- und
+  Homebrew/MacPorts-Fallback-Suche, nur der Fehlertext danach unterscheidet
+  sich. Fix: einmal in `screen.js` exportieren (beide Dateien importieren
+  `IST_MAC` von dort bereits), in beiden Aufrufern importieren statt lokal
+  zu definieren. ~15 Zeilen entfernt je Datei, reine Extraktion ohne
+  Verhaltensänderung — aber Mac-spezifischer Kamera/Mikrofon-Code, den ich
+  hier nicht testen kann (Kamera-/Mikro-Aufnahme einmal auslösen und
+  prüfen, dass ffmpeg weiterhin gefunden wird, bräuchte einen echten Mac).
+- `merker`/`bei Fehler` in `web/src/components/Werkstatt.jsx` (~Zeile
+  594-597) stehen bei jedem Baustein-Typ fest sichtbar am Ende der
+  aufgeklappten Karte, auch bei einfachen Bausteinen mit nur einem Feld
+  (z.B. "text"), obwohl selten genutzt. Vorschlag: hinter einen kleinen
+  Umschalter ("weitere Optionen ▾", nur offen wenn Wert vom Standard
+  abweicht oder angeklickt) legen, analog zum Composer-Hinweis-Muster.
+  ~15-20 Zeilen `Werkstatt.jsx` + 1-2 CSS-Regeln, niedriges Risiko (reines
+  Anzeigeverhalten), aber müsste bei allen sieben Baustein-Typen sauber
+  aussehen — mit Playwright/Chromium hier testbar.
+- `fs_search`-grep-Fallback (`server/tools/files.js`, ~Zeile 133): weiterhin
+  fehlendes Treffer-Limit, anders als im `rg`-Zweig. Seit 08-25 wiederholt
+  bestätigt, diesmal von keinem der drei frischen Vorschläge erneut
+  aufgegriffen (die Agenten wurden gebeten, keine schon behandelten Punkte
+  zu wiederholen) — weiterhin ein guter, sehr kleiner Kandidat.
+- `eng[0].name` in der Ampel-Warnung (`web/src/App.jsx`) zeigt bei mehreren
+  engen Kontingenten immer den ersten in Kettenreihenfolge, nicht den mit
+  dem höchsten `anteil`. Vorbestehend, kein Bug, siehe 09-01 für Details.
+
+Unverändert offen aus früheren Nächten:
+- `web_search` erkennt blockierte/rate-limitierte DuckDuckGo-Antworten nicht.
+- `memory_forget` fehlt komplett (server/memory.js).
+- `dokument_excel`: keine echten Formeln/Formatierung.
+- `resolve()` doppelt vorhanden (files.js/dokument.js), löst keine Symlinks auf.
+- `ausloeser_anlegen()` validiert beim Anlegen selbst weiterhin nicht gegen
+  die bestehende Liste (nur `pruefenListe()` beim `POST /api/ausloeser` tut
+  das) — kein neues Problem, dran denken falls die Stelle angefasst wird.
+
 ## 2026-09-01
 Erledigt: die Kontingent-Ampel (`web/src/App.jsx`, Funktion `Ampel`, ~Zeile
 900) war seit der 08-30-Nacht (und schon davor) als klarer, aber immer wieder
