@@ -9,6 +9,49 @@ import { loadConfig } from '../config.js'
 const pexec = promisify(execFile)
 const maxBytes = () => loadConfig().fsMaxBytes
 
+/**
+ * Wo liegt ripgrep? Nicht fest verdrahten: Homebrew legt es auf Apple Silicon nach
+ * /opt/homebrew/bin, auf Intel-Macs nach /usr/local/bin, MacPorts wieder woandershin,
+ * Linux meist nach /usr/bin. Dazu startet der Server oft ohne Login-Shell und erbt
+ * darum nicht die PATH-Zeile aus der .zshrc des Nutzers — deshalb PATH *und* die
+ * bekannten Orte absuchen (gleiches Muster wie ffmpegSuchen() in kamera.js/ohren.js).
+ */
+function rgSuchen() {
+  const orte = [
+    ...String(process.env.PATH || '')
+      .split(':')
+      .filter(Boolean),
+    '/opt/homebrew/bin', // Homebrew auf Apple Silicon
+    '/usr/local/bin', // Homebrew auf Intel
+    '/opt/local/bin', // MacPorts
+    '/usr/bin', // Linux
+  ]
+  for (const ort of orte) {
+    const p = path.join(ort, 'rg')
+    // Nicht nur existsSync: ein Ordner namens "rg" oder eine nicht ausführbare
+    // Datei an einem früheren PATH-Eintrag würde sonst das echte ripgrep weiter
+    // hinten verdecken und beim Aufruf mit einer rohen EACCES-Meldung abstürzen,
+    // statt sauber auf grep auszuweichen.
+    try {
+      if (fssync.statSync(p).isFile()) {
+        fssync.accessSync(p, fssync.constants.X_OK)
+        return p
+      }
+    } catch {
+      // weder Datei noch ausführbar — nächster Ort
+    }
+  }
+  return null
+}
+
+// Gesucht wird erst beim Gebrauch und das Ergebnis dann behalten: wer ripgrep
+// nachinstalliert, soll dafür nicht URAI neu starten müssen.
+let rgPfad
+function rg() {
+  if (rgPfad === undefined) rgPfad = rgSuchen()
+  return rgPfad
+}
+
 export function resolve(p) {
   // Ohne diese Prüfung stürzt ein fehlerhafter Werkzeug-Aufruf (leerer, fehlender
   // oder falsch typisierter pfad) mit einer rohen TypeError ab statt einer Meldung.
@@ -178,10 +221,13 @@ export const fileTools = [
       // nach dem Wort "undefined", was in einem kryptischen maxBuffer-Fehler endet.
       if (typeof pattern !== 'string' || !pattern.trim()) throw new Error('Suchmuster fehlt oder ist kein Text.')
       const abs = resolve(p)
-      const bin = fssync.existsSync('/opt/homebrew/bin/rg') ? '/opt/homebrew/bin/rg' : 'grep'
+      const bin = rg() || 'grep'
       const args =
         bin === 'grep'
-          ? ['-rniE', pattern, abs]
+          // -m 5 als Sicherheitsnetz, falls ripgrep doch mal fehlt: sonst hätte
+          // dieser Zweig anders als der rg-Zweig kein Treffer-Limit, und ein
+          // breites Muster in einem großen Revier könnte den maxBuffer sprengen.
+          ? ['-rniE', '-m', '5', pattern, abs]
           : ['-n', '--max-count', '5', '--max-columns', '200', ...(glob ? ['-g', glob] : []), pattern, abs]
       try {
         const { stdout } = await pexec(bin, args, { maxBuffer: maxBytes() })

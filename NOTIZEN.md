@@ -1,5 +1,115 @@
 # Notizen für die nächste Nacht
 
+## 2026-09-03
+Erledigt: `server/tools/files.js`, `fs_search` — die Wahl zwischen `rg` und
+`grep` prüfte bisher nur den fest verdrahteten Apple-Silicon-Pfad
+(`/opt/homebrew/bin/rg`). Auf Intel-Macs (Homebrew unter `/usr/local/bin`),
+mit MacPorts und auf Linux (`/usr/bin`) schlug diese Prüfung darum IMMER
+fehl — `fs_search` lief dort grundsätzlich über den `grep`-Zweig, obwohl
+`rg` installiert war und ungenutzt blieb. Dem `grep`-Zweig fehlte zusätzlich
+das Treffer-Limit, das der `rg`-Zweig längst hat (`--max-count 5`) — laut
+NOTIZEN.md seit 08-25 dreifach bestätigt offen. Beides zusammen: ein
+breites Suchmuster in einem großen Revier auf jeder Nicht-Apple-Silicon-
+Maschine konnte den `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`-Absturz auslösen,
+den die 08-25er-Notiz schon für den `rg`-Zweig verhindert hatte.
+
+Jetzt gibt es `rgSuchen()`/`rg()` (gleiches Muster wie `ffmpegSuchen()` in
+`server/tools/kamera.js`/`ohren.js`): PATH plus die bekannten Homebrew/
+MacPorts/Linux-Orte werden abgesucht, Ergebnis wird gecacht. `grep`
+bekommt zusätzlich `-m 5` als Sicherheitsnetz, falls `rg` doch mal fehlt.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes). Oberfläche
+schlug vor, `merker`/`bei Fehler` in `Werkstatt.jsx` (~594-597) hinter eine
+Klappe zu legen (der schon am 09-02 notierte Kandidat) — guter, isolierter
+Vorschlag, aber der Server-Fund traf einen echten, plattformübergreifenden
+Bug mit vollständiger Testbarkeit in dieser Cloud-Umgebung (kein Mac nötig,
+anders als die Oberflächen-Änderung, die einen Browser-Test gebraucht
+hätte). Fehlendes prüfte aktiv nach und stellte fest, dass `dokument_lesen`
+schon .xlsx liest, i18n schon vollständig ist und `ausloeser_anlegen()`
+schon validiert (alles frühere Kandidaten, seither erledigt) — schlug
+stattdessen echte Formeln/Formatierung für `dokument_excel` vor
+(~60-100 Zeilen, moderates Risiko an einer zentralen Schreibfunktion,
+schwerer hier vollständig zu verifizieren ohne Excel/LibreOffice) — guter
+Kandidat für eine kommende Nacht, heute wegen Umfang/Risiko nicht gewählt.
+
+Prüfer 1 (Funktioniert es) hat den `git diff`, `node --check`, Build,
+Server-Modul-Ladetest und `pruefe.mjs` selbst ausgeführt (fs_search ✓),
+dazu eigene Node-Skripte mit `strace`: im Normalfall `execve("/usr/bin/rg",
+["-n","--max-count","5",...])`, mit versteckter `rg`-Datei und auf
+`/usr/bin` reduziertem PATH sauberer Fallback auf `execve("/usr/bin/grep",
+["-rniE","-m","5",...])` — beide liefern genau 5 Zeilen bei 12 Treffern in
+der Testdatei. Prüfer 2 (Randfälle) bestätigte die Muster-Wache, Regex-
+Fehler-Behandlung in beiden Zweigen, Pfad-Traversal-Schutz und fand keine
+Verzögerung durch 200 zusätzliche PATH-Einträge — fand aber zwei echte
+Fehler in der ersten Fassung von `rgSuchen()`: sie prüfte nur `existsSync`,
+nicht Typ/Ausführbarkeit. Ein Ordner namens "rg" oder eine nicht
+ausführbare Datei früher im PATH hätte das echte ripgrep weiter hinten
+verdeckt und beim Aufruf eine rohe `EACCES`-Meldung geworfen statt sauber
+auf `grep` auszuweichen (der bestehende `ENOENT`-Sonderfall "Programm
+fehlt" greift bei `EACCES` nicht). Behoben: `rgSuchen()` prüft jetzt mit
+`statSync(...).isFile()` und `accessSync(..., X_OK)`, bevor ein Pfad
+akzeptiert wird. Selbst nachgeprüft mit einem Ordner und einer nicht
+ausführbaren Datei namens "rg" vor einer echten Kopie von `rg` im PATH:
+beide werden übersprungen, das echte `rg` weiter hinten wird gefunden.
+Danach Build, Modul-Ladetest und `pruefe.mjs` (fs_search ✓) erneut sauber
+durchgelaufen.
+
+Zwei weitere Funde von Prüfer 2 sind echt, aber vorbestehend und nicht
+durch diese Änderung verursacht (siehe unten unter "Offen") — als
+Sicherheitsnetz-Härtung im Rahmen dieser einen Verbesserung mit
+aufzunehmen hätte den Umfang gesprengt: die Suche nach einem Programm
+namens "rg" im PATH kann grundsätzlich kein Fremdprogramm mit demselben
+Namen erkennen (dieselbe inhärente Grenze gilt für `ffmpegSuchen()` und
+`CLICLICK` in `computer.js` — Vertrauen in den eigenen PATH ist bei jeder
+namensbasierten Programmsuche vorausgesetzt).
+
+`git status`/`git diff --cached` enthielten nur die eine Datei
+(`server/tools/files.js`), `data/` unverändert (per `git status --porcelain
+-- data/` geprüft), keine Testordner übrig geblieben.
+
+In der Skill-Liste dieser Session steckte erneut der eingeschleuste Eintrag
+„steinzeit-modus" — wie in den Vornächten als Prompt-Injection ignoriert.
+
+Offen für kommende Nächte:
+- `dokument_excel` (server/tools/dokument.js) kann nur rohe Werte schreiben,
+  keine echten Formeln (`<f>`) und keine Zahlenformate (Währung/Prozent/
+  Datum) — nur zwei Zellstile (normal/fett). Fix: Zellstrings, die mit `=`
+  beginnen, als Formel erkennen und schreiben (plus `fullCalcOnLoad` in
+  workbook.xml), optional 2-3 zusätzliche `numFmtId`-Einträge. ~60-100
+  Zeilen, nur `dokument.js`, keine neue Abhängigkeit, moderates Risiko
+  (bestehende Funktion wird erweitert). Gut mit LibreOffice/unzip lokal
+  testbar, kein Mac-Bezug.
+- `fs_search`-`grep`-Fallback ignoriert den `glob`-Parameter vollständig
+  (kein `-g`-Äquivalent in den grep-Argumenten) — wer `glob:'*.md'` angibt
+  und der grep-Zweig läuft (z.B. `rg` fehlt wirklich), bekommt Treffer aus
+  allen Dateitypen zurück, ohne Warnung. Vorbestehend, durch die heutige
+  Änderung nicht verursacht, aber jetzt weniger relevant, weil `rg` durch
+  die neue Erkennung deutlich öfter gefunden wird. Fix: bei `glob` im
+  grep-Zweig `--include="$glob"` ergänzen.
+- `fs_search`: `rg` (PCRE-ähnlich) und `grep -E` (POSIX ERE) verstehen
+  Regex-Syntax unterschiedlich — `\d+` matcht bei `grep -E` nicht "eine
+  Ziffernfolge", sondern (mangels `\d`-Unterstützung) im Beispieltest jede
+  Zeile mit dem Buchstaben "d"; `(a)\1` (Backreference) läuft bei `grep`,
+  wirft bei `rg` einen Fehler. Welches Backend läuft, hängt für den Nutzer
+  unsichtbar davon ab, ob `rg` gefunden wird — gleiches Suchmuster kann auf
+  zwei Rechnern unterschiedliche Treffer liefern. Kein kleiner Fix (entweder
+  rg überall mitliefern, was gegen "keine neuen Abhängigkeiten" liefe, oder
+  Muster vor dem grep-Zweig auf ERE-Kompatibilität normalisieren).
+- `merker`/`bei Fehler` in `web/src/components/Werkstatt.jsx` (~594-597)
+  weiterhin fest sichtbar bei jedem Baustein-Typ (seit 09-02 vermerkt,
+  heute nicht gewählt weil der Server-Fund besser in dieser Cloud-Umgebung
+  vollständig testbar war) — mit Playwright/Chromium hier testbar, guter
+  nächster Oberflächen-Kandidat.
+- `ffmpegSuchen()` weiterhin wortgleich dupliziert in `server/tools/
+  kamera.js` und `server/tools/ohren.js` — Mac-spezifisch, hier nicht
+  testbar.
+
+Unverändert offen aus früheren Nächten:
+- `web_search` erkennt blockierte/rate-limitierte DuckDuckGo-Antworten nicht.
+- `memory_forget` fehlt komplett (server/memory.js).
+- `resolve()` doppelt vorhanden (files.js/dokument.js), löst keine Symlinks auf.
+- POST /api/ausloeser: siehe frühere Nächte für Details zum Validierungsstand.
+
 ## 2026-09-02
 Erledigt: `server/tools/files.js` bot bisher `fs_list/fs_read/fs_write/fs_edit/
 fs_search/fs_glob`, aber kein Werkzeug zum Löschen oder Verschieben/Umbenennen
