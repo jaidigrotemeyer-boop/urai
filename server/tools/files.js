@@ -70,6 +70,22 @@ export function resolve(p) {
   return abs
 }
 
+/**
+ * Grobe Binär-Erkennung wie bei git: ein NUL-Byte in den ersten paar Kilobyte
+ * kommt in echtem Text praktisch nie vor, in PDF/Bild/ZIP-Dateien (und damit
+ * auch .docx/.pptx/.xlsx, die selbst nur ZIP-Archive sind) fast immer. Ohne
+ * diese Wache las fs_read solche Dateien klaglos als UTF-8 und lieferte
+ * Ersatzzeichen-Datenmüll statt eines Fehlers — der ließe sich leicht für
+ * echten Inhalt halten.
+ */
+function istBinaer(buf) {
+  const n = Math.min(buf.length, 8000)
+  for (let i = 0; i < n; i++) {
+    if (buf[i] === 0) return true
+  }
+  return false
+}
+
 export const fileTools = [
   {
     name: 'fs_list',
@@ -105,7 +121,15 @@ export const fileTools = [
       const abs = resolve(p)
       const stat = await fs.stat(abs)
       if (stat.size > maxBytes() * 5) throw new Error('Datei zu fett. Nimm offset/limit oder fs_search.')
-      const lines = (await fs.readFile(abs, 'utf8')).split('\n')
+      const buf = await fs.readFile(abs)
+      if (istBinaer(buf)) {
+        const tief = abs.toLowerCase()
+        if (tief.endsWith('.docx') || tief.endsWith('.pptx') || tief.endsWith('.xlsx')) {
+          throw new Error(`Binärdatei, kein Text: ${abs} — dafür gibt es dokument_lesen.`)
+        }
+        throw new Error(`Sieht nach einer Binärdatei aus, kein Text: ${abs}`)
+      }
+      const lines = buf.toString('utf8').split('\n')
       const slice = lines.slice(offset - 1, offset - 1 + limit)
       return slice.map((l, i) => `${offset + i}\t${l}`).join('\n')
     },

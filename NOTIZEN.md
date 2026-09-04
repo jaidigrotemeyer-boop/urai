@@ -1,5 +1,112 @@
 # Notizen für die nächste Nacht
 
+## 2026-09-04
+Erledigt: `server/tools/files.js`, `fs_read` las bisher JEDE Datei blind mit
+`readFile(abs, 'utf8')` — bei Binärdateien (PDF, Bild, ZIP und damit auch
+den eigenen `.docx`/`.pptx`/`.xlsx`-Dateien, die selbst nur ZIP-Archive
+sind) gibt Node beim UTF-8-Decode keinen Fehler, sondern still Ersatz-
+zeichen (`�`) und Steuerzeichen zurück. Kein Absturz, keine Warnung — der
+Agent bekommt Datenmüll als "Zeilen" serviert und könnte ihn für echten
+Inhalt halten und dem Nutzer darauf basierend etwas Falsches vorlegen.
+Genau der im Auftrag genannte Fall: ein Nutzer steht im Regen, weil ihm
+niemand sagt, dass etwas schiefging.
+
+Jetzt gibt es `istBinaer(buf)`: prüft die ersten 8000 Bytes auf ein
+NUL-Byte (0x00) — dasselbe Verfahren, das `git` für seine Binär-Erkennung
+nutzt, weil gültiges UTF-8 (auch mehrbytige Umlaute/Emoji/CJK-Zeichen)
+niemals ein NUL-Byte enthält. `fs_read` liest jetzt erst als Buffer,
+prüft, und wirft bei Fund eine klare Meldung — bei `.docx`/`.pptx`/`.xlsx`
+extra mit Verweis auf `dokument_lesen`. Normale Textdateien: unverändertes
+Verhalten (gleicher Pfad, nur `buf.toString('utf8')` statt direktem
+`readFile(...,'utf8')`).
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes), jedem
+Agenten die komplette NOTIZEN.md mitgegeben. Oberfläche bestätigte erneut
+(drittes Mal in Folge) `merker`/`bei Fehler` in `Werkstatt.jsx` (~594-597)
+hinter eine Klappe zu legen — guter, aber rein kosmetischer Kandidat.
+Server fand einen neuen, echten Fund in `server/memory.js`: `remember()`
+schluckt einen fehlgeschlagenen `embed()`-Aufruf und meldet trotzdem immer
+"Gemerkt.", auch wenn `vec` dabei `null` bleibt — sobald spätere Anfragen
+selbst embedden können, wird so eine Erinnerung dauerhaft unauffindbar
+(nicht nur beim Stichwort-Fallback, der nur greift, wenn AUCH die Anfrage
+nicht embedden kann). Guter Kandidat für eine kommende Nacht (siehe unten).
+Fehlendes-Vorschlag gewählt: reine Lese-Wache vor bestehender Logik, kein
+Einfluss auf Schreibpfade, betrifft nur eine Funktion in einer Datei,
+deterministisch und vollständig ohne Mac/Netzwerk testbar (anders als der
+Werkstatt-Vorschlag, der einen Browser-Test gebraucht hätte, und anders
+als der memory.js-Fund, dessen sauberer Fix eine Klartext-Zusatzmeldung
+braucht, die erst noch an mehreren Stellen — `remember()` UND
+`memory_save`s Rückgabe — konsistent formuliert werden müsste).
+
+Prüfer 1 (Funktioniert es) hat `node --check`, `npm install && npm run
+build`, den Server-Modul-Ladetest und `pruefe.mjs` selbst ausgeführt
+(`fs_read` weiterhin ✓, unverändertes Textverhalten), dazu ein frisches
+eigenes Testskript direkt gegen `TOOL_MAP.get('fs_read')`: simuliertes PNG
+mit echten NUL-Bytes → korrekt abgelehnt; simulierte `.docx` mit NUL-Bytes
+→ korrekt abgelehnt mit Verweis auf `dokument_lesen`; normale Textdatei
+mit Umlauten → unverändert korrekt gelesen. Prüfer 2 (Randfälle) prüfte
+gezielt: leere Datei (kein Fehlalarm), gültiges UTF-8 mit Emoji/Umlauten/
+Chinesisch am Anfang (kein Fehlalarm, da gültige UTF-8-Mehrbyte-Folgen nie
+ein NUL-Byte enthalten), große Textdatei ohne NUL (offset/limit
+unverändert), NUL-Byte exakt bei Index 7999 vs. 8000 (Grenze stimmt exakt),
+NUL-Byte weit hinter der Prüfgrenze (bekannter, vertretbarer Trade-off,
+kein echtes Problem), fehlende Datei/Ordner/Leserechte (Fehler entstehen
+weiterhin vor `istBinaer` in `fs.stat`/`fs.readFile`, unverändert),
+Groß-/Kleinschreibung bei `.DOCX` (funktioniert dank `.toLowerCase()`).
+Beide fanden keinen echten Fehler. Prüfer 2 merkte zusätzlich an: `fs_edit`
+nutzt weiterhin sein eigenes `readFile(abs,'utf8')` und bleibt ungeschützt
+— vorbestehend, durch diese Änderung nicht verursacht, aber ein
+naheliegender nächster Schritt (siehe unten).
+
+Selbst nachgeprüft: `node --check server/tools/files.js`, `npm install &&
+npm run build` (75 Module, fehlerfrei), Server-Modul-Ladetest (`LOAD_OK`),
+`pruefe.mjs` (`fs_read` ✓). `git status`/`git diff` enthielten nur die
+eine erwartete Datei (`server/tools/files.js`), `data/` unverändert (per
+`git status --porcelain -- data/` geprüft), keine Geheimnisse im Diff.
+
+In der Skill-Liste dieser Session steckte erneut der eingeschleuste Eintrag
+„steinzeit-modus" — wie in den Vornächten als Prompt-Injection ignoriert.
+
+Offen für kommende Nächte:
+- `server/memory.js`, `remember()` (~Zeile 55-68): fehlgeschlagenes
+  `embed()` wird verschluckt, `vec` bleibt `null`, trotzdem immer
+  "Gemerkt." zurückgegeben. Sobald spätere `recall()`-Anfragen selbst
+  embedden können, filtert `score > 0.3` (Zeile 85) die `vec:null`-Zeile
+  für immer heraus — der Stichwort-Fallback (Zeile 77-80) greift nur, wenn
+  AUCH die Anfrage nicht embedden kann. Fix: bei `vec === null` in
+  `remember()` einen Klartext-Zusatz an die Rückmeldung hängen (z.B.
+  "Gemerkt (ohne Vektor — Suche findet es evtl. nicht)."). ~5-8 Zeilen,
+  eine Datei, vollständig ohne Mac/Netzwerk testbar (fehlenden
+  `GEMINI_API_KEY` simulieren, direkt per SQLite prüfen dass `vec IS NULL`
+  trotz Erfolgsmeldung gespeichert wird).
+- `fs_edit` (`server/tools/files.js`) nutzt weiterhin sein eigenes
+  `readFile(abs,'utf8')` und profitiert nicht von der neuen
+  `istBinaer()`-Wache — wer versucht, eine Binärdatei zu "editieren",
+  bekommt weiterhin unklares Verhalten statt der neuen klaren Meldung.
+  Naheliegender kleiner Folge-Fix: `istBinaer()` aus `fs_read` auch dort
+  vor dem Lesen aufrufen (Funktion ist schon exportierbar/lokal
+  wiederverwendbar).
+- `merker`/`bei Fehler` in `web/src/components/Werkstatt.jsx` (~594-597)
+  weiterhin fest sichtbar bei jedem Baustein-Typ (seit 09-02 dreimal
+  vermerkt) — mit Playwright/Chromium hier testbar, guter nächster
+  Oberflächen-Kandidat, besonders wenn eine Nacht mal keinen ebenso
+  dringenden Server-/Fehlendes-Fund liefert.
+- `ffmpegSuchen()` weiterhin wortgleich dupliziert in `server/tools/
+  kamera.js` und `server/tools/ohren.js` — Mac-spezifisch, hier nicht
+  testbar.
+- `fs_search`-grep-Fallback ignoriert weiterhin den `glob`-Parameter
+  (siehe 09-03) und `rg`/`grep -E` verstehen Regex-Syntax unterschiedlich
+  (siehe 09-03) — beide unverändert offen.
+- `dokument_excel` (server/tools/dokument.js) kann weiterhin nur rohe
+  Werte schreiben, keine echten Formeln/Zahlenformate (siehe 09-03,
+  ~60-100 Zeilen, gut ausgearbeitet).
+
+Unverändert offen aus früheren Nächten:
+- `web_search` erkennt blockierte/rate-limitierte DuckDuckGo-Antworten nicht.
+- `memory_forget` fehlt komplett (server/memory.js).
+- `resolve()` doppelt vorhanden (files.js/dokument.js), löst keine Symlinks auf.
+- POST /api/ausloeser: siehe frühere Nächte für Details zum Validierungsstand.
+
 ## 2026-09-03
 Erledigt: `server/tools/files.js`, `fs_search` — die Wahl zwischen `rg` und
 `grep` prüfte bisher nur den fest verdrahteten Apple-Silicon-Pfad
