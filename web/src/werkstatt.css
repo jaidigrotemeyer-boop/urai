@@ -277,6 +277,19 @@
 }
 .baustein-feld.ist-lose > label { color: var(--danger); }
 
+.baustein-erweitert-knopf {
+  display: block;
+  margin: 2px 0 4px;
+  padding: 3px 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .04em;
+  color: var(--dimmer);
+  border: none;
+  border-radius: 0;
+}
+.baustein-erweitert-knopf:hover { color: var(--dim); background: transparent; }
+
 .baustein-fuss {
   padding: 8px 14px;
   border-top: 1px solid var(--line-soft);

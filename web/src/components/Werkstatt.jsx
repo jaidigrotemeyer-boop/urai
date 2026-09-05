@@ -446,6 +446,10 @@ function Baustein({
   const marke = b.art === 'werkzeug' ? b.einstellungen?.werkzeug || 'werkzeug' : b.art
   const lose = (s) => loseVerweise(s, bausteine)
   const ziel = bindetVon && bindetVon !== b.id
+  // merker/bei Fehler bleiben in fast jedem Ablauf beim Standard — sie in jeder
+  // Karte fest zu zeigen macht die Werkstatt allein durch Wiederholung dichter,
+  // als sie sein muss. Nur aufklappen, wenn schon ein Wert vom Standard abweicht.
+  const [erweitertOffen, setErweitertOffen] = useState(!!b.merker || (b.beiFehler && b.beiFehler !== 'stoppen'))
 
   return (
     <article
@@ -591,10 +595,16 @@ function Baustein({
             </>
           )}
 
-          <div className="baustein-zeile">
-            <Feld marke="merker" wert={b.merker} onWert={(v) => onAendern({ merker: v || undefined })} />
-            <Feld marke="bei Fehler" wert={b.beiFehler || 'stoppen'} liste={BEI_FEHLER} onWert={(v) => onAendern({ beiFehler: v })} />
-          </div>
+          {erweitertOffen ? (
+            <div className="baustein-zeile">
+              <Feld marke="merker" wert={b.merker} onWert={(v) => onAendern({ merker: v || undefined })} />
+              <Feld marke="bei Fehler" wert={b.beiFehler || 'stoppen'} liste={BEI_FEHLER} onWert={(v) => onAendern({ beiFehler: v })} />
+            </div>
+          ) : (
+            <button className="baustein-erweitert-knopf" onClick={() => setErweitertOffen(true)}>
+              weitere Optionen ▾
+            </button>
+          )}
 
           <div className="baustein-werkzeuge">
             <button className="baustein-tat" onClick={() => onSchieben(-1)} title="nach oben">↑</button>
