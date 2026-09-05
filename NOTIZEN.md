@@ -1,5 +1,56 @@
 # Notizen für die nächste Nacht
 
+## 2026-09-05
+Erledigt: `merker`/`bei Fehler` in `web/src/components/Werkstatt.jsx` hinter
+einen Umschalter "weitere Optionen ▾" gelegt — dieser Kandidat war in den
+Nächten 09-02, 09-03 und 09-04 unabhängig als bester noch offener
+"Oberfläche ruhiger machen"-Fund bestätigt worden, aber jedes Mal zugunsten
+dringenderer Server-Funde zurückgestellt. Heute war er dran, weil alle drei
+heutigen Fehlendes-/Server-Kandidaten sich als entweder schon erledigt
+(`.xlsx` lesen, i18n-Lücken, Auslöser-UI — alle drei mittlerweile fertig)
+oder als reiner Innen-Umbau ohne direkten Nutzereffekt herausstellten
+(doppeltes `resolve()` in `files.js`/`dokument.js`, siehe unten), während
+die UI-Änderung den größten offenen Nutzerwunsch direkt trifft.
+
+Prüfer 1 hat Build und einen echten Playwright/Chromium-Test selbst
+ausgeführt (Server lokal gestartet, `data/config.json`+`urai.db` vorher
+gesichert und danach exakt wiederhergestellt): Standardfall zeigt nur den
+Knopf, Klick zeigt beide Felder ohne Layoutbruch, und ein Baustein mit
+bereits gesetztem `beiFehler:'wiederholen'` blieb beim Zu-/Wiederaufklappen
+korrekt offen. Prüfer 2 fand dabei einen echten Fehler, den Prüfer 1 nicht
+gesehen hatte: der erste Entwurf hielt den Aufklapp-Zustand als lokalen
+`useState` in der `Baustein`-Komponente — die Reihen in der Werkstatt sind
+aber über ein `React.Fragment key={`reihe-${r}-${reihe[0]}`}` geschlüsselt,
+das sich bei JEDER Verschiebung eines beliebigen Nachbar-Bausteins ändert.
+React remountet dann das ganze Fragment samt Inhalt, und lokaler State
+fällt dabei unbemerkt auf den Default zurück — ein Nutzer, der "weitere
+Optionen" von Hand geöffnet hatte, sah sie nach dem Verschieben eines ganz
+anderen Bausteins plötzlich wieder zugeklappt. Behoben nach demselben
+Muster wie der schon bestehende `offene`-Zustand (Falten/Aufklappen)
+desselben Bausteins: der Zustand lebt jetzt als `Set` in der
+Werkstatt-Komponente selbst, nicht mehr lokal pro Karte. Mit Playwright
+nachgestellt (Baustein B von Hand geöffnet, Nachbar C verschoben) — B blieb
+jetzt offen. Zwei Commits: erster mit dem ursprünglichen (fehlerhaften)
+Stand, zweiter mit dem Fix — beide mit `npm run build` sauber, `data/`
+beide Male gesichert und danach exakt wiederhergestellt.
+
+Zwei weitere Kandidaten heute geprüft und bewusst zurückgestellt:
+- `server/tools/files.js` und `server/tools/dokument.js` enthalten seit
+  dem Sicherheitsfix vom 2026-08-14 eine byte-identische `resolve()`
+  (Revier-Grenzen-Prüfung) — ein künftiger Fix an dieser Sicherheitslogik
+  müsste zweimal gemacht werden. Verifiziert, echter Bug-Multiplikator,
+  aber rein innerer Umbau ohne direkten Nutzereffekt (~20-25 Zeilen: neue
+  `server/tools/pfad.js`, beide Aufrufer umstellen). Guter, risikoarmer
+  Kandidat für eine ruhige Nacht.
+- `server/memory.js`, `remember()` (Zeilen ~55-68): verschluckt weiterhin
+  einen fehlgeschlagenen `embed()`-Aufruf in einem leeren `catch {}` und
+  meldet trotzdem immer "Gemerkt." — `vec` bleibt `null`, `recall()` gibt
+  solchen Einträgen `score:0` und sie fallen für immer durchs Raster,
+  sobald spätere Anfragen selbst embedden können. Heute zum zweiten Mal
+  unabhängig gefunden (zuerst 09-04). Kleiner Fix (~5-8 Zeilen: Klartext-
+  Zusatz an die Rückmeldung, wenn `vec===null`), aber diese Nacht zugunsten
+  der UI-Änderung zurückgestellt.
+
 ## 2026-09-04
 Erledigt: `server/tools/files.js`, `fs_read` las bisher JEDE Datei blind mit
 `readFile(abs, 'utf8')` — bei Binärdateien (PDF, Bild, ZIP und damit auch
