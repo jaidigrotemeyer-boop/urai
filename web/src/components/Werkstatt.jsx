@@ -430,6 +430,8 @@ function Baustein({
   takt,
   gewaehlt,
   offen,
+  erweitert,
+  onErweitern,
   bindetVon,
   gezogen,
   onWaehlen,
@@ -446,10 +448,6 @@ function Baustein({
   const marke = b.art === 'werkzeug' ? b.einstellungen?.werkzeug || 'werkzeug' : b.art
   const lose = (s) => loseVerweise(s, bausteine)
   const ziel = bindetVon && bindetVon !== b.id
-  // merker/bei Fehler bleiben in fast jedem Ablauf beim Standard — sie in jeder
-  // Karte fest zu zeigen macht die Werkstatt allein durch Wiederholung dichter,
-  // als sie sein muss. Nur aufklappen, wenn schon ein Wert vom Standard abweicht.
-  const [erweitertOffen, setErweitertOffen] = useState(!!b.merker || (b.beiFehler && b.beiFehler !== 'stoppen'))
 
   return (
     <article
@@ -595,13 +593,13 @@ function Baustein({
             </>
           )}
 
-          {erweitertOffen ? (
+          {erweitert ? (
             <div className="baustein-zeile">
               <Feld marke="merker" wert={b.merker} onWert={(v) => onAendern({ merker: v || undefined })} />
               <Feld marke="bei Fehler" wert={b.beiFehler || 'stoppen'} liste={BEI_FEHLER} onWert={(v) => onAendern({ beiFehler: v })} />
             </div>
           ) : (
-            <button className="baustein-erweitert-knopf" onClick={() => setErweitertOffen(true)}>
+            <button className="baustein-erweitert-knopf" onClick={onErweitern}>
               weitere Optionen ▾
             </button>
           )}
@@ -647,6 +645,11 @@ export default function Werkstatt({ onSenden, busy, ereignisse = [], onStopp }) 
   const [suche, setSuche] = useState('')
   const [gewaehlt, setGewaehlt] = useState(null)
   const [offene, setOffene] = useState(() => new Set())
+  // Lebt hier statt als lokaler State in Baustein: die Reihen-Fragmente oben
+  // sind über den Wellen-Index geschlüsselt (`reihe-${r}-${reihe[0]}`) und
+  // werden beim Verschieben eines NACHBAR-Bausteins remountet — lokaler
+  // useState in Baustein würde dabei unbemerkt auf den Default zurückfallen.
+  const [erweiterte, setErweiterte] = useState(() => new Set())
   const [bindetVon, setBindetVon] = useState(null)
   const [zielLuecke, setZielLuecke] = useState(null)
   const [blattAuf, setBlattAuf] = useState(false)
@@ -1101,6 +1104,8 @@ export default function Werkstatt({ onSenden, busy, ereignisse = [], onStopp }) 
         takt={taktVon(id)}
         gewaehlt={gewaehlt === id}
         offen={offene.has(id)}
+        erweitert={erweiterte.has(id) || !!b.merker || (b.beiFehler && b.beiFehler !== 'stoppen')}
+        onErweitern={() => setErweiterte((s) => new Set(s).add(id))}
         bindetVon={bindetVon}
         gezogen={gezogen === id}
         onWaehlen={setGewaehlt}
