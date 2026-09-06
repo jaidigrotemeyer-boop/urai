@@ -5,6 +5,32 @@ Er kann sich sogar selbst umbauen.
 
 Web-App im Browser — und über den Knopf **Installieren** wird sie eine eigene App im Dock.
 
+## Installieren
+
+Ein Befehl im Terminal. Braucht [Node 22 oder neuer](https://nodejs.org):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jaidigrotemeyer-boop/urai/main/scripts/install.sh | bash
+```
+
+Danach liegt **URAI.app** im Programme-Ordner und startet per Doppelklick — ohne
+die übliche „Nicht geprüfter Entwickler"-Warnung. Der Grund: macOS markiert nur,
+was ein *Browser* lädt. Hier baut das Skript die App auf deinem Rechner.
+
+Einen anderen Zweig ausprobieren, bevor er in `main` ist:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jaidigrotemeyer-boop/urai/ZWEIG/scripts/install.sh \
+  | URAI_ZWEIG=ZWEIG bash
+```
+
+Ohne Mac — oder wenn du lieber selbst nachschaust, was läuft:
+
+```bash
+git clone https://github.com/jaidigrotemeyer-boop/urai.git ~/urai
+cd ~/urai && npm install && npm start
+```
+
 ## Starten
 
 ```bash

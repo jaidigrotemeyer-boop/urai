@@ -3,6 +3,11 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/jaidigrotemeyer-boop/urai/main/scripts/install.sh | bash
 #
+# Ein anderer Zweig als main — zum Ausprobieren, bevor etwas gemerged ist:
+#
+#   curl -fsSL https://raw.githubusercontent.com/jaidigrotemeyer-boop/urai/ZWEIG/scripts/install.sh \
+#     | URAI_ZWEIG=ZWEIG bash
+#
 # Warum das die Warnung vermeidet: macOS hängt die Quarantäne-Markierung an
 # Dateien, die ein BROWSER lädt — nicht an solche, die ein Skript holt und
 # baut. Die App entsteht hier auf dem Rechner, statt fertig aus dem Netz zu
@@ -12,6 +17,7 @@
 set -euo pipefail
 
 REPO="https://github.com/jaidigrotemeyer-boop/urai"
+ZWEIG="${URAI_ZWEIG:-main}"
 ZIEL="${URAI_ZIEL:-/Applications/URAI.app}"
 QUELLE="${URAI_QUELLE:-$HOME/.urai-app}"
 
@@ -22,6 +28,18 @@ rot()   { printf '\033[31m%s\033[0m\n' "$1"; }
 printf '\n'
 blau '  URAI'
 printf '  ────\n\n'
+
+# ── Betriebssystem prüfen ────────────────────────────────────────────
+# Weiter unten kommen sips, iconutil und codesign — die gibt es nur auf dem
+# Mac. Ohne diese Prüfung bricht das Skript erst nach dem Bauen ab, mit einer
+# Fehlermeldung, aus der niemand schlau wird.
+if [ "$(uname -s)" != "Darwin" ]; then
+  rot "  Dieser Installer baut eine Mac-App — hier läuft $(uname -s)."
+  printf '  URAI selbst läuft trotzdem:\n\n'
+  printf '    git clone -b %s %s.git ~/urai\n' "$ZWEIG" "$REPO"
+  printf '    cd ~/urai && npm install && npm start\n\n'
+  exit 1
+fi
 
 # ── Node prüfen ──────────────────────────────────────────────────────
 if ! command -v node >/dev/null 2>&1; then
@@ -37,14 +55,27 @@ if [ "$NODE_MAJOR" -lt 22 ]; then
 fi
 
 # ── Quelltext holen ──────────────────────────────────────────────────
-printf '  Lädt URAI …\n'
+if [ "$ZWEIG" = "main" ]; then
+  printf '  Lädt URAI …\n'
+else
+  printf '  Lädt URAI (Zweig %s) …\n' "$ZWEIG"
+fi
 rm -rf "$QUELLE"
 mkdir -p "$QUELLE"
 if command -v git >/dev/null 2>&1; then
-  git clone --depth 1 --quiet "$REPO.git" "$QUELLE"
+  if ! git clone --depth 1 --branch "$ZWEIG" --quiet "$REPO.git" "$QUELLE"; then
+    rot "  Zweig \"$ZWEIG\" gibt es nicht."
+    printf '  Ohne URAI_ZWEIG nimmt der Installer main.\n\n'
+    exit 1
+  fi
 else
   # Ohne git: Tarball. curl setzt keine Quarantäne — genau darum geht es hier.
-  curl -fsSL "$REPO/archive/refs/heads/main.tar.gz" | tar -xz -C "$QUELLE" --strip-components=1
+  # Zweignamen mit Schrägstrich sind in diesem Pfad erlaubt und richtig so.
+  if ! curl -fsSL "$REPO/archive/refs/heads/$ZWEIG.tar.gz" | tar -xz -C "$QUELLE" --strip-components=1; then
+    rot "  Zweig \"$ZWEIG\" gibt es nicht oder das Laden ging schief."
+    printf '\n'
+    exit 1
+  fi
 fi
 
 cd "$QUELLE"
