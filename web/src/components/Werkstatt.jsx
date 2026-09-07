@@ -987,7 +987,13 @@ export default function Werkstatt({ onSenden, busy, ereignisse = [], onStopp }) 
   // Bauteil ist bei jedem Zeichnen ein NEUER Typ — React hängt den Teilbaum
   // dann ab und wieder an, und das Suchfeld verliert nach jedem Anschlag
   // den Fokus. Als Funktion bleibt es derselbe Baum.
-  function palette(streifen) {
+  // WARUM zielLuecke statt eines Parameters entscheidet, ob "Abläufe" auftaucht:
+  // beim Einsetzen an einer bestimmten Stelle soll nur Baustein/Werkzeug zur
+  // Wahl stehen — ein Wechsel des ganzen Ablaufs mitten im Einsetzen wäre
+  // verwirrend. Beim allgemeinen Öffnen über den +-Knopf (zielLuecke null)
+  // ist es dagegen die einzige Stelle, an der man zwischen Abläufen wechselt,
+  // seit die Palette nicht mehr dauerhaft als Randspalte sichtbar ist.
+  function palette() {
     return (
       <>
         <input
@@ -1024,7 +1030,7 @@ export default function Werkstatt({ onSenden, busy, ereignisse = [], onStopp }) 
             })}
           </div>
         ))}
-        {streifen ? null : (
+        {zielLuecke != null ? null : (
           <div className="lade-gruppe">
             <h4>Abläufe</h4>
             <button className="lade-kachel" onClick={() => { setAblauf(leererAblauf()); setSchmutzig(true) }}>
@@ -1130,9 +1136,6 @@ export default function Werkstatt({ onSenden, busy, ereignisse = [], onStopp }) 
   return (
     <>
       <div className={`ablauf ${fertig ? 'ist-fertig' : ''} ${laeuft ? 'ist-laufend' : ''}`}>
-        {/* ist-streifen greift erst in der Container-Abfrage unter 900px */}
-        <aside className="ablauf-lade ist-streifen">{palette(false)}</aside>
-
         <div className="ablauf-bahn">
           <div className="ablauf-spur" ref={spur}>
             {/* Das SVG liegt IN der Spur — im Scroll-Container müsste man
@@ -1279,7 +1282,7 @@ export default function Werkstatt({ onSenden, busy, ereignisse = [], onStopp }) 
             <strong>{zielLuecke == null ? 'Bausteine' : `Einsetzen an Stelle ${zielLuecke + 1}`}</strong>
             <button onClick={() => { setBlattAuf(false); setZielLuecke(null) }}>{t('cancel')}</button>
           </div>
-          {palette(true)}
+          {palette()}
         </div>
       )}
     </>

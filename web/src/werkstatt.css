@@ -34,25 +34,14 @@
 .ablauf {
   position: relative;              /* Anker für Fuß, Fahne und Plus-Knopf */
   display: grid;
-  grid-template-columns: 236px 1fr;
+  /* Eine Spalte statt fest 236px+1fr: die Palette stand sonst permanent
+     neben der Bahn, auch beim bloßen Ansehen eines Ablaufs — sie kommt
+     jetzt nur noch bei Bedarf über den +-Knopf als Blatt (siehe unten). */
+  grid-template-columns: 1fr;
   height: 100%;
   min-height: 0;
   container-type: inline-size;
   container-name: ablauf;
-}
-
-/* Die Palette ist Rand, kein Inhalt — sie darf unscharf sein. */
-.ablauf-lade {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
-  gap: 10px;
-  padding: 68px 12px 18px;
-  border-right: 1px solid var(--line-soft);
-  background: color-mix(in srgb, var(--panel-solid) 70%, transparent);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
 }
 
 .lade-suche {
@@ -812,24 +801,6 @@ button:active { animation: druckSenke .22s var(--spring); }
    ═══════════════════════════════════════════════════════════════════════ */
 
 @container ablauf (max-width: 900px) {
-  .ablauf { grid-template-columns: 1fr; }
-
-  /* Die Palette wird zum wischbaren Streifen über der Bahn. */
-  .ablauf-lade.ist-streifen {
-    display: flex;
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x mandatory;
-    padding: 6px 14px;
-    border-right: none;
-    border-bottom: 1px solid var(--line-soft);
-  }
-  .ablauf-lade.ist-streifen .lade-gruppe { flex-direction: row; }
-  .ablauf-lade.ist-streifen .lade-gruppe > h4 { display: none; }
-  .ablauf-lade.ist-streifen .lade-suche { display: none; }
-  .lade-kachel { scroll-snap-align: start; flex: none; }
-
   .ablauf-bahn { padding-inline: 16px; }
 }
 
@@ -850,10 +821,11 @@ button:active { animation: druckSenke .22s var(--spring); }
   .baustein-takt .zweitwert { display: none; }
 }
 
-/* Grundzustand versteckt — so braucht es keine zweite, gegenläufige
-   Container-Abfrage, die bei jeder Breitenänderung mitgepflegt werden müsste. */
+/* Dauerhaft sichtbar: er ist jetzt der einzige Weg zur Palette (.lade-blatt
+   weiter unten) — eine feste Kachelwand neben der Bahn war die dichteste
+   Stelle im ganzen Frontend, siehe .ablauf weiter oben. */
 .ablauf-plus {
-  display: none;
+  display: grid;
   position: absolute;
   right: 16px;
   /* Gleicher Grund wie bei .ablauf-fahne: der Fuß ist jetzt ~85px hoch. */
@@ -871,11 +843,6 @@ button:active { animation: druckSenke .22s var(--spring); }
   place-items: center;
 }
 
-@container ablauf (max-width: 460px) {
-  .ablauf-lade { display: none; }
-  .ablauf-plus { display: grid; }
-}
-
 /* Das Blatt hängt im DOM AUSSERHALB von .ablauf — innerhalb würde
    container-type:inline-size das position:fixed am Container verankern
    statt am Fenster, und es säße auf schmalen Fenstern falsch. */
@@ -884,7 +851,13 @@ button:active { animation: druckSenke .22s var(--spring); }
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 30;
+  /* Über der App-Fußleiste (.fuss, z-index:30 in styles.css) statt gleichauf:
+     bei gleichem z-index gewinnt die Fußleiste die Stapelreihenfolge (sie
+     steht später im DOM) und verdeckt die untersten ~50px des Blatts — dort
+     landen Klicks dann auf den Fuß-Tabs statt auf der letzten Kachel. Jetzt,
+     wo das Blatt der einzige Weg zur Palette ist, war das kein Rand-, sondern
+     ein echter Klickfehler. */
+  z-index: 35;
   max-height: 62vh;
   overflow-y: auto;
   padding: 16px 16px 24px;
