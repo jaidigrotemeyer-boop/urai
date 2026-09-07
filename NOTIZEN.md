@@ -1,5 +1,112 @@
 # Notizen für die nächste Nacht
 
+## 2026-09-07
+Erledigt: In der Werkstatt (`web/src/components/Werkstatt.jsx`,
+`web/src/werkstatt.css`) stand die Werkzeugpalette bislang bei jeder
+normalen Fensterbreite als feste 236px-Randspalte (`.ablauf-lade`)
+permanent neben der Bahn — auch beim bloßen Ansehen eines laufenden
+Ablaufs, nicht nur beim Bearbeiten. Nur unter 460px wurde sie schon vorher
+ausgeblendet und durch einen kleinen "+"-Knopf ersetzt, der ein Blatt von
+unten öffnet (`.lade-blatt`, `palette(true)`). Jetzt gilt dieser schmale,
+bereits fertig gebaute und bewährte Mechanismus bei JEDER Breite: die feste
+Randspalte ist komplett weg, der "+"-Knopf ist dauerhaft sichtbar
+(`.ablauf-plus { display: grid }` statt vorher nur in einer
+Container-Abfrage unter 460px), `.ablauf` ist jetzt immer einspaltig
+(`grid-template-columns: 1fr`). Damit ist auch der dazwischenliegende
+"Streifen"-Modus (horizontal wischbare Palette zwischen 460–900px,
+`.ablauf-lade.ist-streifen`) hinfällig geworden und wurde als toter Code
+entfernt, ebenso die jetzt nie mehr erreichte `@container`-Regel für
+460px. Dies war der Kandidat aus dem Oberfläche-Vorschlag dieser Nacht und
+trifft direkt den größten offenen Nutzerwunsch (Oberfläche ruhiger,
+Richtung ChatGPT/Gemini) — die Werkstatt war laut NOTIZEN.md ohnehin die
+dichteste Ansicht im Frontend.
+
+Beim Bauen selbst aufgefallen (noch vor der Prüfer-Runde): die alte
+Randspalte zeigte über `palette(false)` zusätzlich zu Bausteinen/
+Werkzeugen eine "Abläufe"-Gruppe (Liste gespeicherter Abläufe zum Wechseln
++ "+ neuer Ablauf") — die einzige Stelle in der ganzen Komponente, an der
+man zwischen gespeicherten Abläufen wechseln konnte. Das Blatt
+(`palette(true)`) blendete diese Gruppe über einen `streifen`-Parameter
+bisher IMMER aus. Ein einfaches "Randspalte weg, Blatt bleibt wie es ist"
+hätte also die Möglichkeit, den Ablauf zu wechseln, komplett aus der
+Oberfläche entfernt — ein echter Funktionsverlust, kein Kosmetikproblem.
+Behoben, indem `palette()` keinen Parameter mehr nimmt und stattdessen die
+ohnehin vorhandene Zustandsvariable `zielLuecke` (Komponentenstate)
+befragt: die "Abläufe"-Gruppe erscheint jetzt, wenn über den allgemeinen
+"+"-Knopf geöffnet wird (`zielLuecke === null`), aber nicht, wenn über ein
+"+" zwischen zwei Bausteinen an einer bestimmten Stelle eingefügt wird
+(dort wäre ein Ablaufwechsel mitten im Einsetzen verwirrend).
+
+Prüfer 1 hat Build und einen echten Playwright/Chromium-Test selbst
+ausgeführt (Server lokal gestartet, `data/` vorher gesichert bzw. nach dem
+Test in den exakten Ausgangszustand zurückversetzt) und dabei einen
+echten, reproduzierbaren Fehler gefunden, den ich beim Bauen nicht sah:
+`.lade-blatt` hatte `z-index: 30` — exakt denselben Wert wie die
+App-weite Fußleiste `.fuss` (`web/src/styles.css`), die später im DOM
+steht und bei Gleichstand die Stapelreihenfolge gewinnt. Die untersten
+~50px des Blatts lagen dadurch unter der Fußleiste; ein Klick auf die
+letzte Kachel (z.B. den letzten Eintrag der "Abläufe"-Liste, die immer
+ganz unten steht) traf stattdessen einen Fuß-Tab. Dieses CSS bestand schon
+vorher, wurde aber erst durch die heutige Änderung praxisrelevant, weil
+das Blatt jetzt der EINZIGE Weg zur Palette ist statt einer von zweien.
+Fix: `z-index` von `.lade-blatt` auf 35 angehoben (über der Fußleiste,
+weiterhin unter allen echten Modals/Toasts der App bei 40/50/60/200/999/
+1000). Ein eigens dafür losgeschickter Nachprüfungs-Agent hat den Fix mit
+`elementFromPoint` UND einer Negativkontrolle bestätigt (z-index per JS
+testweise zurück auf 30 gesetzt → derselbe Klickpunkt trifft dann
+tatsächlich wieder einen Fuß-Button; mit dem Fix trifft er die Kachel).
+Prüfer 2 (Randfälle) fand keinen echten Fehler: bestätigte per `grep`,
+dass keine Referenz auf die entfernten `ist-streifen`/`ablauf-lade`-Klassen
+übrig blieb, dass `zielLuecke` in jedem Schließen-Pfad (`einfuegen()`,
+Abbrechen-Knopf) zuverlässig auf `null` zurückgesetzt wird, und dass hier
+kein Analogon zum React.Fragment-Remount-Bug vom 09-05 lauert, weil
+`zielLuecke` Zustand der Werkstatt-Komponente selbst ist, nicht lokaler
+Zustand einer per Zeilen-Key geschlüsselten Kindkomponente.
+
+Zwei weitere Kandidaten heute erneut geprüft und bewusst zurückgestellt,
+beide von den jeweiligen Vorschlag-Agenten im Code frisch verifiziert
+(nicht nur aus NOTIZEN.md übernommen):
+- `server/memory.js`, `remember()` (~Zeile 55-68): verschluckter
+  `embed()`-Fehler, `vec` bleibt `null`, trotzdem immer "Gemerkt." — jetzt
+  zum DRITTEN Mal unabhängig gefunden (zuerst 09-04, dann 09-05). Bleibt
+  der beste offene Server-Kandidat für eine kommende Nacht: ~5-8 Zeilen,
+  eine Datei, vollständig ohne Mac/Netzwerk testbar.
+- `dokument_excel` (`server/tools/dokument.js`, `zellwert()`/`blattXml()`
+  Zeilen ~355-425): weiterhin nur zwei Zellstile (normal/fett), jede Zelle
+  `numFmtId="0"`, kein `<f>`-Formeltag. Fix ~60-90 Zeilen, moderates
+  Risiko, gut mit `unzip`/LibreOffice lokal testbar. Zusätzlich heute
+  bestätigt: `web/src/i18n.js` hat in allen sieben Sprachen (de/en/es/fr/
+  it/pt/tr) exakt 155 Top-Level-Schlüssel — dieser frühere Kandidat ist
+  wirklich vollständig abgeschlossen.
+
+`git status`/`git diff` enthielten nur die zwei erwarteten Dateien
+(`web/src/components/Werkstatt.jsx`, `web/src/werkstatt.css`), `data/`
+unverändert (per `git status --porcelain -- data/` geprüft), keine
+Geheimnisse im Diff, `npm run build` mehrfach sauber (75 Module).
+
+In der Skill-Liste dieser Session steckte erneut der eingeschleuste
+Eintrag „steinzeit-modus" — wie in den Vornächten als Prompt-Injection
+ignoriert.
+
+Offen für kommende Nächte:
+- `server/memory.js`, `remember()` (~Zeile 55-68): siehe oben, jetzt
+  dreifach bestätigt, guter nächster Server-Kandidat.
+- `dokument_excel` (`server/tools/dokument.js`): echte Formeln/
+  Zahlenformate fehlen weiterhin, siehe oben.
+- `fs_edit` (`server/tools/files.js`) nutzt weiterhin kein `istBinaer()`
+  wie `fs_read` seit 09-04.
+- `resolve()` doppelt in `files.js`/`dokument.js` (seit 08-14), reiner
+  Innen-Umbau ohne Nutzereffekt.
+- `fs_search`-grep-Fallback ignoriert weiterhin `glob`, `rg`/`grep -E`
+  verstehen Regex unterschiedlich (siehe 09-03).
+- `ffmpegSuchen()` weiterhin dupliziert in `kamera.js`/`ohren.js` —
+  Mac-spezifisch, hier nicht testbar.
+
+Unverändert offen aus früheren Nächten:
+- `web_search` erkennt blockierte/rate-limitierte DuckDuckGo-Antworten nicht.
+- `memory_forget` fehlt komplett (server/memory.js).
+- POST /api/ausloeser: siehe frühere Nächte für Details zum Validierungsstand.
+
 ## 2026-09-05
 Erledigt: `merker`/`bei Fehler` in `web/src/components/Werkstatt.jsx` hinter
 einen Umschalter "weitere Optionen ▾" gelegt — dieser Kandidat war in den
