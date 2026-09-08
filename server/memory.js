@@ -64,7 +64,13 @@ export async function remember(text, kind = 'note') {
     const { saveKnowledge } = await import('./obsidian.js')
     note = await saveKnowledge(text, kind)
   } catch {}
-  return note ? `Gemerkt. Auch in Obsidian: ${note}` : 'Gemerkt.'
+  // Ohne vec findet recall() den Eintrag über die Bedeutungssuche nie wieder
+  // (score bleibt 0, der score>0.3-Filter wirft ihn für immer raus) — das
+  // muss sichtbar sein statt hinter einem stillen "Gemerkt." zu verschwinden.
+  const teile = ['Gemerkt.']
+  if (!vec) teile.push('Ohne Embedding gespeichert — bei der Bedeutungssuche taucht es eventuell nicht auf.')
+  if (note) teile.push(`Auch in Obsidian: ${note}`)
+  return teile.join(' ')
 }
 
 export async function recall(query, k = 5) {

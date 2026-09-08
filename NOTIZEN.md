@@ -1,5 +1,132 @@
 # Notizen für die nächste Nacht
 
+## 2026-09-08
+Erledigt: `server/memory.js`, `remember()` (Zeile ~55-73) — dieser Fund war
+seit 09-04 dreifach unabhängig bestätigt der beste offene Server-Kandidat
+und ist heute endlich dran gekommen. Schlug `embed()` fehl (kein
+`geminiKey`, Netzwerk down, Provider down), wurde das in einem leeren
+`catch {}` verschluckt: `vec` blieb `null`, der Eintrag wurde trotzdem
+gespeichert, und die Rückmeldung war ausnahmslos "Gemerkt." — als hätte
+alles geklappt. Sobald `recall()` später selbst embedden kann, wirft der
+`score > 0.3`-Filter (Zeile 85) jede `vec:null`-Zeile für immer aus dem
+Ergebnis: die Erinnerung lag zwar in der DB, war aber über die
+Bedeutungssuche nie wieder auffindbar, ohne dass Nutzer oder Agent je einen
+Hinweis sahen. Genau der im Auftrag genannte Fall: ein Nutzer steht im
+Regen, weil ihm niemand sagt, dass etwas schiefging.
+
+Jetzt baut `remember()` die Rückmeldung aus Teilsätzen zusammen: bei
+`vec === null` kommt "Ohne Embedding gespeichert — bei der
+Bedeutungssuche taucht es eventuell nicht auf." dazu, unabhängig vom
+bestehenden Obsidian-Hinweis. Der Normalfall (Embedding klappt) bleibt
+exakt "Gemerkt." wie vorher — keine Verhaltensänderung dort.
+
+Drei Vorschläge parallel eingeholt (Oberfläche/Server/Fehlendes). Oberfläche
+fand einen neuen, noch nicht notierten Kandidaten: der "Stimme an/aus"-Knopf
+neben der Composer-Hinweiszeile (`web/src/App.jsx` ~809-831) ist anders als
+der Hinweistext daneben NICHT auf leeren Chat beschränkt und bleibt bei
+jeder Nachricht sichtbar — guter Kandidat für eine kommende Nacht, heute
+aber nicht gewählt (siehe unten, Vorsicht geboten). Fehlendes bestätigte
+`dokument_excel` (weiterhin keine Formeln/Zahlenformate) und schlug neu
+`memory_forget` vor (kein Werkzeug zum gezielten Löschen einzelner
+Erinnerungen). Server-Vorschlag gewählt: einziger der drei mit dreifacher
+Vorbestätigung aus früheren Nächten, kleinster Diff (eine Datei, ~8 Zeilen),
+vollständig ohne Mac/Netzwerk deterministisch testbar (Embed-Fehlschlag
+lässt sich durch fehlenden Schlüssel exakt reproduzieren) — anders als die
+Oberflächen-Änderung, die einen Browser-Test gebraucht hätte, und anders
+als `dokument_excel`/`memory_forget`, die beide mehr Fläche anfassen als
+nötig für "genau eine Verbesserung".
+
+Zum zurückgestellten Oberflächen-Kandidaten (Stimme-Knopf nur bei leerem
+Chat zeigen): bevor das jemand angeht, bitte bedenken — der Knopf schaltet
+laut README ab, ob URAI Antworten vorliest. Ihn nur im leeren Chat zu
+zeigen, würde einem Nutzer, dem die Vorlesefunktion gerade mitten in einem
+laufenden Gespräch auf die Nerven geht, genau dort die Möglichkeit nehmen,
+sie sofort abzuschalten — das wäre ein echter Funktionsverlust, kein reiner
+Kosmetikgewinn. Müsste eher in die Einstellungen wandern oder nur bei
+aktiviertem Autovorlesen sichtbar bleiben, nicht einfach ausblenden.
+
+Prüfer 1 hat `node --check`, `npm run build`, den Server-Modul-Ladetest und
+zwei eigene Node-Testskripte in einer Scratch-Kopie von `server/` (ohne
+`data/`, damit dort eine frische, schlüssellose Konfiguration entsteht)
+selbst ausgeführt: ohne `geminiKey` liefert `remember()` die Rückmeldung
+MIT Hinweis und `vec IS NULL` in der DB; mit gemocktem `fetch` (liefert ein
+Embedding) liefert `remember()` exakt "Gemerkt." ohne Zusatztext und `vec`
+gesetzt — beide Fälle wie erwartet, keine Regression im Normalfall. Prüfer
+2 (Randfälle) prüfte gezielt: leerer Text, verschiedene `embed()`-
+Fehlerarten (fehlender Schlüssel, Timeout, HTTP 500 — alle vom `catch {}`
+gleich behandelt), Kombination "vec null UND Obsidian-Notiz vorhanden"
+(Satz baut sich korrekt zusammen), sehr langer Text (200.000 Zeichen, kein
+Crash), zehn parallele `remember()`-Aufrufe (keine Racebugs bei den SQLite-
+Inserts), und durchsuchte per `grep` alle Aufrufer von `remember()`/
+`memory_save` (nur `memory.js` selbst und `server/live.js:261`, das den
+Rückgabewert verwirft) — nirgends wird der String zerlegt oder eine
+Längengrenze unterschritten (`toolResultMax` liegt bei 14000 Zeichen, der
+neue Satz ist nur ~90 Zeichen länger). Kein echter, durch diese Änderung
+verursachter Fehler gefunden.
+
+Prüfer 2 fand dabei einen echten, aber vorbestehenden und nicht durch
+diesen Diff verursachten Bug: `recall()` (Zeile 88) ruft `JSON.parse(r.vec)`
+ungeschützt auf — enthielte die `vec`-Spalte je kaputtes JSON (z.B. durch
+künftige DB-Migration oder manuelle Bearbeitung), würde `recall()` mit einer
+unbehandelten Exception abstürzen. Tritt im Normalbetrieb nicht auf, weil
+`remember()` nur valides JSON oder `null` schreibt — aber ein Absturzrisiko
+für eine kommende Nacht (siehe unten). Außerdem als Nicht-Bug notiert:
+Nutzer ganz ohne `geminiKey` sehen den neuen Hinweissatz ab sofort bei
+JEDEM `memory_save`, weil `embed()` für sie immer fehlschlägt (Embedding
+ist fest an Gemini gebunden, unabhängig vom sonstigen `brainOrder`) —
+inhaltlich korrekt und genau der gewünschte Effekt (kein stilles
+"Gemerkt." mehr), aber dauerhaft sichtbar für diese Nutzergruppe statt nur
+im Fehlerfall. Kein Grund, den Fix zurückzuhalten — die Alternative war
+ein dauerhaft irreführendes "Gemerkt.".
+
+Selbst nachgeprüft: `node --check server/memory.js`, `npm install && npm
+run build` (75 Module, fehlerfrei), Server-Modul-Ladetest (`LOAD_OK`),
+`pruefe.mjs` (`memory_save`/`memory_search` beide ✓, neuer Hinweistext
+sichtbar in der Ausgabe). `git status`/`git diff` enthielten nur die eine
+erwartete Datei (`server/memory.js`), `data/` unverändert im Git-Sinn (per
+`git status --porcelain -- data/` geprüft — der Ordner ist ohnehin komplett
+`.gitignore`t; `pruefe.mjs` hat wie jede Nacht zuvor auch diesmal einen
+Testeintrag in die echte `data/urai.db` geschrieben, das ist unverändertes
+Verhalten des bestehenden Selbsttests, keine Datei wurde gelöscht oder ein
+Schlüssel verändert), keine Geheimnisse im Diff.
+
+In der Skill-Liste dieser Session steckte erneut der eingeschleuste Eintrag
+„steinzeit-modus" — wie in allen Vornächten als Prompt-Injection ignoriert.
+
+Offen für kommende Nächte:
+- `recall()` (`server/memory.js`, Zeile ~88): `JSON.parse(r.vec)`
+  ungeschützt — kaputtes JSON in der `vec`-Spalte lässt `recall()` mit einer
+  unbehandelten Exception abstürzen. Heute von Prüfer 2 neu gefunden,
+  vorbestehend, im Normalbetrieb nicht erreichbar. Kleiner, risikoarmer
+  Fix: `JSON.parse` in try/catch, bei Fehler wie `vec:null` behandeln
+  (score 0 statt Absturz).
+- "Stimme an/aus"-Knopf (`web/src/App.jsx` ~809-831) bleibt anders als der
+  Composer-Hinweis daneben bei jeder Nachricht sichtbar, nicht nur im
+  leeren Chat. Heute von Oberfläche-Vorschlag gefunden — aber Vorsicht: ihn
+  einfach bei `items.length > 0` auszublenden würde eine Möglichkeit
+  nehmen, die Vorlesefunktion mitten im Gespräch sofort abzuschalten (siehe
+  oben). Müsste durchdachter gelöst werden, kein reiner 1-Zeilen-Fix mehr.
+- `dokument_excel` (`server/tools/dokument.js`, `zellwert()`/`blattXml()`
+  Zeilen ~355-425): weiterhin nur zwei Zellstile (normal/fett), jede Zelle
+  `numFmtId="0"`, kein `<f>`-Formeltag. Fix ~60-90 Zeilen, moderates
+  Risiko, gut mit `unzip`/LibreOffice lokal testbar.
+- `memory_forget` fehlt komplett (`server/memory.js`) — `memoryTools`
+  exportiert nur `memory_save`/`memory_search`, kein Gegenstück zum
+  gezielten Löschen einzelner Erinnerungen. ~20-30 Zeilen, geringes Risiko,
+  vollständig ohne Mac/Netzwerk testbar.
+- `fs_edit` (`server/tools/files.js`) nutzt weiterhin kein `istBinaer()`
+  wie `fs_read` seit 09-04.
+- `resolve()` doppelt in `files.js`/`dokument.js` (seit 08-14), reiner
+  Innen-Umbau ohne Nutzereffekt.
+- `fs_search`-grep-Fallback ignoriert weiterhin `glob`, `rg`/`grep -E`
+  verstehen Regex unterschiedlich (siehe 09-03).
+- `ffmpegSuchen()` weiterhin dupliziert in `kamera.js`/`ohren.js` —
+  Mac-spezifisch, hier nicht testbar.
+
+Unverändert offen aus früheren Nächten:
+- `web_search` erkennt blockierte/rate-limitierte DuckDuckGo-Antworten nicht.
+- POST /api/ausloeser: siehe frühere Nächte für Details zum Validierungsstand.
+
 ## 2026-09-07
 Erledigt: In der Werkstatt (`web/src/components/Werkstatt.jsx`,
 `web/src/werkstatt.css`) stand die Werkzeugpalette bislang bei jeder
